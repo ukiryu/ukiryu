@@ -1,0 +1,295 @@
+= Ukiryu
+
+Platform-adaptive command execution framework using declarative YAML tool
+profiles.
+
+image:https://img.shields.io/gem/v/ukiryu.svg[RubyGems Version]
+image:https://img.shields.io/github/license/ukiryu/ukiryu.svg[License]
+image:https://github.com/ukiryu/ukiryu/actions/workflows/test.yml/badge.svg["Build", link="https://github.com/ukiryu/ukiryu/actions/workflows/test.yml"]
+
+== Purpose
+
+Ukiryu provides a Ruby framework for executing external commands with:
+
+* Declarative YAML tool profiles
+* Platform-specific command formatting (macOS, Linux, Windows)
+* Shell-specific syntax (bash, zsh, fish, PowerShell, cmd)
+* Version-aware tool detection
+* Fully object-oriented result handling
+
+== Features
+
+=== Tool Registry
+
+Load tool definitions from YAML profiles:
+
+[source,ruby]
+----
+Ukiryu::Registry.default_registry_path = 'path/to/register'
+tool = Ukiryu::Tool.get(:imagemagick)
+----
+
+=== Platform Detection
+
+Automatic platform and shell detection:
+
+[source,ruby]
+----
+Ukiryu::Platform.detect       # => :macos, :linux, or :windows
+Ukiryu::Shell.detect          # => :bash, :zsh, :powershell, etc.
+----
+
+=== Version Awareness
+
+Handle different tool versions with specific profiles:
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape)
+# Automatically selects 1.0.yaml or 0.92.yaml based on detected version
+----
+
+=== OOP Result Handling
+
+Rich, object-oriented execution results:
+
+[source,ruby]
+----
+result = tool.execute(:convert, { inputs: ['input.png'], output: 'output.jpg' })
+
+result.command_info.executable     # => "/opt/homebrew/bin/magick"
+result.output.stdout                # => ""
+result.output.success?              # => true
+result.metadata.duration            # => 0.5
+result.metadata.formatted_duration  # => "500ms"
+----
+
+== Architecture
+
+=== Class Hierarchy
+
+[source]
+----
+Ukiryu
+├── Executor
+│   ├── CommandInfo      (command details)
+│   ├── Output           (stdout/stderr with utilities)
+│   ├── ExecutionMetadata(timing information)
+│   └── Result           (composes above three)
+├── Tool               (YAML profile loader and executor)
+├── Registry           (profile discovery and loading)
+├── Platform           (platform detection and utilities)
+├── Shell
+│   ├── Base            (abstract shell interface)
+│   ├── Bash
+│   ├── Zsh
+│   ├── Fish
+│   ├── Sh
+│   ├── PowerShell
+│   └── Cmd
+└── Errors             (custom exception hierarchy)
+----
+
+=== Data Flow
+
+[source]
+----
+┌─────────────────┐      ┌─────────────────┐      ┌──────────────────┐
+│  YAML Profile   │─────►│   Tool Class    │─────►│   Executor       │
+│  (declarative)  │      │  (loader &      │      │  (platform &     │
+│                 │      │   executor)     │      │   shell aware)   │
+└─────────────────┘      └─────────────────┘      └────────┬─────────┘
+                                                             │
+                                                             ▼
+                                                      ┌─────────────┐
+                                                      │   Result    │
+                                                      │  (OOP with  │
+                                                      │  CommandInfo│
+                                                      │  + Output   │
+                                                      │  + Metadata)│
+                                                      └─────────────┘
+----
+
+== Installation
+
+Add this line to your application's Gemfile:
+
+[source,ruby]
+----
+gem 'ukiryu'
+----
+
+And then execute:
+
+[source,shell]
+----
+bundle install
+----
+
+Or install it yourself as:
+
+[source,shell]
+----
+gem install ukiryu
+----
+
+== Usage
+
+=== Basic Command Execution
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Set registry path to tool profiles
+Ukiryu::Registry.default_registry_path = 'path/to/register'
+
+# Get a tool
+tool = Ukiryu::Tool.get(:imagemagick)
+
+# Execute a command
+result = tool.execute(:convert, {
+  inputs: ['input.png'],
+  output: 'output.jpg',
+  resize: '50x50',
+  quality: 85
+})
+
+# Check result
+if result.success?
+  puts "Converted in #{result.metadata.formatted_duration}"
+else
+  puts "Error: #{result.output.stderr}"
+end
+----
+
+=== Accessing Result Details
+
+[source,ruby]
+----
+result = tool.execute(:identify, { input: ['test.png'] })
+
+# Command information
+result.command_info.executable     # Full path to executable
+result.command_info.arguments      # Array of arguments
+result.command_info.full_command   # Complete command string
+result.command_info.shell          # Shell type used
+
+# Output
+result.output.stdout                # Stripped stdout
+result.output.stderr                # Stripped stderr
+result.output.stdout_lines          # Array of lines
+result.output.stdout_contains?(/PNG/)
+
+# Metadata
+result.metadata.started_at          # Time object
+result.metadata.finished_at         # Time object
+result.metadata.duration            # Float (seconds)
+result.metadata.timed_out?          # Boolean
+----
+
+=== Error Handling
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:convert, { inputs: ['nonexistent.png'], output: 'out.jpg' })
+rescue Ukiryu::ExecutionError => e
+  puts "Command failed: #{e.message}"
+rescue Ukiryu::TimeoutError => e
+  puts "Command timed out: #{e.message}"
+end
+----
+
+=== Tool Availability
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:ffmpeg)
+
+if tool.available?
+  puts "FFmpeg #{tool.version} found at #{tool.executable}"
+else
+  puts "FFmpeg not installed"
+end
+----
+
+== Tool Profiles
+
+Tool profiles are defined in separate https://github.com/ukiryu/register[Ukiryu Register] repository.
+
+Example profile structure:
+
+[source,yaml]
+----
+name: imagemagick
+version: "7.1"
+
+version_detection:
+  command: "--version"
+  pattern: "(\\d+\\.\\d+)"
+
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    commands:
+      convert:
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+            position: last
+        options:
+          - name: resize
+            cli: "-resize"
+        flags:
+          - name: strip
+            cli: "-strip"
+----
+
+== Development
+
+=== Running Tests
+
+[source,shell]
+----
+bundle exec rspec
+----
+
+=== Schema Validation
+
+[source,shell]
+----
+bundle exec rspec spec/ukiryu/schema_validator_spec.rb
+----
+
+=== GitHub Actions
+
+Tests run on:
+* Ubuntu latest
+* macOS latest
+
+== Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Write tests for your changes
+4. Ensure all tests pass
+5. Submit a pull request
+
+
+== License
+
+The content is available as open source under the terms of the Ribose BSD
+2-Clause License.
+
+== Copyright
+
+Copyright Ribose.
+
+
+== Related Repositories
+
+* https://github.com/ukiryu/register[ukiryu/register] - Tool profile registry
+* https://github.com/ukiryu/schema[ukiryu/schema] - Profile validation schema

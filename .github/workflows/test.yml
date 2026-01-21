@@ -1,0 +1,143 @@
+name: Test Tool Profiles
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        ruby: ['3.3']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          working-directory: ./ukiryu
+
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick ffmpeg ghostscript
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install imagemagick ffmpeg ghostscript
+
+      - name: Show installed tool versions
+        run: |
+          echo "=== Installed Tool Versions ==="
+          echo -n "ImageMagick: " && magick -version | head -1 || echo "Not installed"
+          echo -n "FFmpeg: " && ffmpeg -version | head -1 || echo "Not installed"
+          echo -n "Ghostscript: " && gs --version || echo "Not installed"
+          echo -n "Pandoc: " && pandoc --version | head -1 || echo "Not installed"
+          echo -n "jpegoptim: " && jpegoptim --version 2>&1 | head -1 || echo "Not installed"
+          echo -n "optipng: " && optipng -v 2>&1 | head -1 || echo "Not installed"
+
+      - name: Run tests
+        working-directory: ./ukiryu
+        run: bundle exec rspec --format documentation
+
+      - name: Run all tests with coverage
+        working-directory: ./ukiryu
+        run: bundle exec rspec
+
+  schema-validation:
+    name: Validate Tool Profiles Schema
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ./ukiryu
+
+      - name: Validate all tool profiles
+        working-directory: ./ukiryu
+        run: |
+          ruby -r ./lib/ukiryu.rb -r ./lib/ukiryu/schema_validator.rb <<-'RUBY'
+          require 'yaml'
+          require 'json-schema'
+
+          schema_path = File.expand_path('../../schema/tool-profile.schema.yaml', __dir__)
+          schema = JSON::Schema.parse(File.read(schema_path))
+
+          # Find all tool profiles
+          profiles = Dir.glob('../../register/tools/**/*.yaml').sort
+
+          puts "Validating #{profiles.count} tool profiles..."
+          errors = []
+
+          profiles.each do |profile_path|
+            profile_name = profile_path.sub('../../register/tools/', '')
+            begin
+              profile = YAML.safe_load(File.read(profile_path))
+              schema.validate(profile)
+              puts "  ✓ #{profile_name}"
+            rescue => e
+              errors << "#{profile_name}: #{e.message}"
+              puts "  ✗ #{profile_name}: #{e.message}"
+            end
+          end
+
+          if errors.any?
+            puts "\n#{errors.count} validation errors:"
+            errors.each { |err| puts "  - #{err}" }
+            exit 1
+          end
+
+          puts "\n✓ All #{profiles.count} tool profiles are valid!"
+          RUBY
+
+  # Optional: Test on Windows with native Windows tools
+  test-windows:
+    name: Test on Windows
+    runs-on: windows-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'test-windows'))
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ./ukiryu
+
+      - name: Install Chocolatey packages
+        run: |
+          choco install imagemagick ffmpeg ghostscript -y
+
+      - name: Show installed tool versions
+        shell: pwsh
+        run: |
+          Write-Host "=== Installed Tool Versions ==="
+          Write-Host "ImageMagick: $(magick -version | Select-Object -First 1)"
+          Write-Host "FFmpeg: $(ffmpeg -version | Select-Object -First 1)"
+          Write-Host "Ghostscript: $(gs --version)"
+
+      - name: Run tests (skip unavailable tools)
+        working-directory: ./ukiryu
+        run: bundle exec rspec --format documentation
+        continue-on-error: true
