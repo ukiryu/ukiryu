@@ -1,0 +1,180 @@
+# frozen_string_literal: true
+
+require_relative 'base_command'
+require_relative '../tool'
+require_relative '../executor'
+require 'yaml'
+
+module Ukiryu
+  module CliCommands
+      # Execute a tool command inline (shorthand for run)
+    class ExecInlineCommand < BaseCommand
+        # Supported output formats
+        OUTPUT_FORMATS = %i[yaml json].freeze
+
+        # Execute the command
+        #
+        # @param tool_name [String] the tool name
+        # @param command_name [String] the command name
+        # @param params [Array<String>] key=value parameter pairs
+      def run(tool_name, command_name, *params)
+          setup_registry
+
+          # Parse key=value pairs into arguments hash
+          arguments = parse_inline_params(params)
+
+          # Build execution request
+          request = {
+            'tool' => tool_name,
+            'command' => command_name,
+            'arguments' => arguments
+          }
+
+          # Validate format option
+          format = (options[:format] || 'yaml').to_sym
+          error! "Invalid format: #{options[:format]}. Must be one of: #{OUTPUT_FORMATS.join(', ')}" unless OUTPUT_FORMATS.include?(format)
+
+          if options[:dry_run]
+            # Show dry run output
+            say_dry_run(request)
+            return
+          end
+
+          # Execute the request
+          response = execute_request(request)
+
+          # Output response
+          output_response(response, format, nil)
+
+          # Exit with error code if command failed
+          exit_code = response['exit_code'].to_i
+          exit(exit_code) if exit_code != 0
+        end
+
+        private
+
+        # Parse inline key=value params into a hash
+      def parse_inline_params(params_array)
+          arguments = {}
+
+          params_array.each do |param|
+            if param.include?('=')
+              key, value = param.split('=', 2)
+
+              # Try to parse value as YAML to handle types properly
+              begin
+                parsed_value = YAML.safe_load(value, permitted_classes: [Symbol])
+                value = parsed_value
+              rescue StandardError
+                # Keep as string if YAML parsing fails
+              end
+
+              # Convert key to symbol for consistency with API
+              arguments[key.to_sym] = value
+            else
+              error! "Invalid parameter format: #{param}. Use key=value"
+            end
+          end
+
+          arguments
+        end
+
+        # Execute the request and build response
+      def execute_request(request)
+          tool_name = request['tool']
+          command_name = request['command']
+          arguments = stringify_keys(request['arguments'])
+
+          begin
+            # Get tool
+            tool = Tool.get(tool_name.to_sym)
+            return build_error_response("Tool not available: #{tool_name}") unless tool.available?
+
+            # Build options object (OOP approach)
+            options_class = tool.options_for(command_name.to_sym)
+            options = options_class.new
+            arguments.each { |key, value| options.send("#{key}=", value) }
+
+            # Execute command
+            result = tool.execute(command_name.to_sym, options)
+
+            # Build successful response
+            build_success_response(result)
+          rescue Ukiryu::ToolNotFoundError => e
+            build_error_response("Tool not found: #{e.message}")
+          rescue Ukiryu::ProfileNotFoundError => e
+            build_error_response("Profile not found: #{e.message}")
+          rescue Ukiryu::ExecutionError => e
+            build_error_response(e.message)
+          rescue Ukiryu::TimeoutError => e
+            build_error_response("Command timed out: #{e.message}")
+          rescue ArgumentError => e
+            build_error_response("Invalid arguments: #{e.message}")
+          rescue StandardError => e
+            build_error_response("Unexpected error: #{e.class}: #{e.message}")
+          end
+        end
+
+        # Build success response from Result object
+      def build_success_response(result)
+          {
+            'status' => 'success',
+            'exit_code' => result.status,
+            'command' => {
+              'executable' => result.executable,
+              'arguments' => result.command_info.arguments,
+              'full_command' => result.command_info.full_command,
+              'shell' => result.command_info.shell.to_s
+            },
+            'output' => {
+              'stdout' => result.stdout,
+              'stderr' => result.error_output,
+              'stdout_lines' => result.stdout_lines,
+              'stderr_lines' => result.stderr_lines
+            },
+            'metadata' => {
+              'started_at' => result.started_at.iso8601,
+              'finished_at' => result.finished_at.iso8601,
+              'duration_seconds' => result.duration,
+              'formatted_duration' => result.metadata.formatted_duration
+            }
+          }
+        end
+
+        # Build error response
+      def build_error_response(message)
+          {
+            'status' => 'error',
+            'exit_code' => 1,
+            'error' => message
+          }
+        end
+
+        # Output response in specified format
+      def output_response(response, format, _output_file)
+          output_string = case format
+                          when :yaml
+                            response.to_yaml
+                          when :json
+                            require 'json'
+                            JSON.pretty_generate(response)
+                          end
+
+          say output_string
+        end
+
+        # Show dry run output
+      def say_dry_run(request)
+          say 'DRY RUN - Ukiryu Structured Execution Request:', :yellow
+          say '', :clear
+          say "Tool: #{request['tool']}", :cyan
+          say "Command: #{request['command']}", :cyan
+          say 'Arguments:', :cyan
+          request['arguments'].each do |key, value|
+            say "  #{key}: #{value.inspect}", :white
+          end
+        end
+      end
+    end
+  end
+end

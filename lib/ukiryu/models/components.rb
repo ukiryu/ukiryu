@@ -1,0 +1,107 @@
+# frozen_string_literal: true
+
+require 'lutaml/model'
+require_relative 'option_definition'
+require_relative 'flag_definition'
+require_relative 'argument_definition'
+require_relative 'exit_codes'
+
+module Ukiryu
+  module Models
+    # Components registry for reusable definitions
+    #
+    # Enables sharing common option/argument/flag/exit_codes definitions
+    # across commands through `$ref` references.
+    #
+    # @example
+    #   components = Components.new(
+    #     options: { 'verbose' => OptionDefinition.new(...) },
+    #     flags: { 'help' => FlagDefinition.new(...) }
+    #   )
+    class Components < Lutaml::Model::Serializable
+      attribute :options, :hash, default: {}
+      attribute :flags, :hash, default: {}
+      attribute :arguments, :hash, default: {}
+      attribute :exit_codes, ExitCodes
+
+      yaml do
+        map_element 'options', to: :options
+        map_element 'flags', to: :flags
+        map_element 'arguments', to: :arguments
+        map_element 'exit_codes', to: :exit_codes
+      end
+
+      # Get an option by name
+      #
+      # @param name [String, Symbol] the option name
+      # @return [OptionDefinition, nil] the option definition
+      def option(name)
+        @options&.dig(name.to_s)
+      end
+
+      # Get a flag by name
+      #
+      # @param name [String, Symbol] the flag name
+      # @return [FlagDefinition, nil] the flag definition
+      def flag(name)
+        @flags&.dig(name.to_s)
+      end
+
+      # Get an argument by name
+      #
+      # @param name [String, Symbol] the argument name
+      # @return [ArgumentDefinition, nil] the argument definition
+      def argument(name)
+        @arguments&.dig(name.to_s)
+      end
+
+      # Check if a reference can be resolved
+      #
+      # @param ref [String] the reference path (e.g., '#/components/options/verbose')
+      # @return [Boolean] true if the reference can be resolved
+      def can_resolve?(ref)
+        return false unless ref =~ %r{^#/components/(options|flags|arguments|exit_codes)/(.+)$}
+
+        type = Regexp.last_match(1)
+        name = Regexp.last_match(2)
+
+        case type
+        when 'options'
+          @options&.key?(name)
+        when 'flags'
+          @flags&.key?(name)
+        when 'arguments'
+          @arguments&.key?(name)
+        when 'exit_codes'
+          !@exit_codes.nil?
+        else
+          false
+        end
+      end
+
+      # Resolve a reference path to a component
+      #
+      # @param ref [String] the reference path (e.g., '#/components/options/verbose')
+      # @return [Object, nil] the component or nil if not found
+      def resolve(ref)
+        return nil unless ref =~ %r{^#/components/(options|flags|arguments|exit_codes)/(.+)$}
+
+        type = Regexp.last_match(1)
+        name = Regexp.last_match(2)
+
+        case type
+        when 'options'
+          option(name)
+        when 'flags'
+          flag(name)
+        when 'arguments'
+          argument(name)
+        when 'exit_codes'
+          @exit_codes
+        else
+          nil
+        end
+      end
+    end
+  end
+end

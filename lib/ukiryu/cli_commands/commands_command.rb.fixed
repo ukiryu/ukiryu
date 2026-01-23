@@ -1,0 +1,40 @@
+# frozen_string_literal: true
+
+require_relative 'base_command'
+require_relative '../tool'
+
+module Ukiryu
+  module CliCommands
+      # List all commands available for a tool
+    class CommandsCommand < BaseCommand
+        # Execute the commands command
+        #
+        # @param tool_name [String] the tool name
+      def run(tool_name)
+          setup_registry
+
+          tool = Tool.get(tool_name)
+          tool_commands = tool.commands
+
+          error! "No commands defined for #{tool_name}" unless tool_commands
+
+          say "Commands for #{tool_name}:", :cyan
+          tool_commands.each do |cmd_name, cmd|
+            cmd_name ||= 'unnamed'
+            description = cmd.description || 'No description'
+            say "  #{cmd_name.to_s.ljust(20)} #{description}", :white
+
+            # Show usage if available
+            say "    Usage: #{cmd.usage}", :dim if cmd.usage
+
+            # Show subcommand if exists
+            if cmd.subcommand
+              subcommand_info = cmd.subcommand.nil? ? '(none)' : cmd.subcommand
+              say "    Subcommand: #{subcommand_info}", :dim
+            end
+          end
+        end
+      end
+    end
+  end
+end

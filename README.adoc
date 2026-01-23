@@ -1,0 +1,908 @@
+= Ukiryu
+
+Platform-adaptive command execution framework using declarative YAML tool
+profiles.
+
+image:https://img.shields.io/gem/v/ukiryu.svg[RubyGems Version]
+image:https://img.shields.io/github/license/ukiryu/ukiryu.svg[License]
+image:https://github.com/ukiryu/ukiryu/actions/workflows/test.yml/badge.svg["Build", link="https://github.com/ukiryu/ukiryu/actions/workflows/test.yml"]
+
+== Purpose
+
+Ukiryu provides a Ruby framework for executing external commands with:
+
+* Declarative YAML tool profiles
+* Platform-specific command formatting (macOS, Linux, Windows)
+* Shell-specific syntax (bash, zsh, fish, PowerShell, cmd)
+* Version-aware tool detection
+* Fully object-oriented result handling
+
+== Features
+
+=== Default Command Resolution
+
+When a tool implements its own name (e.g., `ping` tool implements `ping` command), you can omit the command name:
+
+[source,ruby]
+----
+# Both syntaxes work
+tool.execute(:ping, { host: '127.0.0.1', count: 1 })
+tool.execute(:ping, :ping, { host: '127.0.0.1', count: 1 })
+----
+
+The CLI also supports this shorthand:
+
+[source,shell]
+----
+# Both syntaxes work
+ukiryu exec-inline ping host=127.0.0.1 count=1
+ukiryu exec-inline ping ping host=127.0.0.1 count=1
+===
+
+=== Configuration Management
+
+Centralized configuration system supporting multiple sources:
+
+[source,ruby]
+----
+# Programmatic configuration
+Ukiryu::Config.configure do |config|
+  config.format = :json
+  config.debug = true
+  config.timeout = 60
+  config.registry = '/path/to/register'
+end
+
+# Or via environment variables
+ENV['UKIRYU_FORMAT'] = 'json'
+ENV['UKIRYU_DEBUG'] = '1'
+ENV['UKIRYU_TIMEOUT'] = '60'
+----
+
+Configuration priority (highest to lowest):
+. CLI options (`--format`, `--registry`, etc.)
+. Environment variables (`UKIRYU_*`)
+. Programmatic configuration (`Config.configure`)
+. Default values
+
+=== Debug Mode
+
+Comprehensive debug output for troubleshooting:
+
+[source,shell]
+----
+# Enable debug mode
+UKIRYU_DEBUG=1 ukiryu exec-inline ping host=127.0.0.1 count=1
+
+# Debug sections output to stderr:
+# - Ukiryu CLI Options
+# - Tool Resolution Process
+# - Structured Options (tool command options)
+# - Shell Command (actual command to execute)
+# - Raw Command Response (stdout/stderr)
+# - Structured Response (final result)
+----
+
+Debug output uses structured borders with color support (when Paint gem is available).
+
+=== Stdin Support
+
+Ukiryu supports passing data to commands via standard input (stdin), enabling Unix pipe composition and integration with other tools.
+
+[source,shell]
+----
+# Read from pipe using --stdin flag
+echo '{"name": "value"}' | ukiryu exec jq --stdin filter="."
+
+# Read from pipe using stdin=- parameter
+echo '{"name": "value"}' | ukiryu exec jq stdin=- filter="."
+
+# Read from file using stdin=@filename syntax
+ukiryu exec jq stdin=@/path/to/data.json filter="."
+
+# Pass data directly via stdin parameter
+ukiryu exec jq stdin='{"data": "value"}' filter="."
+----
+
+The `stdin` parameter is a special execution parameter that is not passed to the tool's command arguments but is instead written to the child process's stdin stream. This enables composition with other Unix tools:
+
+[source,shell]
+----
+# Compose with other tools
+cat large_data.json | ukiryu exec jq --stdin filter=".name" | sort
+
+# Process output from another command
+curl -s https://api.example.com/data | ukiryu exec jq --stdin filter=".[0:5]"
+----
+
+In dry-run mode, stdin data is previewed (first 100 characters) to show what would be passed to the command.
+
+=== OOP API
+
+Tool-specific classes with a fully object-oriented API:
+
+[source,ruby]
+----
+Ukiryu::Tools::Imagemagick.new.tap do |im|
+  convert_options = im.options_for(:convert)
+  convert_options.set(inputs: ["image.png"], resize: "50%")
+  convert_options.output = "output.jpg"
+  convert_options.run
+end
+----
+
+See <<oop-api,OOP API>> for more details.
+
+=== Tool Registry
+
+Load tool definitions from YAML profiles:
+
+[source,ruby]
+----
+Ukiryu::Registry.default_registry_path = 'path/to/register'
+tool = Ukiryu::Tool.get(:imagemagick)
+----
+
+=== Platform Detection
+
+Automatic platform and shell detection:
+
+[source,ruby]
+----
+Ukiryu::Platform.detect       # => :macos, :linux, or :windows
+Ukiryu::Shell.detect          # => :bash, :zsh, :powershell, etc.
+----
+
+=== Version Awareness
+
+Handle different tool versions with specific profiles:
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape)
+# Automatically selects 1.0.yaml or 0.92.yaml based on detected version
+----
+
+=== OOP Result Handling
+
+Rich, object-oriented execution results:
+
+[source,ruby]
+----
+result = tool.execute(:convert, { inputs: ['input.png'], output: 'output.jpg' })
+
+result.command_info.executable     # => "/opt/homebrew/bin/magick"
+result.output.stdout                # => ""
+result.output.success?              # => true
+result.metadata.duration            # => 0.5
+result.metadata.formatted_duration  # => "500ms"
+----
+
+== Architecture
+
+=== Class Hierarchy
+
+[source]
+----
+Ukiryu
+├── Executor
+│   ├── CommandInfo      (command details)
+│   ├── Output           (stdout/stderr with utilities)
+│   ├── ExecutionMetadata(timing information)
+│   └── Result           (composes above three)
+├── Tool               (YAML profile loader and executor)
+├── Registry           (profile discovery and loading)
+├── Platform           (platform detection and utilities)
+├── Shell
+│   ├── Base            (abstract shell interface)
+│   ├── Bash
+│   ├── Zsh
+│   ├── Fish
+│   ├── Sh
+│   ├── PowerShell
+│   └── Cmd
+└── Errors             (custom exception hierarchy)
+----
+
+=== Data Flow
+
+[source]
+----
+┌─────────────────┐      ┌─────────────────┐      ┌──────────────────┐
+│  YAML Profile   │─────►│   Tool Class    │─────►│   Executor       │
+│  (declarative)  │      │  (loader &      │      │  (platform &     │
+│                 │      │   executor)     │      │   shell aware)   │
+└─────────────────┘      └─────────────────┘      └────────┬─────────┘
+                                                             │
+                                                             ▼
+                                                      ┌─────────────┐
+                                                      │   Result    │
+                                                      │  (OOP with  │
+                                                      │  CommandInfo│
+                                                      │  + Output   │
+                                                      │  + Metadata)│
+                                                      └─────────────┘
+----
+
+== Installation
+
+Add this line to your application's Gemfile:
+
+[source,ruby]
+----
+gem 'ukiryu'
+----
+
+And then execute:
+
+[source,shell]
+----
+bundle install
+----
+
+Or install it yourself as:
+
+[source,shell]
+----
+gem install ukiryu
+----
+
+== Command Line Interface
+
+Ukiryu includes a command-line interface (CLI) for exploring and interacting with tool profiles. The CLI requires the `thor` gem.
+
+=== CLI Commands
+
+==== list
+
+List all available tools in the registry:
+
+[source,shell]
+----
+ukiryu list
+----
+
+Example output:
+
+[source,shell]
+----
+Available tools (3):
+  [✓]  ghostscript          v10.0.0
+  [✓]  inkscape             v1.3
+  [✗]  imagemagick          version unknown
+----
+
+==== info
+
+Show detailed information about a specific tool:
+
+[source,shell]
+----
+ukiryu info inkscape
+----
+
+Example output:
+
+[source,shell]
+----
+Tool: inkscape
+Display Name: Inkscape Vector Graphics Editor
+Version: 1.3
+Homepage: https://inkscape.org
+
+Aliases: ink, inksc
+
+Version Detection:
+  Command: --version
+  Pattern: (\d+\.\d+)
+  Modern Threshold: 1.0
+
+Search Paths:
+  macos:
+    - /Applications/Inkscape.app/Contents/MacOS/inkscape
+    - /opt/homebrew/bin/inkscape
+
+Profiles (1):
+  default:
+    Platforms: macos, linux
+    Shells: bash, zsh, fish
+    Version: any
+
+Status: INSTALLED
+Executable: /opt/homebrew/bin/inkscape
+Detected Version: 1.3.2
+----
+
+==== commands
+
+List all commands available for a tool:
+
+[source,shell]
+----
+ukiryu commands imagemagick
+----
+
+Example output:
+
+[source,shell]
+----
+Commands for imagemagick:
+  convert              Convert between image formats
+    Usage: magick convert [options] input output
+    Subcommand: convert
+  identify             Describe image format and characteristics
+    Usage: magick identify [options] input
+----
+
+==== opts
+
+Show options for a tool or specific command:
+
+[source,shell]
+----
+# Show all options for a tool
+ukiryu opts inkscape
+
+# Show options for a specific command
+ukiryu opts imagemagick convert
+----
+
+Example output:
+
+[source,shell]
+----
+Options for imagemagick convert:
+Convert between image formats
+
+Arguments:
+  inputs (filevariadic)
+    Position: last
+    Description: Input files to process
+
+Options:
+  --resize              -resize
+    Type: string
+    Values: 50%, 100x100, 50x50!
+
+  --quality             -quality
+    Type: integer
+    Range: 0..100
+    Description: JPEG/MIFF/PNG compression level
+
+Flags:
+  -strip                -strip (default: false)
+    Remove all profiles and text attributes from image
+----
+
+==== exec
+
+Execute a tool command inline with key=value parameters:
+
+[source,shell]
+----
+# With default command (shorthand)
+ukiryu exec ping host=127.0.0.1 count=1
+
+# With explicit command
+ukiryu exec imagemagick convert inputs=input.jpg output=output.jpg resize=50%
+
+# With output format
+ukiryu exec ping host=127.0.0.1 count=1 --format json
+
+# With output to file
+ukiryu exec ping host=127.0.0.1 count=1 --output result.yaml
+
+# Read from stdin (pipe)
+echo '{"name": "value"}' | ukiryu exec jq --stdin filter="."
+
+# Read from file via stdin parameter
+ukiryu exec jq stdin=@/path/to/data.json filter="."
+
+# Debug mode (shows detailed execution info to stderr)
+UKIRYU_DEBUG=1 ukiryu exec ping host=127.0.0.1 count=1
+----
+
+Available options:
+
+* `--registry`, `-r`: Path to tool registry
+* `--format`, `-f`: Response format (`yaml`, `json`, `table`)
+* `--output`, `-o`: Output file for response (default: stdout)
+* `--dry-run`, `-d`: Show execution request without executing
+* `--shell`: Shell to use for command execution (`bash`, `zsh`, `fish`, `sh`, `powershell`, `cmd`)
+* `--stdin`: Read input from stdin and pass to command
+
+==== execute-file
+
+Execute a tool command from a YAML request file:
+
+[source,shell]
+----
+# Create request file
+cat > request.yaml << EOF
+tool: ping
+command: ping
+arguments:
+  host: 127.0.0.1
+  count: 1
+EOF
+
+# Execute from file
+ukiryu execute-file request.yaml
+====
+
+==== execute
+
+Execute a tool command with options:
+
+[source,shell]
+----
+# Basic execution
+ukiryu execute imagemagick convert --resize 50x50 -i input.png -o output.jpg
+
+# Dry run (show command without executing)
+ukiryu execute inkscape export_pdf --dry-run -i input.svg -o output.pdf
+----
+
+Example output:
+
+[source,shell]
+----
+Command completed successfully
+Exit status: 0
+Duration: 1.2s
+
+STDOUT:
+----
+
+==== version
+
+Show Ukiryu CLI version:
+
+[source,shell]
+----
+ukiryu version
+----
+
+Example output:
+
+[source,shell]
+----
+Ukiryu version 0.1.0
+----
+
+=== Registry Configuration
+
+The CLI searches for tool profiles in the following locations:
+
+1. Environment variable: `UKIRYU_REGISTRY`
+2. Sibling `register/` directory relative to gem installation
+3. `../register/` relative to current working directory (development)
+
+Set a custom registry path:
+
+[source,shell]
+----
+export UKIRYU_REGISTRY=/path/to/register
+ukiryu list
+----
+
+Or use the `--registry` option:
+
+[source,shell]
+----
+ukiryu list --registry /path/to/register
+ukiryu info inkscape -r /path/to/register
+----
+
+== Usage
+
+=== Basic Command Execution
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Set registry path to tool profiles
+Ukiryu::Registry.default_registry_path = 'path/to/register'
+
+# Get a tool
+tool = Ukiryu::Tool.get(:imagemagick)
+
+# Execute a command
+result = tool.execute(:convert, {
+  inputs: ['input.png'],
+  output: 'output.jpg',
+  resize: '50x50',
+  quality: 85
+})
+
+# Check result
+if result.success?
+  puts "Converted in #{result.metadata.formatted_duration}"
+else
+  puts "Error: #{result.output.stderr}"
+end
+----
+
+=== Passing Stdin
+
+Pass data to commands via stdin using the `:stdin` parameter:
+
+[source,ruby]
+----
+# Pass string data to stdin
+result = tool.execute(:process, {
+  stdin: '{"name": "value"}',
+  filter: '.'
+})
+
+# Read from file and pass to stdin
+result = tool.execute(:process, {
+  stdin: File.read('/path/to/data.json'),
+  filter: '.name'
+})
+
+# Pass IO object (file, pipe, etc.)
+File.open('/path/to/data.json', 'r') do |file|
+  result = tool.execute(:process, {
+    stdin: file,
+    filter: '.'
+  })
+end
+----
+
+The `:stdin` parameter is a special execution parameter that is extracted before building command arguments and written to the child process's stdin stream.
+
+=== Accessing Result Details
+
+[source,ruby]
+----
+result = tool.execute(:identify, { input: ['test.png'] })
+
+# Command information
+result.command_info.executable     # Full path to executable
+result.command_info.arguments      # Array of arguments
+result.command_info.full_command   # Complete command string
+result.command_info.shell          # Shell type used
+
+# Output
+result.output.stdout                # Stripped stdout
+result.output.stderr                # Stripped stderr
+result.output.stdout_lines          # Array of lines
+result.output.stdout_contains?(/PNG/)
+
+# Metadata
+result.metadata.started_at          # Time object
+result.metadata.finished_at         # Time object
+result.metadata.duration            # Float (seconds)
+result.metadata.timed_out?          # Boolean
+----
+
+=== Error Handling
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:convert, { inputs: ['nonexistent.png'], output: 'out.jpg' })
+rescue Ukiryu::ExecutionError => e
+  puts "Command failed: #{e.message}"
+rescue Ukiryu::TimeoutError => e
+  puts "Command timed out: #{e.message}"
+end
+----
+
+=== Tool Availability
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:ffmpeg)
+
+if tool.available?
+  puts "FFmpeg #{tool.version} found at #{tool.executable}"
+else
+  puts "FFmpeg not installed"
+end
+----
+
+[[oop-api]]
+== OOP API
+
+Ukiryu provides a fully object-oriented API for tool interaction. Tool-specific classes are dynamically generated from YAML profiles and available under `Ukiryu::Tools::*`.
+
+=== Tool Classes
+
+Tool classes are generated automatically when first accessed:
+
+[source,ruby]
+----
+# Access a tool class (autogenerated on first access)
+tool = Ukiryu::Tools::Imagemagick.new
+
+# Check availability and version
+tool.available?  # => true
+tool.version     # => "7.1"
+
+# List available commands
+tool.class.profile[:commands].keys
+# => [:convert, :identify, :mogrify, ...]
+----
+
+Available tool classes include:
+* `Ukiryu::Tools::Imagemagick`
+* `Ukiryu::Tools::Ffmpeg`
+* `Ukiryu::Tools::Pandoc`
+* `Ukiryu::Tools::Ghostscript`
+* `Ukiryu::Tools::Inkscape`
+* `Ukiryu::Tools::Optipng`
+* `Ukiryu::Tools::Jpegoptim`
+
+=== Options Classes
+
+Options classes are generated per-command and provide a fluent interface:
+
+[source,ruby]
+----
+# Create an options object
+convert_options = tool.options_for(:convert)
+
+# Set options individually
+convert_options.inputs = ["input.png"]
+convert_options.resize = "50%"
+convert_options.quality = 85
+convert_options.strip = true
+convert_options.output = "output.jpg"
+
+# Or use set() for batch assignment
+convert_options.set(
+  inputs: ["input.png"],
+  resize: "50%",
+  quality: 85,
+  strip: true
+)
+convert_options.output = "output.jpg"
+
+# Execute the command
+result = convert_options.run
+
+# Check the result
+puts result.success?     # => true
+puts result.exit_code    # => 0
+puts result.stdout       # => ""
+puts result.stderr       # => ""
+puts result.duration     # => 0.5
+----
+
+=== Response Classes
+
+Response classes wrap execution results in a structured object:
+
+[source,ruby]
+----
+result = convert_options.run
+
+# Status information
+result.success?           # => true
+result.exit_code          # => 0
+
+# Output
+result.stdout             # Stripped stdout
+result.stderr             # Stripped stderr
+result.stdout_lines       # Array of lines
+
+# Timing
+result.duration           # Float (seconds)
+result.formatted_duration # "500ms"
+
+# Full command info
+result.executable         # Full path to executable
+result.arguments          # Array of arguments
+result.full_command       # Complete command string
+----
+
+=== Action Pattern
+
+An alternative pattern using action classes:
+
+[source,ruby]
+----
+# Create an action
+action = tool.action_for(:convert)
+
+# Get options object
+action_options = action.options
+action_options.set(
+  inputs: ["input.png"],
+  resize: "50%"
+)
+action_options.output = "output.jpg"
+
+# Execute with the action
+result = action.run(action_options)
+
+# Or pass a hash directly (action creates options)
+result = action.run(
+  inputs: ["input.png"],
+  resize: "50%",
+  output: "output.jpg"
+)
+----
+
+=== Manual Option Injection
+
+When tool definitions don't cover all options, use `extra_args`:
+
+[source,ruby]
+----
+# Pass undefined options via extra_args
+convert_options = tool.options_for(:convert)
+convert_options.set(
+  inputs: ["input.png"],
+  resize: "50%",
+  extra_args: ["-strip", "-quality", "95", "-interlace", "Plane"]
+)
+convert_options.output = "output.jpg"
+
+result = convert_options.run
+----
+
+The `extra_args` parameter accepts either an array of strings or a single string. All arguments are properly escaped for the detected shell.
+
+=== Complete Examples
+
+.Batch Image Conversion
+[source,ruby]
+----
+require 'ukiryu'
+
+Ukiryu::Registry.default_registry_path = 'path/to/register'
+
+im = Ukiryu::Tools::Imagemagick.new
+
+Dir["*.tif"].each do |tif_file|
+  png_file = tif_file.sub('.tif', '.png')
+
+  im.options_for(:convert).tap do |opts|
+    opts.set(inputs: [tif_file], resize: "50%")
+    opts.output = png_file
+    opts.run
+  end
+
+  puts "Converted #{tif_file} -> #{png_file}"
+end
+----
+
+.Video Processing with FFmpeg
+[source,ruby]
+----
+ffmpeg = Ukiryu::Tools::Ffmpeg.new
+
+# Convert video to MP4 with custom codec settings
+ffmpeg.options_for(:transcode).tap do |opts|
+  opts.set(
+    inputs: ["input.mov"],
+    video_codec: "libx264",
+    bitrate: "2M",
+    extra_args: ["-preset", "slow", "-crf", "22"]
+  )
+  opts.output = "output.mp4"
+  opts.run
+end
+----
+
+.Document Conversion with Pandoc
+[source,ruby]
+----
+pandoc = Ukiryu::Tools::Pandoc.new
+
+# Convert Markdown to PDF
+pandoc.options_for(:convert).tap do |opts|
+  opts.set(
+    inputs: ["document.md"],
+    from: "markdown",
+    to: "pdf",
+    standalone: true,
+    extra_args: ["--pdf-engine", "xelatex", "-V", "geometry:margin=1in"]
+  )
+  opts.output = "document.pdf"
+  result = opts.run
+
+  puts "Conversion #{result.success? ? 'succeeded' : 'failed'}"
+end
+----
+
+.SVG Export with Inkscape
+[source,ruby]
+----
+inkscape = Ukiryu::Tools::Inkscape.new
+
+# Export SVG to PNG at specific DPI
+inkscape.options_for(:export).tap do |opts|
+  opts.set(
+    inputs: ["design.svg"],
+    dpi: 300,
+    export_area: "page"
+  )
+  opts.output = "design.png"
+  opts.run
+end
+----
+
+== Tool Profiles
+
+Tool profiles are defined in separate https://github.com/ukiryu/register[Ukiryu Register] repository.
+
+Example profile structure:
+
+[source,yaml]
+----
+name: imagemagick
+version: "7.1"
+
+version_detection:
+  command: "--version"
+  pattern: "(\\d+\\.\\d+)"
+
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    commands:
+      convert:
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+            position: last
+        options:
+          - name: resize
+            cli: "-resize"
+        flags:
+          - name: strip
+            cli: "-strip"
+----
+
+== Development
+
+=== Running Tests
+
+[source,shell]
+----
+bundle exec rspec
+----
+
+=== Schema Validation
+
+[source,shell]
+----
+bundle exec rspec spec/ukiryu/schema_validator_spec.rb
+----
+
+=== GitHub Actions
+
+Tests run on:
+* Ubuntu latest
+* macOS latest
+
+== Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Write tests for your changes
+4. Ensure all tests pass
+5. Submit a pull request
+
+
+== License
+
+The content is available as open source under the terms of the Ribose BSD
+2-Clause License.
+
+== Copyright
+
+Copyright Ribose.
+
+
+== Related Repositories
+
+* https://github.com/ukiryu/register[ukiryu/register] - Tool profile registry
+* https://github.com/ukiryu/schema[ukiryu/schema] - Profile validation schema

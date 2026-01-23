@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Add lib directory to load path
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+
+# Require thor first before ukiryu to ensure proper loading
+require 'thor'
+require 'ukiryu'
+
+Ukiryu::Cli.start(ARGV)
