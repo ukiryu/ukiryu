@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Ukiryu::Models::ExecutionReport do
-  let(:registry_path) { File.expand_path('../../register', __dir__) }
+  let(:register_path) { '/dummy/register/path' }
 
   describe 'StageMetrics' do
     let(:stage) { Ukiryu::Models::StageMetrics.new(name: 'test_stage') }

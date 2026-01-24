@@ -1,0 +1,39 @@
+# Minimal jq tool profile for testing
+ukiryu_schema: '1.0'
+name: jq
+display_name: jq (JSON Query)
+homepage: https://stedolan.github.io/jq/
+version: '1.0'
+version_detection:
+  command: --version
+  pattern: 'jq-([\d.]+)'
+search_paths:
+  macos:
+  - /opt/homebrew/bin/jq
+  - /usr/local/bin/jq
+  linux:
+  - /usr/bin/jq
+timeout: 30
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  commands:
+  - name: process
+    description: Process JSON with filter
+    arguments:
+    - name: filter
+      type: string
+      position: first
+      required: true
+      description: jq filter expression
+    - name: inputs
+      type: file
+      variadic: true
+      position: last

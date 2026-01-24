@@ -52,7 +52,10 @@ module Ukiryu
     # @param requirement [String] the version requirement (e.g., ">= 2.30")
     # @return [VersionCompatibility] the compatibility result
     def self.check(installed_version, requirement)
-      return new(installed_version: installed_version, required_version: requirement, compatible: true, reason: nil) if !requirement || requirement.empty?
+      if !requirement || requirement.empty?
+        return new(installed_version: installed_version, required_version: requirement, compatible: true,
+                   reason: nil)
+      end
 
       parser = RequirementParser.new(requirement)
       compatible = parser.satisfied_by?(installed_version)
@@ -112,9 +115,9 @@ module Ukiryu
 
         case constraint[:operator]
         when '>', '>='
-          compare_versions(v, req_v) > 0 || (constraint[:operator] == '>=' && v == req_v)
+          compare_versions(v, req_v).positive? || (constraint[:operator] == '>=' && v == req_v)
         when '<', '<='
-          compare_versions(v, req_v) < 0 || (constraint[:operator] == '<=' && v == req_v)
+          compare_versions(v, req_v).negative? || (constraint[:operator] == '<=' && v == req_v)
         when '==', '='
           v == req_v
         when '!='

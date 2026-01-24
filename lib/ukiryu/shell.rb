@@ -73,7 +73,7 @@ module Ukiryu
         when :powershell
           powershell_available?
         when :cmd
-          true # cmd is always available on Windows
+          Platform.windows? # cmd is only available on Windows
         else
           false
         end

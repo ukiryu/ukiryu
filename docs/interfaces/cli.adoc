@@ -1,0 +1,609 @@
+---
+layout: default
+title: Command Line Interface
+parent: Interfaces
+nav_order: 2
+---
+
+== Command Line Interface
+
+The CLI provides a simple, powerful way to execute tools from the shell with type-safe parameters.
+
+// Purpose
+== Purpose
+
+This page documents the Ukiryu CLI for executing commands, inspecting tools, and managing configuration.
+
+// References
+== References
+
+* link:/interfaces/ruby-api[Ruby API] - Programmatic interface
+* link:/features/configuration[Configuration Options] - All configuration methods
+
+// Concepts
+== Concepts
+
+* **Command execution**: `ukiryu exec` runs tool commands
+* **Tool discovery**: `ukiryu list` and `ukiryu info` for tool inspection
+* **Configuration**: Environment variables and command-line parameters
+* **Output formats**: JSON, YAML, and human-readable text
+
+// Installation
+== Installation
+
+The CLI is installed automatically with the Ukiryu gem:
+
+[source,bash]
+----
+gem install ukiryu
+----
+
+Verify installation:
+
+[source,bash]
+----
+ukiryu version
+----
+
+// Basic Commands
+== Basic Commands
+
+=== List Tools
+
+[source,bash]
+----
+ukiryu list
+----
+
+Shows all available tools with their installation status:
+
+[source]
+----
+============================================================
+Available Tools
+============================================================
+
+[✓] ghostscript   Ghostscript - PDF/PostScript Interpreter
+[✓] imagemagick   ImageMagick - Image Manipulation
+[✓] inkscape      Inkscape - Vector Graphics Editor
+[x]  pandoc        Pandoc - Document Converter (not installed)
+...
+----
+
+=== Get Tool Information
+
+[source,bash]
+----
+ukiryu info inkscape
+----
+
+Displays detailed tool information:
+
+[source]
+----
+============================================================
+Tool: inkscape
+============================================================
+
+Display Name: Inkscape Vector Graphics Editor
+Version: 1.0
+Homepage: https://inkscape.org/
+Aliases: inkscapecom, ink
+
+Version Detection:
+  Command: --version
+  Pattern: Inkscape (\d+\.\d+)
+  Modern Threshold: 1.0
+
+Search Paths:
+  macos:
+    - /Applications/Inkscape.app/Contents/MacOS/inkscape
+    - /opt/homebrew/bin/inkscape
+    ...
+
+Profiles (1):
+  modern_unix:
+    Platforms: macos, linux
+    Shells: bash, zsh, fish, sh
+    Option Style: double_dash_equals
+    Execution Mode: headless
+
+Status: INSTALLED
+Executable: /Applications/Inkscape.app/Contents/MacOS/inkscape
+Detected Version: 1.4
+----
+
+=== Describe Commands
+
+[source,bash]
+----
+ukiryu describe inkscape export
+----
+
+Shows command documentation:
+
+[source]
+----
+============================================================
+inkscape export
+============================================================
+
+Export document to different format
+
+Usage:
+  inkscape [OPTIONS] input1.svg [input2.svg ...]
+
+Execution Mode: headless
+
+Arguments:
+  inputs (file, variadic)
+    Position: last
+    Description: Input file(s)
+    Min: 1
+
+Options:
+  output (file)
+    CLI: --export-filename
+    Description: Output filename
+    Required: true
+
+Flags:
+  batch_process (boolean)
+    CLI: --batch-process
+    Default: true
+    Description: Close GUI after processing
+----
+
+// Executing Commands
+== Executing Commands
+
+=== Basic Syntax
+
+[source,bash]
+----
+ukiryu exec <tool> <command> [KEY=VALUE ...]
+----
+
+=== Simple Example
+
+[source,bash]
+----
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  format=png
+----
+
+=== Multiple Options
+
+[source,bash]
+----
+ukiryu exec imagemagick convert \
+  inputs=photo.jpg \
+  output=photo.png \
+  resize=50% \
+  quality=85 \
+  strip=true
+----
+
+=== Array Parameters
+
+[source,bash]
+----
+# Multiple input files
+ukiryu exec inkscape export \
+  inputs=file1.svg,file2.svg,file3.svg \
+  output=combined.pdf
+
+# Multiple export IDs
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=export.png \
+  export_ids=id1,id2,id3
+----
+
+// Configuration Methods
+== Configuration Methods
+
+=== Method 1: Command Parameters (Lowest Precedence)
+
+Pass parameters directly on the command line:
+
+[source,bash]
+----
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  timeout=60
+----
+
+=== Method 2: Environment Variables (Highest Precedence)
+
+Set environment variables to override all configuration:
+
+[source,bash]
+----
+# Set register location
+export UKIRYU_REGISTRY=/path/to/register
+
+# Set default timeout for all commands
+export UKIRYU_TIMEOUT=120
+
+# Enable debug output
+export UKIRYU_DEBUG=true
+
+# Now run command (uses 120s timeout from ENV)
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png
+----
+
+=== Configuration Precedence Example
+
+[source,bash]
+----
+# Profile default: 90 seconds
+# CLI parameter: 60 seconds
+# ENV variable: 180 seconds (wins!)
+
+export UKIRYU_TIMEOUT=180
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  timeout=60  # Ignored - ENV takes precedence
+----
+
+// Output Formats
+== Output Formats
+
+=== Default Output (Human-Readable)
+
+[source,bash]
+----
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png
+----
+
+[source]
+----
+---
+status: success
+exit_code: 0
+
+command:
+  executable: "/Applications/Inkscape.app/Contents/MacOS/inkscape"
+  arguments:
+    - --batch-process
+    - --export-filename=/path/to/drawing.png
+    - /path/to/drawing.svg
+  full_command: "/Applications/Inkscape.app/Contents/MacOS/inkscape --batch-process --export-filename=/path/to/drawing.png /path/to/drawing.svg"
+
+output:
+  stdout: |
+    (output text)
+  stderr: |
+    (error messages)
+
+metadata:
+  started_at: '2025-01-23T10:30:00+00:00'
+  finished_at: '2025-01-23T10:30:01+00:00'
+  duration_seconds: 1.234
+  formatted_duration: 1.234s
+----
+
+=== JSON Output
+
+[source,bash]
+----
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png --format json
+----
+
+[source]
+----
+{
+  "status": "success",
+  "exit_code": 0,
+  "command": {
+    "executable": "/Applications/Inkscape.app/Contents/MacOS/inkscape",
+    "arguments": ["--batch-process", "--export-filename=/path/to/drawing.png", "/path/to/drawing.svg"],
+    "full_command": "/Applications/Inkscape.app/Contents/MacOS/inkscape --batch-process --export-filename=/path/to/drawing.png /path/to/drawing.svg"
+  },
+  "output": {
+    "stdout": "...",
+    "stderr": "..."
+  },
+  "metadata": {
+    "started_at": "2025-01-23T10:30:00+00:00",
+    "finished_at": "2025-01-23T10:30:01+00:00",
+    "duration_seconds": 1.234,
+    "formatted_duration": "1.234s"
+  }
+}
+----
+
+=== YAML Output
+
+[source,bash]
+----
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png --format yaml
+----
+
+=== Raw Output (For Piping)
+
+[source,bash]
+----
+# Get only stdout (no metadata wrapping)
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png --raw
+
+# Use in pipeline
+ukiryu exec inkscape query inputs=drawing.svg --raw | wc -l
+----
+
+// Exit Codes
+== Exit Codes
+
+The CLI returns the following exit codes:
+
+[cols="1,1,3"]
+|===
+|Exit Code |Meaning |When
+
+|0 |Success |Command executed successfully
+
+|1 |Execution Error |Tool returned non-zero exit status
+
+|2 |Tool Not Found |Tool not in register
+
+|3 |Profile Not Found |No compatible profile for platform/shell
+
+|4 |Command Not Found |Command not found for tool
+
+|5 |Timeout |Command exceeded timeout limit
+
+|Other |Internal Error |Ukiryu internal error
+|===
+
+=== Example Error Handling
+
+[source,bash]
+----
+#!/bin/bash
+
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  format=png
+
+case $? in
+  0)
+    echo "Success!"
+    ;;
+  1)
+    echo "Tool execution failed"
+    ;;
+  2)
+    echo "Tool not found"
+    ;;
+  4)
+    echo "Command not found"
+    ;;
+  *)
+    echo "Unknown error"
+    ;;
+esac
+----
+
+// Advanced Usage
+== Advanced Usage
+
+=== Verbose Output
+
+[source,bash]
+----
+# Enable debug output
+export UKIRYU_DEBUG=true
+
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png
+
+# Or use --verbose flag (if available)
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png --verbose
+----
+
+=== Custom Register
+
+[source,bash]
+----
+# Specify custom register location
+export UKIRYU_REGISTRY=/path/to/register
+
+ukiryu list
+----
+
+=== Shell Integration
+
+[source,bash]
+----
+# Use in shell scripts
+#!/bin/bash
+
+for file in *.svg; do
+  basename="${file%.svg}"
+  ukiryu exec inkscape export \
+    inputs="$file" \
+    output="${basename}.png" \
+    format=png
+
+  if [ $? -eq 0 ]; then
+    echo "Converted $file"
+  else
+    echo "Failed to convert $file" >&2
+  fi
+done
+----
+
+=== Pipeline Integration
+
+[source,bash]
+----
+# Query image dimensions
+WIDTH=$(ukiryu exec inkscape query inputs=drawing.svg width=true --raw)
+HEIGHT=$(ukiryu exec inkscape query inputs=drawing.svg height=true --raw)
+
+echo "Image size: ${WIDTH}x${HEIGHT}"
+----
+
+// Command Reference
+== Command Reference
+
+=== `ukiryu list`
+
+List all available tools:
+
+[source,bash]
+----
+ukiryu list [--verbose]
+----
+
+* `--verbose` - Show additional tool information
+
+=== `ukiryu info`
+
+Show detailed tool information:
+
+[source,bash]
+----
+ukiryu info <tool> [--all]
+----
+
+* `tool` - Tool name
+* `--all` - Show all tool implementations
+
+=== `ukiryu describe`
+
+Show command documentation:
+
+[source,bash]
+----
+ukiryu describe <tool> [command]
+----
+
+* `tool` - Tool name
+* `command` - Command name (optional)
+
+=== `ukiryu exec`
+
+Execute a tool command:
+
+[source,bash]
+----
+ukiryu exec <tool> <command> [KEY=VALUE ...] [OPTIONS]
+----
+
+* `tool` - Tool name
+* `command` - Command name
+* `KEY=VALUE` - Command parameters
+* `--format OUTPUT` - Output format (default, json, yaml)
+* `--raw` - Output only stdout (no metadata)
+* `--verbose` - Enable debug output
+* `--timeout SECONDS` - Override default timeout
+* `--register PATH` - Override register location
+* `--shell SHELL` - Shell to use for command execution (bash, zsh, fish, sh, powershell, cmd)
+* `-s SHELL` - Short form of --shell
+
+=== `ukiryu version`
+
+Show Ukiryu version:
+
+[source,bash]
+----
+ukiryu version
+----
+
+// Examples
+== Examples
+
+=== Batch Image Conversion
+
+[source,bash]
+----
+#!/bin/bash
+
+# Convert all SVG files to PNG
+for svg_file in *.svg; do
+  png_file="${svg_file%.svg}.png"
+
+  ukiryu exec inkscape export \
+    inputs="$svg_file" \
+    output="$png_file" \
+    format=png \
+    dpi=300
+
+  if [ $? -eq 0 ]; then
+    echo "✓ Converted $svg_file -> $png_file"
+  else
+    echo "✗ Failed to convert $svg_file" >&2
+  fi
+done
+----
+
+=== PDF Processing Pipeline
+
+[source,bash]
+----
+#!/bin/bash
+
+# Compress PDF and extract metadata
+INPUT="document.pdf"
+OUTPUT="document-compressed.pdf"
+
+# Compress
+ukiryu exec ghostscript convert \
+  inputs="$INPUT" \
+  device=pdfwrite \
+  output="$OUTPUT" \
+  safer=true \
+  quiet=true
+
+# Check success
+if [ $? -eq 0 ]; then
+  echo "Compression successful"
+
+  # Get page count
+  PAGES=$(ukiryu exec ghostscript convert \
+    inputs="$OUTPUT" \
+  device=nullpage \
+  quiet=true \
+    --raw | wc -l)
+
+  echo "Page count: $PAGES"
+fi
+----
+
+=== Error Handling with JSON Output
+
+[source,bash]
+----
+#!/bin/bash
+
+# Execute command and capture JSON output
+RESULT=$(ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  format=png \
+  --format json)
+
+# Parse with jq
+STATUS=$(echo "$RESULT" | jq -r '.status')
+EXIT_CODE=$(echo "$RESULT" | jq -r '.exit_code')
+
+if [ "$STATUS" = "success" ]; then
+  echo "Conversion successful!"
+else
+  echo "Conversion failed (exit code: $EXIT_CODE)"
+  echo "$RESULT" | jq -r '.output.stderr'
+fi
+----
+
+// See Also
+== See Also
+
+* link:/interfaces/ruby-api[Ruby API] - Programmatic interface
+* link:/features/configuration[Configuration Options] - All configuration methods
+* link:/guides/[Guides] - Task-specific tutorials

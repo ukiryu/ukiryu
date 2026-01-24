@@ -1,0 +1,581 @@
+---
+layout: default
+title: Custom Tool Classes
+parent: Advanced
+nav_order: 3
+---
+
+== Custom Tool Classes
+
+You can extend Ukiryu tool classes to create custom behavior specific to your application's needs.
+
+// Purpose
+== Purpose
+
+This page documents how to create custom tool classes by extending Ukiryu's generated tool classes using standard Ruby inheritance.
+
+// References
+== References
+
+* link:/interfaces/ruby-api[Ruby API Documentation]
+* link:/advanced/writing-profiles[Writing Tool Profiles]
+
+// Concepts
+== Concepts
+
+* **Tool class inheritance**: Standard Ruby subclassing of dynamically generated tool classes
+* **Domain-specific wrappers**: Custom methods that encapsulate common workflows
+* **Direct inheritance**: Subclassing the tool class for full access to all methods
+* **Wrapper pattern**: Composing the tool class for isolation and flexibility
+
+// Getting Tool Classes
+== Getting Tool Classes
+
+Ukiryu provides two ways to access tool classes:
+
+=== Traditional API (Instance-based)
+
+Returns an instance of the tool:
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, { inputs: ['input.svg'], output: 'output.png' })
+----
+
+Use this when: You need quick, one-off tool execution without customization.
+
+=== OOP API (Class-based)
+
+Returns the tool class for subclassing:
+
+[source,ruby]
+----
+inkscape_class = Ukiryu::Tools.get_class(:inkscape)
+# Or use it directly for inheritance
+class MyTool < Ukiryu::Tools.get_class(:inkscape)
+end
+----
+
+Use this when: You want to create custom tool classes with specialized behavior.
+
+// Direct Inheritance Pattern
+== Direct Inheritance Pattern
+
+Subclass the tool class directly to add custom methods while retaining full access to all tool functionality.
+
+=== Basic Example
+
+Create a specialized thumbnail generator:
+
+[source,ruby]
+----
+class ThumbnailInkscape < Ukiryu::Tools.get_class(:inkscape)
+  def generate_thumbnail(input, output, size: 150)
+    execute(:export, {
+      inputs: [input],
+      output: output,
+      width: size,
+      height: size,
+      dpi: 72
+    })
+  end
+end
+
+# Use your custom tool
+tool = ThumbnailInkscape.new
+tool.generate_thumbnail('drawing.svg', 'thumbnail.png', size: 200)
+----
+
+=== Multiple Specialized Methods
+
+Create a tool with multiple domain-specific operations:
+
+[source,ruby]
+----
+class AssetGenerator < Ukiryu::Tools.get_class(:inkscape)
+  # Generate icons for web use
+  def icon_set(input, basename)
+    execute(:export, inputs: [input], output: "#{basename}_icon.png", width: 32, height: 32)
+    execute(:export, inputs: [input], output: "#{basename}_icon@2x.png", width: 64, height: 64)
+  end
+
+  # Generate high-resolution export
+  def print_export(input, output)
+    execute(:export, {
+      inputs: [input],
+      output: output,
+      dpi: 300,
+      export_text_to_path: true
+    })
+  end
+
+  # Generate optimized web image
+  def web_image(input, output)
+    execute(:export, {
+      inputs: [input],
+      output: output,
+      dpi: 96
+    })
+  end
+end
+
+tool = AssetGenerator.new
+tool.icon_set('logo.svg', 'app')
+tool.print_export('document.svg', 'document-print.png')
+tool.web_image('banner.svg', 'banner.png')
+----
+
+=== Parameter Templates
+
+Create methods that pre-configure common parameter sets:
+
+[source,ruby]
+----
+class PdfConverter < Ukiryu::Tools.get_class(:inkscape)
+  def convert_to_pdf(input, output, options = {})
+    params = {
+      inputs: [input],
+      output: output,
+      export_text_to_path: true,
+      export_ignore_filters: false
+    }.merge(options)
+
+    execute(:export, params)
+  end
+end
+
+# Use default settings
+tool = PdfConverter.new
+tool.convert_to_pdf('drawing.svg', 'drawing.pdf')
+
+# Override specific settings
+tool.convert_to_pdf('drawing.svg', 'drawing.pdf', export_text_to_path: false)
+----
+
+// Wrapper Pattern
+== Wrapper Pattern
+
+Compose the tool class instead of inheriting, providing complete isolation from the underlying tool implementation.
+
+=== When to Use Wrapper Pattern
+
+Use the wrapper pattern when you need:
+
+* Complete isolation from tool API changes
+* Selective exposure of tool methods
+* Custom error handling
+* Integration with non-Ukiryu code
+
+=== Basic Wrapper
+
+Create a clean interface that exposes only what you need:
+
+[source,ruby]
+----
+class ThumbnailService
+  def initialize
+    @tool = Ukiryu::Tools.get_class(:inkscape).new
+  end
+
+  def create(input, output, size: 150)
+    result = @tool.execute(:export, {
+      inputs: [input],
+      output: output,
+      width: size,
+      height: size
+    })
+
+    raise "Thumbnail generation failed: #{result.stderr}" unless result.success?
+
+    result
+  end
+
+  def batch_create(inputs, output_dir, size: 150)
+    inputs.map do |input|
+      basename = File.basename(input, '.svg')
+      output = File.join(output_dir, "#{basename}_thumb.png")
+      create(input, output, size: size)
+    end
+  end
+end
+
+service = ThumbnailService.new
+service.create('drawing.svg', 'drawing_thumb.png')
+service.batch_create(Dir['*.svg'], 'thumbnails', size: 200)
+----
+
+=== Method Forwarding
+
+Use `method_missing` to forward undefined methods to the wrapped tool:
+
+[source,ruby]
+----
+class InkscapeWrapper
+  def initialize(tool_class: Ukiryu::Tools.get_class(:inkscape))
+    @tool = tool_class.new
+  end
+
+  # Custom methods
+  def quick_export(input, output)
+    @tool.execute(:export, inputs: [input], output: output, dpi: 96)
+  end
+
+  # Forward all other methods to the tool
+  def method_missing(name, *args, &block)
+    @tool.send(name, *args, &block)
+  end
+
+  def respond_to_missing?(name, include_private = false)
+    @tool.respond_to?(name, include_private) || super
+  end
+end
+
+wrapper = InkscapeWrapper.new
+wrapper.quick_export('file.svg', 'file.png')  # Custom method
+wrapper.execute(:query, inputs: ['file.svg']) # Forwarded method
+wrapper.version # Forwarded method
+----
+
+=== Multi-Tool Wrapper
+
+Wrap multiple tools in a single cohesive interface:
+
+[source,ruby]
+----
+class GraphicsPipeline
+  def initialize
+    @inkscape = Ukiryu::Tools.get_class(:inkscape).new
+    @imagemagick = Ukiryu::Tools.get_class(:imagemagick).new
+  end
+
+  def svg_to_optimized_png(input, output)
+    # Export SVG to PNG with Inkscape
+    @inkscape.execute(:export, inputs: [input], output: output, dpi: 150)
+
+    # Optimize with ImageMagick
+    @imagemagick.execute(:mogrify, inputs: [output], strip: true, quality: 85)
+  end
+
+  def batch_convert(input_dir, output_dir)
+    Dir[File.join(input_dir, '*.svg')].each do |input|
+      basename = File.basename(input, '.svg')
+      output = File.join(output_dir, "#{basename}.png")
+      svg_to_optimized_png(input, output)
+    end
+  end
+end
+
+pipeline = GraphicsPipeline.new
+pipeline.svg_to_optimized_png('drawing.svg', 'drawing.png')
+pipeline.batch_convert('assets/svg', 'assets/png')
+----
+
+// Pattern Comparison
+== Pattern Comparison
+
+=== By Use Case
+
+[cols="1,1,4"]
+|===
+|Use Case |Recommended Pattern |Rationale
+
+|Application-specific tools
+|Direct Inheritance
+|Full access to tool methods, minimal boilerplate
+
+|Library/API design
+|Wrapper Pattern
+|Isolation from API changes, controlled interface
+
+|Internal scripts
+|Direct Inheritance
+|Quick implementation, direct tool access
+
+|Complex workflows
+|Wrapper Pattern
+|Custom orchestration, multi-tool composition
+
+|Testing/mocking
+|Wrapper Pattern
+|Easy to inject mock tool implementations
+|===
+
+=== By Characteristic
+
+[cols="1,1,1"]
+|===
+|Characteristic |Direct Inheritance |Wrapper Pattern
+
+|Tool method access
+|All methods available
+|Selective exposure
+
+|Isolation from changes
+|Low (inherits API changes)
+|High (controlled interface)
+
+|Boilerplate code
+|Minimal
+|More (forwarding needed)
+
+|Customization flexibility
+|High (can override methods)
+|High (any interface design)
+
+|Testing ease
+|Moderate
+|High (easy to mock)
+
+|Learning curve
+|Low (standard inheritance)
+|Moderate (composition patterns)
+|===
+
+// Best Practices
+== Best Practices
+
+=== Naming Conventions
+
+Use descriptive names that indicate the tool's purpose:
+
+[source,ruby]
+----
+# Good - descriptive and specific
+class ThumbnailInkscape < Ukiryu::Tools.get_class(:inkscape)
+end
+
+class AssetGenerator < Ukiryu::Tools.get_class(:inkscape)
+end
+
+class PdfConverter < Ukiryu::Tools.get_class(:inkscape)
+end
+
+# Avoid - too generic
+class MyTool < Ukiryu::Tools.get_class(:inkscape)
+end
+
+class CustomInkscape < Ukiryu::Tools.get_class(:inkscape)
+end
+----
+
+=== Error Handling
+
+Add appropriate error handling for custom methods:
+
+[source,ruby]
+----
+class RobustExporter < Ukiryu::Tools.get_class(:inkscape)
+  def safe_export(input, output, options = {})
+    raise ArgumentError, "Input file not found: #{input}" unless File.exist?(input)
+
+    result = execute(:export, {
+      inputs: [input],
+      output: output
+    }.merge(options))
+
+    unless result.success?
+      raise "Export failed: #{result.stderr}"
+    end
+
+    result
+  end
+end
+----
+
+=== Documentation
+
+Document your custom methods clearly:
+
+[source,ruby]
+----
+class DocumentConverter < Ukiryu::Tools.get_class(:inkscape)
+  # Convert SVG to PDF with print-optimized settings
+  #
+  # @param input [String] Path to input SVG file
+  # @param output [String] Path to output PDF file
+  # @return [Result] Execution result
+  # @raise [RuntimeError] If conversion fails
+  #
+  # Uses 300 DPI and exports text to paths for print compatibility.
+  def to_pdf(input, output)
+    execute(:export, {
+      inputs: [input],
+      output: output,
+      dpi: 300,
+      export_text_to_path: true
+    }).tap do |result|
+      raise "PDF conversion failed" unless result.success?
+    end
+  end
+end
+----
+
+=== Configuration
+
+Use class-level configuration for defaults:
+
+[source,ruby]
+----
+class ConfigurableConverter < Ukiryu::Tools.get_class(:inkscape)
+  class << self
+    attr_accessor :default_dpi, :default_format
+
+    def configure
+      yield self
+    end
+  end
+
+  self.default_dpi = 96
+  self.default_format = :png
+
+  def convert(input, output, options = {})
+    params = {
+      inputs: [input],
+      output: output,
+      dpi: self.class.default_dpi
+    }.merge(options)
+
+    execute(:export, params)
+  end
+end
+
+# Configure globally
+ConfigurableConverter.configure do |config|
+  config.default_dpi = 300
+  config.default_format = :svg
+end
+
+tool = ConfigurableConverter.new
+tool.convert('file.svg', 'file.png') # Uses 300 DPI default
+----
+
+// Reload Behavior
+== Reload Behavior
+
+Tool classes are generated once when the application starts and remain cached for the lifetime of the process.
+
+=== Profile Updates
+
+When tool profiles are updated:
+
+* New methods/parameters are available after application restart
+* Existing custom classes continue to work with the updated profiles
+* Removed methods will cause `NoMethodError` until the custom class is updated
+
+=== Development Workflow
+
+For development, restart your application after profile changes:
+
+[source,bash]
+----
+# In development
+bundle exec rackup -s thin -O
+
+# After profile changes, restart (Ctrl+C then run again)
+----
+
+For production, deploy updated code and profiles together:
+
+[source,bash]
+----
+# Deploy updated profiles and code
+git pull
+bundle exec pumactl -P tmp/pids/puma.pid phased-restart
+----
+
+// Complete Example
+== Complete Example
+
+A complete asset pipeline using custom tool classes:
+
+[source,ruby]
+----
+# lib/asset_pipeline.rb
+
+require 'ukiryu'
+
+# SVG to PNG converter with standard web settings
+class WebAssetConverter < Ukiryu::Tools.get_class(:inkscape)
+  # Standard web-optimized PNG
+  def web_png(input, output)
+    execute(:export, {
+      inputs: [input],
+      output: output,
+      dpi: 96,
+      export_text_to_path: false
+    })
+  end
+
+  # High-DPI (Retina) version
+  def high_dpi_png(input, output, scale: 2)
+    execute(:export, {
+      inputs: [input],
+      output: output,
+      dpi: 96 * scale
+    })
+  end
+
+  # Icon set generation
+  def icon_set(input, basename, sizes: [16, 32, 64, 128, 256])
+    sizes.each do |size|
+      execute(:export, {
+        inputs: [input],
+        output: "#{basename}_#{size}x#{size}.png",
+        width: size,
+        height: size,
+        dpi: 96
+      })
+    end
+  end
+end
+
+# Asset pipeline that orchestrates conversion
+class AssetPipeline
+  def initialize(source_dir, output_dir)
+    @source_dir = source_dir
+    @output_dir = output_dir
+    @converter = WebAssetConverter.new
+  end
+
+  def process_all
+    ensure_output_dir
+
+    svg_files.each do |svg_file|
+      basename = File.basename(svg_file, '.svg')
+      process_asset(svg_file, basename)
+    end
+  end
+
+  private
+
+  def ensure_output_dir
+    FileUtils.mkdir_p(@output_dir)
+  end
+
+  def svg_files
+    Dir[File.join(@source_dir, '*.svg')]
+  end
+
+  def process_asset(input_file, basename)
+    output_file = File.join(@output_dir, "#{basename}.png")
+
+    puts "Processing #{basename}..."
+    @converter.web_png(input_file, output_file)
+    puts "  ✓ Created #{basename}.png"
+  end
+end
+
+# Usage
+if __FILE__ == $PROGRAM_NAME
+  pipeline = AssetPipeline.new('assets/svg', 'assets/png')
+  pipeline.process_all
+end
+----
+
+// See Also
+== See Also
+
+* link:/interfaces/ruby-api[Ruby API] - Tool class reference
+* link:/advanced/writing-profiles[Writing Tool Profiles] - Creating custom tool definitions
+* link:/features/configuration[Configuration Methods] - Setting up tool behavior

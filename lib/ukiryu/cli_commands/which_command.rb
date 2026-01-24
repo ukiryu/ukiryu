@@ -13,7 +13,7 @@ module Ukiryu
       #
       # @param identifier [String] the tool name, interface, or alias
       def run(identifier)
-        setup_registry
+        setup_register
 
         runtime = Runtime.instance
         platform = options[:platform] || runtime.platform
@@ -34,7 +34,7 @@ module Ukiryu
         if tool
           show_selected_tool(tool, identifier, platform, shell)
         else
-          error! "No tool found for: #{identifier}\nAvailable tools: #{Registry.tools.sort.join(', ')}"
+          error! "No tool found for: #{identifier}\nAvailable tools: #{Register.tools.sort.join(', ')}"
         end
       end
 
@@ -61,12 +61,12 @@ module Ukiryu
       # @param shell [Symbol] the shell
       # @return [Tool, nil] the tool or nil if not found
       def try_interface_discovery(identifier, platform, shell)
-        require_relative '../registry'
+        require_relative '../register'
 
         candidates = []
 
-        Registry.tools.each do |tool_name|
-          tool_metadata = Registry.load_tool_metadata(tool_name.to_sym)
+        Register.tools.each do |tool_name|
+          tool_metadata = Register.load_tool_metadata(tool_name.to_sym)
           next unless tool_metadata
 
           # Check for interface match

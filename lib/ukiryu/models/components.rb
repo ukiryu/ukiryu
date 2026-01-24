@@ -8,7 +8,7 @@ require_relative 'exit_codes'
 
 module Ukiryu
   module Models
-    # Components registry for reusable definitions
+    # Components register for reusable definitions
     #
     # Enables sharing common option/argument/flag/exit_codes definitions
     # across commands through `$ref` references.
@@ -98,8 +98,6 @@ module Ukiryu
           argument(name)
         when 'exit_codes'
           @exit_codes
-        else
-          nil
         end
       end
     end

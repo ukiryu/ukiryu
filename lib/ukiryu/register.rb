@@ -5,41 +5,43 @@ require_relative 'models/tool_metadata'
 require_relative 'models/validation_result'
 require_relative 'tool_index'
 require_relative 'schema_validator'
+require_relative 'register_auto_manager'
 
 module Ukiryu
-  # YAML profile registry loader
+  # YAML profile register loader
   #
-  # Provides access to tool definitions from YAML profiles in a registry directory.
+  # Provides access to tool definitions from YAML profiles in a register directory.
   # Supports lazy loading: metadata can be loaded without full profile parsing.
   #
   # Features:
   # - Cached version listings to avoid repeated glob operations
-  # - Automatic cache invalidation when registry path changes
-  class Registry
+  # - Automatic cache invalidation when register path changes
+  # - Automatic register cloning to ~/.ukiryu/register if not configured
+  class Register
     class << self
-      # Set the default registry path
+      # Set the default register path
       #
-      # @param path [String] the default registry path
+      # @param path [String] the default register path
 
-      # Get the default registry path
+      # Get the default register path
       #
-      # @return [String, nil] the default registry path
-      attr_accessor :default_registry_path
+      # @return [String, nil] the default register path
+      attr_accessor :default_register_path
 
       # Reset the version cache (mainly for testing)
       def reset_version_cache
         @version_cache = nil
-        @registry_cache_key = nil
+        @register_cache_key = nil
       end
 
       # Get all available tool names
       #
       # @return [Array<String>] list of tool names
       def tools
-        registry_path = @default_registry_path
-        return [] unless registry_path
+        register_path = effective_register_path
+        return [] unless register_path
 
-        tools_dir = File.join(registry_path, 'tools')
+        tools_dir = File.join(register_path, 'tools')
         return [] unless Dir.exist?(tools_dir)
 
         # List all directories in tools/
@@ -53,20 +55,20 @@ module Ukiryu
       # Get available versions for a tool (cached)
       #
       # @param name [String, Symbol] the tool name
-      # @param registry_path [String, nil] the registry path
+      # @param register_path [String, nil] the register path
       # @return [Hash] mapping of version filename to Gem::Version
-      def list_versions(name, registry_path: nil)
-        registry_path ||= @default_registry_path
-        return {} unless registry_path
+      def list_versions(name, register_path: nil)
+        register_path ||= effective_register_path
+        return {} unless register_path
 
         # Initialize cache
         @version_cache ||= {}
-        @registry_cache_key ||= registry_path
+        @register_cache_key ||= register_path
 
-        # Clear cache if registry path changed
-        if @registry_cache_key != registry_path
+        # Clear cache if register path changed
+        if @register_cache_key != register_path
           @version_cache.clear
-          @registry_cache_key = registry_path
+          @register_cache_key = register_path
         end
 
         # Check cache
@@ -74,7 +76,7 @@ module Ukiryu
         return @version_cache[cache_key].dup if @version_cache[cache_key]
 
         # Build version list
-        versions = scan_tool_versions(name, registry_path)
+        versions = scan_tool_versions(name, register_path)
         @version_cache[cache_key] = versions
 
         versions.dup
@@ -88,16 +90,16 @@ module Ukiryu
       # @param name [String, Symbol] the tool name or interface name
       # @param options [Hash] loading options
       # @option options [String] :version specific version to load
-      # @option options [String] :registry_path path to registry
+      # @option options [String] :register_path path to register
       # @return [ToolMetadata, nil] the tool metadata or nil if not found
       def load_tool_metadata(name, options = {})
-        registry_path = options[:registry_path] || @default_registry_path
+        register_path = options[:register_path] || effective_register_path
 
         # First try exact name match
-        yaml_content = load_tool_yaml(name, options.merge(registry_path: registry_path))
+        yaml_content = load_tool_yaml(name, options.merge(register_path: register_path))
         if yaml_content
           hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol])
-          return ToolMetadata.from_hash(hash, tool_name: name.to_s, registry_path: registry_path) if hash
+          return ToolMetadata.from_hash(hash, tool_name: name.to_s, register_path: register_path) if hash
         end
 
         # If not found, try interface-based discovery using ToolIndex
@@ -110,12 +112,12 @@ module Ukiryu
       # @param name [String, Symbol] the tool name
       # @param options [Hash] loading options
       # @option options [String] :version specific version to load
-      # @option options [String] :registry_path path to registry
+      # @option options [String] :register_path path to register
       # @return [String, nil] the YAML content or nil if not found
       def load_tool_yaml(name, options = {})
-        registry_path = options[:registry_path] || @default_registry_path
+        register_path = options[:register_path] || effective_register_path
 
-        return nil unless registry_path
+        return nil unless register_path
 
         # Convert to string for path operations
         name_str = name.to_s
@@ -123,16 +125,16 @@ module Ukiryu
         # Try version-specific directory first
         version = options[:version]
         if version
-          file = File.join(registry_path, 'tools', name_str, "#{version}.yaml")
+          file = File.join(register_path, 'tools', name_str, "#{version}.yaml")
           return File.read(file) if File.exist?(file)
         end
 
         # Use cached version list if available
-        versions = list_versions(name_str, registry_path: registry_path)
+        versions = list_versions(name_str, register_path: register_path)
 
         if versions.empty?
           # Try the old format (single file per tool)
-          file = File.join(registry_path, 'tools', "#{name_str}.yaml")
+          file = File.join(register_path, 'tools', "#{name_str}.yaml")
           return File.read(file) if File.exist?(file)
 
           return nil
@@ -153,7 +155,7 @@ module Ukiryu
       # @param name [String, Symbol] the tool name
       # @param options [Hash] validation options
       # @option options [String] :version specific version to validate
-      # @option options [String] :registry_path path to registry
+      # @option options [String] :register_path path to register
       # @option options [String] :schema_path path to schema file
       # @return [ValidationResult] the validation result
       def validate_tool(name, options = {})
@@ -171,10 +173,10 @@ module Ukiryu
         end
       end
 
-      # Validate all tool profiles in the registry
+      # Validate all tool profiles in the register
       #
       # @param options [Hash] validation options
-      # @option options [String] :registry_path path to registry
+      # @option options [String] :register_path path to register
       # @option options [String] :schema_path path to schema file
       # @return [Array<ValidationResult>] list of validation results
       def validate_all_tools(options = {})
@@ -185,13 +187,27 @@ module Ukiryu
 
       private
 
+      # Get the effective register path
+      #
+      # Returns the manually set path if available, otherwise uses
+      # RegisterAutoManager to get or create the default path.
+      #
+      # @return [String, nil] the register path, or nil if unavailable
+      def effective_register_path
+        # If manually set, use that
+        return @default_register_path if @default_register_path
+
+        # Otherwise, use RegisterAutoManager (auto-clone if needed)
+        RegisterAutoManager.register_path
+      end
+
       # Scan tool versions and sort by Gem::Version
       #
       # @param name [String] the tool name
-      # @param registry_path [String] the registry path
+      # @param register_path [String] the register path
       # @return [Hash] mapping of version filename to Gem::Version
-      def scan_tool_versions(name, registry_path)
-        pattern = File.join(registry_path, 'tools', name.to_s, '*.yaml')
+      def scan_tool_versions(name, register_path)
+        pattern = File.join(register_path, 'tools', name.to_s, '*.yaml')
         files = Dir.glob(pattern)
 
         # Sort files by Gem::Version for proper version ordering

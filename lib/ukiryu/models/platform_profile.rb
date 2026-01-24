@@ -2,6 +2,7 @@
 
 require 'lutaml/model'
 require_relative 'command_definition'
+require_relative 'env_var_definition'
 require_relative 'routing'
 require_relative 'exit_codes'
 
@@ -23,9 +24,10 @@ module Ukiryu
       attribute :option_style, :string, default: 'single_dash_space'
       attribute :commands, CommandDefinition, collection: true, initialize_empty: true
       attribute :inherits, :string
-      attribute :routing_data, :hash, default: {}  # Raw routing from YAML
-      attribute :version_requirement, :string  # Semantic version requirement (e.g., ">= 2.30")
-      attribute :exit_codes, ExitCodes  # Exit code definitions for this profile
+      attribute :routing_data, :hash, default: {} # Raw routing from YAML
+      attribute :version_requirement, :string # Semantic version requirement (e.g., ">= 2.30")
+      attribute :exit_codes, ExitCodes # Exit code definitions for this profile
+      attribute :env_var_sets, :hash, default: {} # Reusable env var sets (e.g., "headless")
 
       yaml do
         map_element 'name', to: :name
@@ -38,6 +40,7 @@ module Ukiryu
         map_element 'routing', to: :routing_data
         map_element 'version_requirement', to: :version_requirement
         map_element 'exit_codes', to: :exit_codes
+        map_element 'env_var_sets', to: :env_var_sets
       end
 
       # Get the routing table as a Routing model

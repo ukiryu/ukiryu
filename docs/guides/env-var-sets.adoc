@@ -1,0 +1,388 @@
+---
+layout: default
+title: Environment Variable Sets
+parent: Guides
+nav_order: 1
+---
+
+== Environment Variable Sets
+
+The `env_var_sets` feature allows you to define reusable named sets of environment variables at the profile level and apply them to commands via `use_env_vars`. This is useful for:
+
+* **Headless mode**: Running GUI tools without displaying windows
+* **Debug mode**: Enabling verbose logging
+* **Safe mode**: Setting security policies
+* **Performance tuning**: Memory limits, cache settings
+* **Custom configurations**: Any tool-specific environment variables
+
+== Purpose
+
+This guide explains how to define and use `env_var_sets` to manage environment variables declaratively in your tool profiles, eliminating the need for manual environment variable manipulation in application code.
+
+== Defining Env Var Sets
+
+Env var sets are defined at the profile level using the `env_var_sets` field:
+
+[source,yaml]
+----
+profiles:
+  - name: modern_unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish]
+
+    env_var_sets:
+      headless:
+        - name: DISPLAY
+          value: ''
+          platforms: [macos, linux]
+          description: Disable display for headless operation
+
+      debug:
+        - name: DEBUG
+          value: '1'
+        - name: VERBOSE
+          value: '1'
+        - name: TOOL_LOG_LEVEL
+          value: 'trace'
+
+      low_memory:
+        - name: MALLOC_ARENA_MAX
+          value: '2'
+        - name: MAGICK_MEMORY_LIMIT
+          value: '256MB'
+          platforms: [linux]
+
+    commands:
+      - name: export
+        use_env_vars: [headless]
+
+      - name: debug_export
+        use_env_vars: [headless, debug]
+----
+
+=== Env Var Definition Fields
+
+Each environment variable in a set supports:
+
+[cols="1,1,3"]
+|===
+|Field |Type |Description
+
+|`name` |string (required) |Environment variable name
+
+|`value` |string (required) |Value to set
+
+|`platforms` |array |Limit to specific platforms: `[macos, linux, windows]`
+
+|`description` |string |Documentation for the env var
+|===
+
+== Using Env Var Sets
+
+Commands opt-in to env var sets via the `use_env_vars` field:
+
+[source,yaml]
+----
+commands:
+  - name: export
+    use_env_vars: [headless]  # Just headless
+
+  - name: debug_export
+    use_env_vars: [headless, debug]  # Both headless and debug
+
+  - name: safe_convert
+    use_env_vars: [headless, low_memory]  # Combine different sets
+----
+
+When a command executes, Ukiryu:
+
+1. Resolves each named env var set from the profile
+2. Filters env vars by current platform
+3. Applies env vars to the command execution
+4. Allows command-level `env_vars` to override set values
+
+=== Command-Level Env Vars
+
+Commands can also define their own environment variables, which are applied after env var sets and can override values from sets:
+
+[source,yaml]
+----
+commands:
+  - name: export
+    use_env_vars: [headless]
+    env_vars:
+      - name: MY_TOOL_TIMEOUT
+        value: '30'
+        description: Timeout in seconds
+      - name: DISPLAY
+        value: ':1'  # Overrides the headless set's DISPLAY=''
+----
+
+=== Platform-Specific Env Vars
+
+Environment variables can be limited to specific platforms:
+
+[source,yaml]
+----
+env_var_sets:
+  headless:
+    - name: DISPLAY
+      value: ''
+      platforms: [macos, linux]  # Only Unix systems
+    - name: MY_APP_WIN_STYLE
+      value: '1'
+      platforms: [windows]       # Only Windows
+----
+
+== Example 1: Headless Mode
+
+Headless mode allows GUI applications to run without displaying windows. This is essential for:
+
+* **Server environments**: CI/CD pipelines, Docker containers
+* **Batch processing**: Automated conversion jobs
+* **Background tasks**: Scheduled jobs, cron jobs
+
+=== Profile Definition
+
+[source,yaml]
+----
+# register/tools/inkscape/1.0.yaml
+profiles:
+  - name: modern_unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish]
+    env_var_sets:
+      headless:
+        - name: DISPLAY
+          value: ''
+          platforms: [macos, linux]
+          description: Disable display for headless operation
+    commands:
+      - name: export
+        use_env_vars: [headless]
+      - name: query
+        use_env_vars: [headless]
+----
+
+=== Usage
+
+[source,ruby]
+----
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:inkscape)
+
+# Runs in headless mode automatically!
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png
+})
+----
+
+== Example 2: Debug Mode
+
+Debug mode enables verbose logging for troubleshooting:
+
+=== Profile Definition
+
+[source,yaml]
+----
+env_var_sets:
+  debug:
+    - name: DEBUG
+      value: '1'
+    - name: VERBOSE
+      value: '1'
+    - name: TOOL_LOG_LEVEL
+      value: 'trace'
+
+commands:
+  - name: export
+    use_env_vars: [headless]
+
+  - name: export_debug
+    use_env_vars: [headless, debug]
+----
+
+=== Usage
+
+[source,ruby]
+----
+# Normal execution
+tool.execute(:export, params)
+
+# Debug execution with verbose logging
+tool.execute(:export_debug, params)
+----
+
+== Example 3: Safe Mode
+
+Safe mode applies security policies for untrusted input:
+
+=== Profile Definition
+
+[source,yaml]
+----
+env_var_sets:
+  safe:
+    - name: SANDBOX_MODE
+      value: '1'
+    - name: SECURITY_POLICY
+      value: 'strict'
+    - name: DISABLE_PLUGINS
+      value: '1'
+
+commands:
+  - name: convert_untrusted
+    use_env_vars: [headless, safe]
+----
+
+=== Usage
+
+[source,ruby]
+----
+# Convert untrusted input with security policies
+tool.execute(:convert_untrusted, {
+  inputs: ['untrusted.svg'],
+  output: 'safe.pdf'
+})
+----
+
+== Example 4: Memory Limits
+
+Limit memory usage for resource-constrained environments:
+
+=== Profile Definition
+
+[source,yaml]
+----
+env_var_sets:
+  low_memory:
+    - name: MALLOC_ARENA_MAX
+      value: '2'
+      platforms: [linux]
+    - name: MAGICK_MEMORY_LIMIT
+      value: '256MB'
+      platforms: [linux]
+    - name: OMP_THREAD_LIMIT
+      value: '2'
+
+commands:
+  - name: batch_convert
+    use_env_vars: [headless, low_memory]
+----
+
+=== Usage
+
+[source,ruby]
+----
+# Process many files with limited memory
+files.each do |input|
+  tool.execute(:batch_convert, {
+    inputs: [input],
+    output: input.sub('.png', '.jpg')
+  })
+end
+----
+
+== Verifying Env Var Sets
+
+=== Check Which Commands Use Env Var Sets
+
+[source,bash]
+----
+# See which commands use env var sets
+ukiryu describe inkscape
+----
+
+Output shows env var sets:
+
+[source]
+----
+Commands (2):
+  export               Export document to different format
+    Env Var Sets: headless
+  query                Query document dimensions
+    Env Var Sets: headless
+----
+
+=== Check Active Env Vars
+
+[source,ruby]
+----
+# Enable debug mode to see env vars
+ENV['UKIRYU_DEBUG'] = '1'
+
+result = tool.execute(:export, params)
+
+# Check execution info
+puts "Env vars: #{result.command_info.env_vars}"
+#=> { "DISPLAY" => "" }
+----
+
+== Best Practices
+
+=== For Server Environments
+
+* **Always use headless mode** for GUI tools on servers
+* **Set appropriate timeouts** for batch operations
+* **Monitor command duration** for performance issues
+* **Log stderr** for debugging
+
+[source,ruby]
+----
+# Server-ready configuration
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, params, timeout: 120)
+
+if result.failure?
+  logger.error("Conversion failed", {
+    command: result.command_info.full_command,
+    stderr: result.stderr,
+    duration: result.metadata.duration_seconds
+  })
+end
+----
+
+=== For CI/CD Pipelines
+
+* **Use fixed timeouts** for predictable behavior
+* **Capture all output** for debugging
+* **Fail fast** on errors
+
+[source,yaml]
+----
+# GitHub Actions example
+- name: Convert images
+  env:
+    UKIRYU_TIMEOUT: 60
+  run: |
+    ukiryu exec inkscape export \
+      inputs=drawing.svg \
+      output=drawing.png \
+      format=png
+----
+
+=== For Docker
+
+* **Remove DISPLAY** from environment (or leave empty)
+* **Use official tool images** when available
+* **Multi-stage builds** to reduce image size
+
+[source,dockerfile]
+----
+# Remove GUI dependencies
+ENV DISPLAY=
+
+# Use only CLI tools
+RUN apt-get install -y \
+    inkscape-cli \
+    --no-install-recommends
+----
+
+== See Also
+
+* link:../features/configuration.adoc[Configuration Options] - Complete configuration documentation
+* link:../guides/writing-profiles.adoc[Writing Tool Profiles] - How to create profiles
+* link:../reference/tool-profile-schema.adoc[Schema Reference] - Complete schema documentation

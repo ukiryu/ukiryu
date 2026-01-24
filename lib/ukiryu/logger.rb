@@ -172,7 +172,9 @@ module Ukiryu
       if @paint_available
         paint = Paint.method(:[])
         @output.puts ''
-        @output.puts "#{paint['  ✓', :green]} #{paint[selected_tool, :cyan, :bright]}#{paint[' implements: ', :white]}#{paint[identifier, :yellow]}"
+        @output.puts "#{paint['  ✓',
+                              :green]} #{paint[selected_tool, :cyan,
+                                               :bright]}#{paint[' implements: ', :white]}#{paint[identifier, :yellow]}"
       else
         @output.puts ''
         @output.puts "  ✓ #{selected_tool} implements: #{identifier}"

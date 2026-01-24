@@ -15,9 +15,9 @@ RSpec.describe Ukiryu::Tool do
     context 'with string stdin data' do
       it 'passes stdin data to the command' do
         result = tool.execute(:process, {
-          stdin: '{"name": "value"}',
-          filter: '.'
-        })
+                                stdin: '{"name": "value"}',
+                                filter: '.'
+                              })
 
         expect(result.stdout).to include('"name"')
         expect(result.stdout).to include('"value"')
@@ -26,9 +26,9 @@ RSpec.describe Ukiryu::Tool do
 
       it 'extracts and filters JSON from stdin' do
         result = tool.execute(:process, {
-          stdin: '{"foo": "bar", "baz": "qux"}',
-          filter: '.foo'
-        })
+                                stdin: '{"foo": "bar", "baz": "qux"}',
+                                filter: '.foo'
+                              })
 
         expect(result.stdout.strip).to eq('"bar"')
       end
@@ -41,9 +41,9 @@ RSpec.describe Ukiryu::Tool do
           file.rewind
 
           result = tool.execute(:process, {
-            stdin: file.read,
-            filter: '.test'
-          })
+                                  stdin: file.read,
+                                  filter: '.test'
+                                })
 
           expect(result.stdout.strip).to eq('"data"')
         end
@@ -60,9 +60,9 @@ RSpec.describe Ukiryu::Tool do
         end
 
         result = tool.execute(:process, {
-          stdin: reader,
-          filter: '.io'
-        })
+                                stdin: reader,
+                                filter: '.io'
+                              })
 
         thread.join
         reader.close
@@ -75,9 +75,9 @@ RSpec.describe Ukiryu::Tool do
       it 'does not pass stdin as a command argument' do
         # stdin should be extracted before building args
         result = tool.execute(:process, {
-          stdin: '{"test": "value"}',
-          filter: '.'
-        })
+                                stdin: '{"test": "value"}',
+                                filter: '.'
+                              })
 
         # If stdin was passed as an argument, jq would try to read it as a file
         # and would fail or produce different output

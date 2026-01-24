@@ -53,8 +53,8 @@ RSpec.describe Ukiryu::Models::Routing do
       routing = described_class.new({ 'remote' => 'git-remote' })
       child = routing.child('remote')
       child.merge!({ 'add' => 'action', 'remove' => 'action' })
-      expect(routing.resolve_path(['remote', 'add'])).to eq(['git-remote', 'action'])
-      expect(routing.resolve_path(['remote', 'remove'])).to eq(['git-remote', 'action'])
+      expect(routing.resolve_path(%w[remote add])).to eq(%w[git-remote action])
+      expect(routing.resolve_path(%w[remote remove])).to eq(%w[git-remote action])
     end
 
     it 'returns empty array for empty path' do
@@ -64,7 +64,7 @@ RSpec.describe Ukiryu::Models::Routing do
 
     it 'returns empty array for unknown first-level command' do
       routing = described_class.new({ 'remote' => 'git-remote' })
-      expect(routing.resolve_path(['unknown', 'add'])).to eq([])
+      expect(routing.resolve_path(%w[unknown add])).to eq([])
     end
   end
 
@@ -221,7 +221,7 @@ RSpec.describe Ukiryu::Models::Routing do
       level2 = level1.child('remote')
       level2.merge!({ 'add' => 'action' })
 
-      expect(root.resolve_path(['git', 'remote', 'add'])).to eq(['git', 'git-remote', 'action'])
+      expect(root.resolve_path(%w[git remote add])).to eq(%w[git git-remote action])
     end
 
     it 'supports branching hierarchies' do
@@ -235,8 +235,8 @@ RSpec.describe Ukiryu::Models::Routing do
       branch_child = level1.child('branch')
       branch_child.merge!({ 'list' => 'list-action', 'delete' => 'delete-action' })
 
-      expect(root.resolve_path(['git', 'remote', 'add'])).to eq(['git', 'git-remote', 'add-action'])
-      expect(root.resolve_path(['git', 'branch', 'delete'])).to eq(['git', 'git-branch', 'delete-action'])
+      expect(root.resolve_path(%w[git remote add])).to eq(%w[git git-remote add-action])
+      expect(root.resolve_path(%w[git branch delete])).to eq(%w[git git-branch delete-action])
     end
   end
 end

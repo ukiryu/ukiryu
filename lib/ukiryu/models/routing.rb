@@ -191,7 +191,7 @@ module Ukiryu
       # @return [String] routing table as formatted string
       #
       def to_s
-        return "(empty)" if @table.empty?
+        return '(empty)' if @table.empty?
 
         @table.map { |k, v| "#{k} => #{v}" }.join(', ')
       end

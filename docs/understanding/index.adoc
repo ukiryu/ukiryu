@@ -1,0 +1,20 @@
+---
+layout: default
+title: Understanding
+nav_order: 5
+has_children: true
+---
+
+= Understanding
+
+Deep dive into Ukiryu's architecture, design decisions, and internal mechanisms.
+
+// Overview
+== Overview
+
+This section covers the technical internals of Ukiryu:
+
+* link:/understanding/architecture[Architecture] - System design and components
+* link:/understanding/register[Register] - Profile loading and caching
+* link:/understanding/shell-layer[Shell Layer] - Platform and shell adaptation
+* link:/understanding/command-builder[Command Builder] - Argument construction

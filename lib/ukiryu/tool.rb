@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'registry'
+require_relative 'register'
 require_relative 'executor'
 require_relative 'shell'
 require_relative 'runtime'
@@ -48,7 +48,7 @@ module Ukiryu
       #
       # @param name [String] the tool name
       # @param options [Hash] initialization options
-      # @option options [String] :registry_path path to tool profiles
+      # @option options [String] :register_path path to tool profiles
       # @option options [Symbol] :platform platform to use
       # @option options [Symbol] :shell shell to use
       # @option options [String] :version specific version to use
@@ -59,7 +59,7 @@ module Ukiryu
         cached = tools_cache[cache_key]
         return cached if cached
 
-        # Load profile from registry
+        # Load profile from register
         profile = load_profile(name, options)
         raise ToolNotFoundError, "Tool not found: #{name}" unless profile
 
@@ -95,8 +95,8 @@ module Ukiryu
         begin
           tool = get(identifier, options)
           if logger.debug_enabled?
-            require_relative 'registry'
-            all_tools = Registry.tools
+            require_relative 'register'
+            all_tools = Register.tools
             logger.debug_section_tool_resolution(
               identifier: identifier,
               platform: platform,
@@ -134,8 +134,8 @@ module Ukiryu
         end
 
         # 4. Fallback to exhaustive search (should rarely reach here)
-        require_relative 'registry'
-        all_tools = Registry.tools
+        require_relative 'register'
+        all_tools = Register.tools
 
         all_tools.each do |tool_name|
           tool_def = Tools::Generator.load_tool_definition(tool_name)
@@ -215,6 +215,32 @@ module Ukiryu
         Tools::Generator.clear_cache
       end
 
+      # Clear the definition cache only
+      #
+      # @api public
+      def clear_definition_cache
+        require_relative 'definition/loader'
+        Definition::Loader.clear_cache
+      end
+
+      # Alias for load - load from file path
+      #
+      # @param file_path [String] path to the YAML file
+      # @param options [Hash] initialization options
+      # @return [Tool] the tool instance
+      def from_file(file_path, options = {})
+        load(file_path, options)
+      end
+
+      # Alias for load_from_string - load from YAML string
+      #
+      # @param yaml_string [String] YAML content
+      # @param options [Hash] initialization options
+      # @return [Tool] the tool instance
+      def from_definition(yaml_string, options = {})
+        load_from_string(yaml_string, options)
+      end
+
       # Configure default options
       #
       # @param options [Hash] default options
@@ -230,15 +256,14 @@ module Ukiryu
       # @option options [Symbol] :validation validation mode (:strict, :lenient, :none)
       # @option options [Symbol] :version_check version check mode (:strict, :lenient, :probe)
       # @return [Tool] the tool instance
-      # @raise [LoadError] if file cannot be loaded or validation fails
+      # @raise [DefinitionLoadError] if file cannot be loaded or validation fails
       def load(file_path, options = {})
-        require 'yaml'
-        require_relative 'models/tool_definition'
+        require_relative 'definition/loader'
+        require_relative 'definition/sources/file'
 
-        raise LoadError, "File not found: #{file_path}" unless File.exist?(file_path)
-
-        content = File.read(file_path)
-        load_from_string(content, options.merge(file_path: file_path))
+        source = Definition::Sources::FileSource.new(file_path)
+        profile = Definition::Loader.load_from_source(source, options)
+        new(profile, options.merge(definition_source: source))
       end
 
       # Load a tool definition from a YAML string
@@ -249,25 +274,14 @@ module Ukiryu
       # @option options [Symbol] :validation validation mode (:strict, :lenient, :none)
       # @option options [Symbol] :version_check version check mode (:strict, :lenient, :probe)
       # @return [Tool] the tool instance
-      # @raise [LoadError] if YAML cannot be parsed or validation fails
+      # @raise [DefinitionLoadError] if YAML cannot be parsed or validation fails
       def load_from_string(yaml_string, options = {})
-        require_relative 'models/tool_definition'
+        require_relative 'definition/loader'
+        require_relative 'definition/sources/string'
 
-        begin
-          # Use lutaml-model's from_yaml to parse
-          profile = Models::ToolDefinition.from_yaml(yaml_string)
-        rescue Psych::SyntaxError => e
-          raise LoadError, "Invalid YAML: #{e.message}"
-        rescue StandardError => e
-          raise LoadError, "Invalid YAML: #{e.message}"
-        end
-
-        # Validate profile if validation mode is set
-        validation_mode = options[:validation] || :strict
-        validate_profile(profile, validation_mode) if validation_mode != :none
-
-        # Create tool instance
-        new(profile, options)
+        source = Definition::Sources::StringSource.new(yaml_string)
+        profile = Definition::Loader.load_from_source(source, options)
+        new(profile, options.merge(definition_source: source))
       end
 
       # Load a tool from bundled system locations
@@ -286,12 +300,10 @@ module Ukiryu
 
         search_paths.each do |base_path|
           Dir.glob(File.join(base_path, tool_name.to_s, '*.yaml')).each do |file|
-            begin
-              return load(file, options)
-            rescue LoadError, NameError
-              # Try next file
-              next
-            end
+            return load(file, options)
+          rescue DefinitionLoadError, DefinitionNotFoundError
+            # Try next file
+            next
           end
         end
 
@@ -367,47 +379,6 @@ module Ukiryu
 
       private
 
-      # Validate a tool profile
-      #
-      # @param profile [Models::ToolDefinition] the profile to validate
-      # @param mode [Symbol] validation mode (:strict, :lenient)
-      # @raise [LoadError] if validation fails in strict mode
-      def validate_profile(profile, mode)
-        errors = []
-
-        # Check required fields
-        errors << "Missing 'name' field" unless profile.name
-        errors << "Missing 'version' field" unless profile.version
-        errors << "Missing 'profiles' field or profiles is empty" unless profile.profiles&.any?
-
-        # Check ukiryu_schema format if present
-        if profile.ukiryu_schema && !profile.ukiryu_schema.match?(/^\d+\.\d+$/)
-          errors << "Invalid ukiryu_schema format: #{profile.ukiryu_schema}"
-        end
-
-        # Check $self URI format if present
-        if profile.self_uri && !valid_uri?(profile.self_uri)
-          errors << "Invalid $self URI format: #{profile.self_uri}" if mode == :strict
-        end
-
-        if errors.any?
-          message = "Profile validation failed:\n  - #{errors.join("\n  - ")}"
-          if mode == :strict
-            raise LoadError, message
-          else
-            warn "[Ukiryu] #{message}" if mode == :lenient
-          end
-        end
-      end
-
-      # Check if a string is a valid URI
-      #
-      # @param uri_string [String] the URI to check
-      # @return [Boolean] true if valid URI
-      def valid_uri?(uri_string)
-        (uri_string =~ %r{^https?://} || uri_string =~ %r{^file://}) ? true : false
-      end
-
       # Generate a cache key for a tool
       def cache_key_for(name, options)
         runtime = Runtime.instance
@@ -434,9 +405,11 @@ module Ukiryu
     #
     # @param profile [Models::ToolDefinition] the tool definition model
     # @param options [Hash] initialization options
+    # @option options [Definition::Source] :definition_source the source of this definition
     def initialize(profile, options = {})
       @profile = profile
       @options = options
+      @definition_source = options[:definition_source]
       runtime = Runtime.instance
 
       # Allow override via options for testing
@@ -469,6 +442,25 @@ module Ukiryu
     # @return [String, nil] the tool version
     def version
       @version || detect_version
+    end
+
+    # Get the definition source if loaded from non-register source
+    #
+    # @return [Definition::Source, nil] the definition source
+    attr_reader :definition_source
+
+    # Get the definition path if loaded from file
+    #
+    # @return [String, nil] the file path
+    def definition_path
+      @definition_source&.path if @definition_source.respond_to?(:path)
+    end
+
+    # Get the definition mtime if loaded from file
+    #
+    # @return [Time, nil] the file modification time
+    def definition_mtime
+      @definition_source&.mtime if @definition_source.respond_to?(:mtime)
     end
 
     # Get the executable path
@@ -528,7 +520,7 @@ module Ukiryu
       Executor.execute(
         @executable,
         args,
-        env: build_env_vars(command, params),
+        env: build_env_vars(command, @command_profile, params),
         timeout: @profile.timeout || 90,
         shell: @shell,
         stdin: stdin,
@@ -658,7 +650,7 @@ module Ukiryu
       Executor.execute(
         resolution[:executable],
         args,
-        env: build_env_vars(action, params),
+        env: build_env_vars(action, @command_profile, params),
         timeout: @profile.timeout || 90,
         shell: @shell,
         stdin: stdin,
@@ -726,15 +718,37 @@ module Ukiryu
     end
 
     # Detect tool version using VersionDetector
+    #
+    # @return [String, nil] the detected version or nil if not detected
+    public
+
     def detect_version
       vd = @profile.version_detection
       return nil unless vd
 
+      # Only attempt version detection if command is configured
+      return nil if vd.command.nil? || vd.command.empty?
+
+      # For man page detection, the executable is 'man' and command is the tool name
+      # For command detection, the executable is the tool itself
+      source = vd.respond_to?(:source) ? vd.source : 'command'
+      if source == 'man'
+        # command is ['man', 'tool_name'], so:
+        # - executable = 'man'
+        # - command = ['tool_name']  (just the tool name for man)
+        executable = 'man'
+        command_args = vd.command[1..] # Skip 'man', use rest of array
+      else
+        executable = @executable
+        command_args = vd.command
+      end
+
       VersionDetector.detect(
-        executable: @executable,
-        command: vd.command || '--version',
+        executable: executable,
+        command: command_args,
         pattern: vd.pattern || /(\d+\.\d+)/,
-        shell: @shell
+        shell: @shell,
+        source: source
       )
     end
 
@@ -749,20 +763,20 @@ module Ukiryu
       requirement = profile_version_requirement
 
       # If no requirement, always compatible
-      return VersionCompatibility.new(
-        installed_version: installed || 'unknown',
-        required_version: 'none',
-        compatible: true,
-        reason: nil
-      ) if !requirement || requirement.empty?
-
-      # If installed version unknown, probe for it
-      if !installed && mode == :probe
-        installed = detect_version
+      if !requirement || requirement.empty?
+        return VersionCompatibility.new(
+          installed_version: installed || 'unknown',
+          required_version: 'none',
+          compatible: true,
+          reason: nil
+        )
       end
 
+      # If installed version unknown, probe for it
+      installed = detect_version if !installed && mode == :probe
+
       # If still unknown, handle based on mode
-      if !installed
+      unless installed
         if mode == :strict
           return VersionCompatibility.new(
             installed_version: 'unknown',
@@ -817,8 +831,6 @@ module Ukiryu
       # If the flag is valid, --help should show info about it
       result.success? && !result.stderr.include?('unknown')
     end
-
-    private
 
     # Get version requirement from compatible profile
     #

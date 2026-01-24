@@ -5,7 +5,7 @@ require 'spec_helper'
 RSpec.describe Ukiryu::ExecutionContext do
   let(:platform) { :macos }
   let(:shell) { :bash }
-  let(:registry_path) { '/test/registry' }
+  let(:register_path) { '/test/register' }
 
   describe '.current' do
     it 'creates a context from Runtime when none is set' do
@@ -98,7 +98,7 @@ RSpec.describe Ukiryu::ExecutionContext do
       context = described_class.new(
         platform: platform,
         shell: shell,
-        registry_path: registry_path,
+        register_path: register_path,
         timeout: 60,
         debug: true,
         metrics: true
@@ -106,7 +106,7 @@ RSpec.describe Ukiryu::ExecutionContext do
 
       expect(context.platform).to eq(:macos)
       expect(context.shell).to eq(:bash)
-      expect(context.registry_path).to eq('/test/registry')
+      expect(context.register_path).to eq('/test/register')
       expect(context.timeout).to eq(60)
       expect(context.debug).to be true
       expect(context.metrics).to be true
@@ -117,7 +117,7 @@ RSpec.describe Ukiryu::ExecutionContext do
 
       expect(context.platform).to be_nil
       expect(context.shell).to be_nil
-      expect(context.registry_path).to be_nil
+      expect(context.register_path).to be_nil
       expect(context.timeout).to be_nil
       expect(context.debug).to be false
       expect(context.metrics).to be false
@@ -269,14 +269,14 @@ RSpec.describe Ukiryu::ExecutionContext do
       context = described_class.new(
         platform: :macos,
         shell: :bash,
-        registry_path: '/test/registry'
+        register_path: '/test/register'
       )
 
       str = context.to_s
 
       expect(str).to include('macos')
       expect(str).to include('bash')
-      expect(str).to include('/test/registry')
+      expect(str).to include('/test/register')
     end
   end
 

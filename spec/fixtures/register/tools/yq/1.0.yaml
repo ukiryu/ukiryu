@@ -1,0 +1,36 @@
+# Minimal yq tool profile for testing
+ukiryu_schema: '1.0'
+name: yq
+display_name: yq (YAML Query)
+homepage: https://github.com/mikefarah/yq
+version: '1.0'
+version_detection:
+  command: --version
+  pattern: 'version v([\d.]+)'
+search_paths:
+  macos:
+  - /opt/homebrew/bin/yq
+  linux:
+  - /usr/bin/yq
+timeout: 30
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  commands:
+  - name: eval
+    description: Evaluate YAML expression
+    arguments:
+    - name: expression
+      type: string
+      position: first
+      required: true
+    - name: inputs
+      type: file
+      variadic: true

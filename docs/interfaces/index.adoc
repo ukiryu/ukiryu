@@ -1,0 +1,153 @@
+---
+layout: default
+title: Interfaces
+nav_order: 3
+has_children: true
+---
+
+= Interfaces
+
+Ukiryu provides multiple ways to interact with tools, each suited for different use cases.
+
+// Overview
+== Overview
+
+Ukiryu supports three primary interfaces:
+
+* link:/interfaces/ruby-api[Ruby API] - Programmatic interface for Ruby applications
+* link:/interfaces/cli[Command Line Interface] - Interactive shell usage
+* link:/interfaces/configuration[Configuration] - Environment variables and settings
+
+Each interface supports the same core functionality with appropriate trade-offs:
+
+[cols="1,1,2"]
+|===
+|Interface |Best For |Key Features
+
+|Ruby API |Applications, libraries |Type-safe parameters, structured results, error handling
+
+|CLI |Scripts, automation |Simple syntax, shell integration, human-readable output
+
+|ENV Variables |CI/CD, deployment |Global configuration, override settings
+|===
+
+// Configuration Across Interfaces
+== Configuration Across Interfaces
+
+All interfaces support the same configuration options with consistent precedence:
+
+[NOTE]
+.Configuration Precedence (Highest to Lowest)
+1. Environment variables (`UKIRYU_*`)
+2. Command-line parameters (`key=value`)
+3. Ruby API parameters (`{key: value}`)
+4. Profile defaults (from YAML)
+
+=== Example: Timeout Configuration
+
+[source,ruby]
+----
+// Ruby API - lowest precedence
+result = tool.execute(:export, params, timeout: 60)
+----
+
+[source,bash]
+----
+# CLI - medium precedence
+ukiryu exec inkscape export timeout=120 inputs=drawing.svg
+----
+
+[source,bash]
+----
+# ENV - highest precedence
+export UKIRYU_TIMEOUT=180
+ukiryu exec inkscape export inputs=drawing.svg
+----
+
+Result: The command uses 180 second timeout (from ENV).
+
+// Common Patterns
+== Common Patterns
+
+=== Error Handling
+
+[source,ruby]
+----
+// Ruby API - structured exceptions
+begin
+  result = tool.execute(:export, params)
+rescue Ukiryu::ExecutionError => e
+  logger.error("Command failed: #{e.result.stderr}")
+end
+----
+
+[source,bash]
+----
+# CLI - exit codes
+ukiryu exec inkscape export inputs=drawing.svg
+if [ $? -ne 0 ]; then
+  echo "Command failed"
+fi
+----
+
+=== Result Inspection
+
+[source,ruby]
+----
+// Ruby API - rich result object
+result = tool.execute(:export, params)
+puts "Success: #{result.success?}"
+puts "Duration: #{result.metadata.duration_seconds}s"
+puts "Command: #{result.command_info.full_command}"
+puts "Stdout: #{result.output.stdout}"
+----
+
+=== Tool Discovery
+
+[source,ruby]
+----
+// Ruby API
+tool = Ukiryu::Tool.get(:inkscape)
+puts tool.available?      # Is tool installed?
+puts tool.version         # Detected version
+puts tool.executable      # Full path to executable
+----
+
+[source,bash]
+----
+# CLI
+ukiryu info inkscape      # Detailed tool information
+ukiryu list               # All available tools
+ukiryu describe inkscape  # Command documentation
+----
+
+// Choosing the Right Interface
+== Choosing the Right Interface
+
+=== Use Ruby API When
+
+* Building Ruby applications
+* Need programmatic error handling
+* Want type-safe parameters
+* Processing results in code
+
+=== Use CLI When
+
+* Writing shell scripts
+* Interactive tool usage
+* Quick one-off commands
+* Integrating with Unix pipelines
+
+=== Use ENV Variables When
+
+* Configuring CI/CD pipelines
+* Setting global defaults
+* Overriding tool behavior without code changes
+* Debugging with verbose output
+
+// See Also
+== See Also
+
+* link:/features/configuration[Configuration Options] - All configuration methods
+* link:/reference/configuration-options[Configuration Reference] - Complete option list
+* link:/guides/[Guides] - Task-specific tutorials

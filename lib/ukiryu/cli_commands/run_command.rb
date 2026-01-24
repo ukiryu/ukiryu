@@ -22,7 +22,7 @@ module Ukiryu
       # @param command_name [String, nil] the command name (optional, uses default if nil)
       # @param params [Array<String>] key=value parameter pairs
       def run(tool_name, command_name = nil, *params)
-        setup_registry
+        setup_register
 
         # Handle the case where command_name is omitted and first param is a key=value pair
         # When user types: ukiryu exec-inline ping host=127.0.0.1
@@ -80,7 +80,7 @@ module Ukiryu
             debug: config.debug,
             dry_run: config.dry_run,
             output: config.output,
-            registry: config.registry,
+            register: config.register,
             stdin: !arguments[:stdin].nil?
           }
           logger.debug_section_ukiryu_options(ukiryu_options)
@@ -119,13 +119,19 @@ module Ukiryu
       # @param tool_name [String] the tool name
       # @return [String] the resolved command name
       def resolve_default_command(tool_name)
-        # Use Registry to load tool metadata without full resolution
-        # This avoids triggering debug output for "Tool Resolution" twice
-        require_relative '../registry'
-        require_relative '../models/tool_metadata'
+        # If --definition is provided, load from definition file
+        if options[:definition]
+          tool = Tool.load(options[:definition], validation: :strict)
+          metadata = tool.profile
+        else
+          # Use Register to load tool metadata without full resolution
+          # This avoids triggering debug output for "Tool Resolution" twice
+          require_relative '../register'
+          require_relative '../models/tool_metadata'
 
-        metadata = Registry.load_tool_metadata(tool_name.to_sym, registry_path: config.registry)
-        error! "Tool not found: #{tool_name}" unless metadata
+          metadata = Register.load_tool_metadata(tool_name.to_sym, register_path: config.register)
+          error! "Tool not found: #{tool_name}" unless metadata
+        end
 
         # Get the default command (checks YAML default_command, then implements, then tool name)
         command = metadata.default_command
@@ -194,8 +200,20 @@ module Ukiryu
           # Stage: Tool Resolution
           execution_report.tool_resolution.start! if collect_metrics
 
-          # Get tool - try find_by first for interface-based discovery, fallback to get
-          tool = Tool.find_by(tool_name.to_sym) || Tool.get(tool_name.to_sym)
+          # Load tool from definition file if --definition option provided
+          if options[:definition]
+            tool = Tool.load(options[:definition], validation: :strict)
+            # Verify that the tool name matches (if user specified one)
+            if tool_name && tool.name.to_sym != tool_name.to_sym
+              return Models::ErrorResponse.from_message(
+                "Tool name mismatch: definition file contains '#{tool.name}' but command specified '#{tool_name}'"
+              )
+            end
+          else
+            # Get tool - try find_by first for interface-based discovery, fallback to get
+            tool = Tool.find_by(tool_name.to_sym) || Tool.get(tool_name.to_sym)
+          end
+
           return Models::ErrorResponse.from_message("Tool not available: #{tool_name}") unless tool
 
           return Models::ErrorResponse.from_message("Tool found but not executable: #{tool_name}") unless tool.available?
@@ -324,11 +342,17 @@ module Ukiryu
       # @param tool_name [String] the tool name
       # @param params [Array<String>] additional parameters
       def show_tool_help(tool_name, _params = [])
-        setup_registry
+        setup_register
 
-        # Use find_by for interface-based discovery
-        tool = Tool.find_by(tool_name.to_sym)
-        error! "Tool not found: #{tool_name}\nAvailable tools: #{Registry.tools.sort.join(', ')}" unless tool
+        # Load tool from definition file if --definition option provided
+        tool = if options[:definition]
+                 Tool.load(options[:definition], validation: :strict)
+               else
+                 # Use find_by for interface-based discovery
+                 Tool.find_by(tool_name.to_sym)
+               end
+
+        error! "Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}" unless tool
 
         say '', :clear
         say "Tool: #{tool.name}", :cyan

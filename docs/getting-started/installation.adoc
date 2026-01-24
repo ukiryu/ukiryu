@@ -1,0 +1,216 @@
+---
+layout: default
+title: Installation
+parent: Getting Started
+nav_order: 1
+---
+
+== Installation
+
+Install Ukiryu using your preferred method.
+
+// Purpose
+== Purpose
+
+This page describes how to install Ukiryu on your system using different methods.
+
+// References
+== References
+
+* link:https://rubygems.org/gems/ukiryu[Ukiryu on RubyGems]
+* link:https://github.com/ukiryu/ukiryu[Ukiryu GitHub Repository]
+
+// Concepts
+== Concepts
+
+* **Gem installation**: Installing via RubyGems for system-wide use
+* **Bundler installation**: Installing via Bundler for project dependencies
+* **Development installation**: Installing from source for contribution
+
+// Installation Methods
+== Installation Methods
+
+=== Via RubyGems
+
+The simplest way to install Ukiryu:
+
+[source,bash]
+----
+gem install ukiryu
+----
+
+Verify installation:
+
+[source,bash]
+----
+ukiryu version
+----
+
+Expected output:
+[source]
+----
+Ukiryu VERSION
+----
+
+=== Via Bundler
+
+Add to your `Gemfile`:
+
+[source,ruby]
+----
+gem 'ukiryu'
+----
+
+Then install:
+
+[source,bash]
+----
+bundle install
+----
+
+=== From Source
+
+For development or to get the latest features:
+
+[source,bash]
+----
+# Clone the repository
+git clone https://github.com/ukiryu/ukiryu.git
+cd ukiryu
+
+# Install dependencies
+bundle install
+
+# Build the gem
+gem build ukiryu.gemspec
+
+# Install the gem
+gem install ukiryu-*.gem
+----
+
+// Register Setup
+== Register Setup
+
+Ukiryu requires a register of tool profiles. The register location is automatically discovered in the following order:
+
+=== Automatic Discovery
+
+Ukiryu will automatically clone the tool register to `~/.ukiryu/register` on first use.
+
+[source,bash]
+----
+# The register is auto-cloned to this location:
+~/.ukiryu/register/
+----
+
+=== Environment Variable
+
+Set the `UKIRYU_REGISTER` environment variable to use a custom register location:
+
+[source,bash]
+----
+# Unix/Linux/macOS
+export UKIRYU_REGISTER=/path/to/register
+
+# Windows (Command Prompt)
+set UKIRYU_REGISTER=C:\path\to\register
+
+# Windows (PowerShell)
+$env:UKIRYU_REGISTER="C:\path\to\register"
+----
+
+=== Programmatic Configuration
+
+Set the register path in your Ruby code:
+
+[source,ruby]
+----
+Ukiryu::Register.default_register_path = '/path/to/register'
+----
+
+// Verifying Installation
+== Verifying Installation
+
+Check that Ukiryu is properly installed:
+
+[source,bash]
+----
+# Check version
+ukiryu version
+
+# List available tools
+ukiryu list
+
+# Get tool information
+ukiryu info inkscape
+----
+
+Expected output shows available tools and their status:
+
+[source]
+----
+============================================================
+Tool: inkscape
+============================================================
+
+Display Name: Inkscape Vector Graphics Editor
+Version: 1.0
+Homepage: https://inkscape.org/
+...
+----
+
+// Troubleshooting
+== Troubleshooting
+
+=== Command Not Found
+
+If `ukiryu` command is not found:
+
+[source,bash]
+----
+# Check Rubygems bin directory
+ruby -e 'puts Gem.user_dir'/bin
+
+# Add to PATH (Unix/Linux/macOS)
+export PATH="$(ruby -e 'puts Gem.user_dir')/bin:$PATH"
+
+# Add to PATH (Windows - add to System Environment Variables)
+# C:\Ruby\{VERSION}\bin
+----
+
+=== Register Not Found
+
+If tools aren't found:
+
+[source,bash]
+----
+# Verify register location
+ls $UKIRYU_REGISTER/tools/
+
+# Or check default location
+ls ~/.ukiryu/register/tools/
+----
+
+=== Tool Not Installed
+
+If a tool shows "NOT FOUND":
+
+[source,bash]
+----
+# Install the tool using your system package manager
+# macOS
+brew install inkscape imagemagick ghostscript
+
+# Ubuntu/Debian
+sudo apt-get install inkscape imagemagick ghostscript
+
+# Windows
+# Download installers from tool websites
+----
+
+// Next Steps
+== Next Steps
+
+* link:/getting-started/quick-start[Quick Start Guide] - Learn basic usage
+* link:/getting-started/core-concepts[Core Concepts] - Understand how Ukiryu works
+* link:/interfaces/ruby-api[Ruby API] - Explore the programming interface

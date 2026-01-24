@@ -68,8 +68,8 @@ module Ukiryu
         if options[:method] && options[:method] != 'auto'
           say "  - #{options[:method]} (explicitly selected)", :white
         else
-          say "  - native (try --ukiryu-definition flag)", :white
-          say "  - help (parse --help output)", :white
+          say '  - native (try --ukiryu-definition flag)', :white
+          say '  - help (parse --help output)', :white
         end
 
         say '', :clear

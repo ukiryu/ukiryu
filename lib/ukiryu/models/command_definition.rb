@@ -23,10 +23,10 @@ module Ukiryu
       attribute :description, :string
       attribute :usage, :string
       attribute :subcommand, :string
-      attribute :execution_mode, :string
       attribute :belongs_to, :string  # Parent command this action belongs to
       attribute :cli_flag, :string    # CLI flag for this action (e.g., '-d' for delete)
       attribute :aliases, :string, collection: true, default: []
+      attribute :use_env_vars, :string, collection: true, default: []
 
       # Collections of model objects (lutaml-model handles serialization automatically)
       attribute :options, OptionDefinition, collection: true
@@ -34,7 +34,7 @@ module Ukiryu
       attribute :arguments, ArgumentDefinition, collection: true
       attribute :post_options, OptionDefinition, collection: true
       attribute :env_vars, EnvVarDefinition, collection: true
-      attribute :exit_codes, ExitCodes  # Exit code definitions for this command
+      attribute :exit_codes, ExitCodes # Exit code definitions for this command
 
       yaml do
         map_element 'name', to: :name
@@ -47,7 +47,7 @@ module Ukiryu
         map_element 'post_options', to: :post_options
         map_element 'env_vars', to: :env_vars
         map_element 'exit_codes', to: :exit_codes
-        map_element 'execution_mode', to: :execution_mode
+        map_element 'use_env_vars', to: :use_env_vars
         map_element 'belongs_to', to: :belongs_to
         map_element 'cli_flag', to: :cli_flag
         map_element 'aliases', to: :aliases

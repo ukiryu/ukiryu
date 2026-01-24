@@ -6,10 +6,11 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   # These are smoke tests that verify each tool profile works correctly
   # Like Homebrew formula tests, they run simple commands to validate functionality
 
-  let(:registry_path) { File.expand_path('../../../register', __dir__) }
+  let(:register_path) { ENV['UKIRYU_REGISTER'] }
 
   before do
-    Ukiryu::Registry.default_registry_path = registry_path
+    skip 'Set UKIRYU_REGISTER environment variable to run smoke tests' unless register_path && Dir.exist?(register_path)
+    Ukiryu::Register.default_register_path = register_path
   end
 
   after do
@@ -20,7 +21,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     let(:tool) { Ukiryu::Tools::Ghostscript.new }
 
     it 'detects version' do
-      skip 'Ghostscript not installed' unless tool.available?
+      skip 'Ghostscript not installed or profile not configured' unless tool.available?
 
       version = tool.version
       expect(version).to match(/\d+\.\d+/)
@@ -28,7 +29,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     end
 
     it 'converts PDF to PNG' do
-      skip 'Ghostscript not installed' unless tool.available?
+      skip 'Ghostscript not installed or profile not configured' unless tool.available?
 
       Dir.mktmpdir do |tmpdir|
         test_pdf = File.join(tmpdir, 'test-smoke.pdf')

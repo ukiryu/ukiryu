@@ -75,7 +75,7 @@ module Ukiryu
       #
       # @param help_text [String] the help output
       # @return [String] the tool name
-      def extract_name(help_text)
+      def extract_name(_help_text)
         # Use the tool name passed to the extractor
         @tool_name.to_s
       end
@@ -88,9 +88,7 @@ module Ukiryu
         if version_result[:exit_status].zero?
           version_text = version_result[:stdout]
           # Try to extract version number
-          if version_text =~ /(\d+\.\d+(?:\.\d+)?)/
-            return Regexp.last_match(1)
-          end
+          return Regexp.last_match(1) if version_text =~ /(\d+\.\d+(?:\.\d+)?)/
         end
         nil
       end
@@ -124,17 +122,13 @@ module Ukiryu
               'description' => line.strip
             }
 
-            if short_opt
-              option['cli'] = short_opt
-            else
-              option['cli'] = "--#{long_opt}"
-            end
+            option['cli'] = (short_opt || "--#{long_opt}")
 
-            if param
-              option['type'] = infer_type(param)
-            else
-              option['type'] = 'boolean'
-            end
+            option['type'] = if param
+                               infer_type(param)
+                             else
+                               'boolean'
+                             end
 
             options << option
           elsif line =~ /^\s*\[--([a-z-]+)(?:[=\s]+([A-Z_]+))?\]/i
@@ -147,11 +141,11 @@ module Ukiryu
               'description' => line.strip
             }
 
-            if param
-              option['type'] = infer_type(param)
-            else
-              option['type'] = 'boolean'
-            end
+            option['type'] = if param
+                               infer_type(param)
+                             else
+                               'boolean'
+                             end
 
             options << option
           end

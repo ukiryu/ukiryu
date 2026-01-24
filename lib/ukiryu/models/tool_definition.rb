@@ -26,7 +26,7 @@ module Ukiryu
       attribute :profiles, PlatformProfile, collection: true
       attribute :version_detection, VersionDetection
       attribute :search_paths, SearchPaths
-      attribute :components, Components  # Registry of reusable definitions
+      attribute :components, Components # Register of reusable definitions
 
       yaml do
         map_element 'ukiryu_schema', to: :ukiryu_schema
@@ -129,9 +129,7 @@ module Ukiryu
       # Get the self URI
       #
       # @return [String, nil] the self URI
-      def self_uri
-        @self_uri
-      end
+      attr_reader :self_uri
 
       # Check if a specific schema version is specified
       #

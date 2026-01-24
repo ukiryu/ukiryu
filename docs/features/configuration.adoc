@@ -1,0 +1,657 @@
+---
+layout: default
+title: Configuration Methods
+parent: Features
+nav_order: 1
+---
+
+== Configuration Methods
+
+Ukiryu supports three complementary configuration methods with clear precedence rules, allowing you to customize tool behavior for any environment.
+
+// Purpose
+== Purpose
+
+This page documents the three configuration methods (ENV variables, CLI parameters, and Ruby API) and their precedence rules.
+
+// References
+== References
+
+* link:/interfaces/ruby-api[Ruby API Documentation]
+* link:/interfaces/cli[CLI Documentation]
+* link:/reference/configuration-options[Configuration Reference]
+
+// Concepts
+== Concepts
+
+* **Configuration precedence**: Order in which configuration methods override each other
+* **Global configuration**: Settings that apply to all tool executions
+* **Per-command configuration**: Settings that apply to a single command
+* **Type coercion**: Automatic conversion of parameter values to correct types
+
+// Configuration Precedence
+== Configuration Precedence
+
+Ukiryu applies configuration in the following order (highest to lowest precedence):
+
+[cols="1,1,4"]
+|===
+|Level |Method |Description
+
+|1 (Highest)
+|Environment Variables
+|System-wide settings that override everything
+
+|2
+|CLI Parameters
+|Command-line arguments for interactive use
+
+|3
+|Ruby API Parameters
+|Programmatic settings for library usage
+
+|4 (Lowest)
+|Profile Defaults
+|Default values from tool profiles
+|===
+
+NOTE: Higher precedence levels completely override lower levels for the same configuration option.
+
+// Method 1: Environment Variables
+== Environment Variables (Highest Precedence)
+
+Environment variables provide global configuration that affects all Ukiryu operations.
+
+=== Setting Environment Variables
+
+[source,bash]
+----
+# Unix/Linux/macOS - Set in shell or .bashrc/.zshrc
+export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_TIMEOUT=180
+export UKIRYU_DEBUG=true
+
+# Windows Command Prompt
+set UKIRYU_REGISTRY=C:\path\to\register
+set UKIRYU_TIMEOUT=180
+set UKIRYU_DEBUG=true
+
+# Windows PowerShell
+$env:UKIRYU_REGISTRY="C:\path\to\register"
+$env:UKIRYU_TIMEOUT="180"
+$env:UKIRYU_DEBUG="true"
+----
+
+=== Available Environment Variables
+
+[cols="1,1,3"]
+|===
+|Variable |Type |Description
+
+|`UKIRYU_REGISTRY`
+|Path
+|Location of tool profiles directory
+
+|`UKIRYU_TIMEOUT`
+|Integer
+|Default execution timeout in seconds
+
+|`UKIRYU_DEBUG`
+|Boolean
+|Enable debug output (true/false)
+
+|`UKIRYU_LOG_LEVEL`
+|Symbol
+|Logging level (:debug, :info, :warn, :error)
+
+|`UKIRYU_SHELL`
+|Symbol
+|Shell to use for command execution (:bash, :zsh, :fish, :sh, :powershell, :cmd)
+
+|`UKIRYU_COLOR`
+|Boolean
+|Enable colored output (true/false)
+|===
+
+=== Environment Variable Examples
+
+[source,ruby]
+----
+# Ruby API - ENV variables take precedence
+ENV['UKIRYU_TIMEOUT'] = '180'
+
+require 'ukiryu'
+tool = Ukiryu::Tool.get(:inkscape)
+
+# This uses 180 second timeout from ENV, not the 60 second parameter
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png'
+}, timeout: 60)
+----
+
+[source,bash]
+----
+# CLI - ENV variables override CLI parameters
+export UKIRYU_TIMEOUT=180
+
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  timeout=60  # Ignored - ENV wins
+----
+
+// Method 2: CLI Parameters
+== CLI Parameters (Medium Precedence)
+
+CLI parameters provide per-command configuration for interactive use.
+
+=== Basic Syntax
+
+[source,bash]
+----
+ukiryu exec <tool> <command> [KEY=VALUE ...]
+----
+
+=== Parameter Examples
+
+[source,bash]
+----
+# Set timeout for this command
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  timeout=120
+
+# Set multiple parameters
+ukiryu exec imagemagick convert \
+  inputs=photo.jpg \
+  output=photo.png \
+  resize=50% \
+  quality=85 \
+  timeout=60
+----
+
+=== Global CLI Options
+
+[source,bash]
+----
+# Override register location
+ukiryu --register /path/to/register exec inkscape export inputs=drawing.svg output=drawing.png
+
+# Set timeout
+ukiryu --timeout 120 exec inkscape export inputs=drawing.svg output=drawing.png
+
+# Enable debug output
+ukiryu --debug exec inkscape export inputs=drawing.svg output=drawing.png
+----
+
+// Method 3: Ruby API Parameters
+== Ruby API Parameters (Lowest Precedence)
+
+Ruby API parameters provide programmatic configuration for library usage.
+
+=== Basic Syntax
+
+[source,ruby]
+----
+result = tool.execute(:command, {
+  param1: value1,
+  param2: value2
+}, {
+  option1: value1  # Execution options
+})
+----
+
+=== Parameter Examples
+
+[source,ruby]
+----
+# Command parameters
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png,
+  dpi: 300
+})
+
+# Execution options
+result = tool.execute(:export, params, {
+  timeout: 60,
+  allow_failure: true,
+  cwd: '/path/to/directory'
+})
+----
+
+=== Configuration Methods
+
+[source,ruby]
+----
+# Set register path
+Ukiryu::Register.default_register_path = '/path/to/register'
+
+# Set default timeout
+Ukiryu::Executor::DEFAULT_TIMEOUT = 120
+
+# Enable debug mode
+Ukiryu::Config.debug = true
+----
+
+// Precedence Examples
+== Precedence Examples
+
+=== Example 1: Timeout Configuration
+
+[source,ruby]
+----
+# Profile default: 90 seconds
+# Ruby API parameter: 60 seconds
+# CLI parameter: 120 seconds
+# ENV variable: 180 seconds (wins!)
+
+# Set ENV
+ENV['UKIRYU_TIMEOUT'] = '180'
+
+# Ruby code
+require 'ukiryu'
+tool = Ukiryu::Tool.get(:inkscape)
+
+# CLI would use 120, but ENV wins
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png'
+}, timeout: 60)
+
+# Result: Uses 180 second timeout from ENV
+----
+
+=== Example 2: Register Configuration
+
+[source,ruby]
+----
+# Method 1: ENV (highest)
+ENV['UKIRYU_REGISTER'] = '/custom/register'
+
+# Method 2: CLI flag
+ukiryu --register /custom/list exec inkscape export ...
+
+# Method 3: Ruby API
+Ukiryu::Register.default_register_path = '/custom/register'
+
+# Method 4: Automatic discovery
+# ~/.ukiryu/register (auto-cloned if needed)
+----
+
+=== Example 3: Complete Configuration Stack
+
+[source,ruby]
+----
+# 1. Profile default: timeout=90
+# 2. Ruby API setting: timeout=60
+# 3. CLI parameter: timeout=120
+# 4. ENV variable: timeout=180 (FINAL VALUE)
+
+# Configure globally via Ruby API
+Ukiryu::Executor::DEFAULT_TIMEOUT = 60
+
+# Set ENV to override
+ENV['UKIRYU_TIMEOUT'] = '180'
+
+# Execute
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, params, timeout: 60)
+
+# ENV (180) > CLI parameter (120) > Ruby API parameter (60) > default (90)
+# Result: Uses 180 seconds
+----
+
+// Configuration Comparison
+== Configuration Comparison
+
+=== By Use Case
+
+[cols="1,1,4"]
+|===
+|Use Case |Best Method |Example
+
+|CI/CD pipelines
+|Environment Variables
+|Set `UKIRYU_TIMEOUT` in GitHub Actions
+
+|Production applications
+|Ruby API
+|Configure in application code
+
+|Interactive scripts
+|CLI Parameters
+|Pass options on command line
+
+|Development
+|Ruby API
+|Set in test/fixtures or config files
+
+|Debugging
+|Environment Variables
+|Set `UKIRYU_DEBUG=true`
+
+|One-off commands
+|CLI Parameters
+|Specify directly in shell
+|===
+
+=== By Configuration Type
+
+[cols="1,1,2,1"]
+|===
+|Setting |ENV |CLI |Ruby API
+
+|Register location
+|✓ `UKIRYU_REGISTRY`
+|✓ `--register PATH`
+|✓ `Register.default_register_path=`
+
+|Timeout
+|✓ `UKIRYU_TIMEOUT`
+|✓ `--timeout SECONDS`
+|✓ `timeout: SECONDS`
+
+|Debug output
+|✓ `UKIRYU_DEBUG`
+|✓ `--debug`
+|✓ `Config.debug = true`
+
+|Shell
+|✓ `UKIRYU_SHELL`
+|✓ `--shell SHELL`
+|✓ `Config.shell = :bash`
+
+|Working directory
+|✓ `UKIRYU_CWD`
+|N/A
+|✓ `cwd: '/path'`
+
+|Allow failure
+|N/A
+|N/A
+|✓ `allow_failure: true`
+|===
+
+// Type Coercion
+== Type Coercion
+
+All configuration methods support automatic type coercion.
+
+=== String Values
+
+[source,bash]
+----
+# ENV - Always strings
+export UKIRYU_TIMEOUT="180"
+----
+
+[source,ruby]
+----
+# CLI - String values, auto-coerced
+ukiryu exec inkscape export timeout=180
+
+# Ruby API - Native types
+tool.execute(:export, params, timeout: 180)  # Integer
+----
+
+=== Boolean Values
+
+[source,bash]
+----
+# ENV - String "true"/"false"
+export UKIRYU_DEBUG="true"
+----
+
+[source,ruby]
+----
+# CLI - No value needed
+ukiryu --debug exec inkscape export ...
+
+# Ruby API - Boolean
+Ukiryu::Config.debug = true
+----
+
+=== Symbol Values
+
+[source,bash]
+----
+# CLI - Colon prefix
+ukiryu exec inkscape export format=:png
+----
+
+[source,ruby]
+----
+# Ruby API - Native symbols
+tool.execute(:export, { format: :png })
+----
+
+=== Array Values
+
+[source,bash]
+----
+# CLI - Comma-separated
+ukiryu exec inkscape export export_ids=id1,id2,id3
+----
+
+[source,ruby]
+----
+# Ruby API - Array
+tool.execute(:export, { export_ids: ['id1', 'id2', 'id3'] })
+----
+
+// Shell Configuration
+== Shell Configuration
+
+Ukiryu automatically detects the appropriate shell for your platform, but you can explicitly specify which shell to use for command execution.
+
+=== Available Shells
+
+Supported shells vary by platform:
+
+[cols="1,1"]
+|===
+|Platform |Available Shells
+
+|macOS/Linux
+|bash, zsh, fish, sh
+
+|Windows
+|powershell, cmd, bash (Git Bash/MSYS)
+|===
+
+=== Configuration Methods
+
+==== Via Environment Variable
+
+Set the shell for all commands:
+
+[source,bash]
+----
+# Unix/Linux/macOS
+export UKIRYU_SHELL=zsh
+
+# Windows PowerShell
+$env:UKIRYU_SHELL="zsh"
+
+# All subsequent commands use zsh
+ukiryu exec inkscape export inputs=input.svg output=output.png
+----
+
+==== Via CLI Option
+
+Override the shell for a specific command:
+
+[source,bash]
+----
+# Long form
+ukiryu exec inkscape export inputs=input.svg output=output.png --shell zsh
+
+# Short form
+ukiryu exec inkscape export inputs=input.svg output=output.png -s zsh
+
+# Check available shells on your system
+ukiryu system shells
+----
+
+==== Via Ruby API
+
+Configure the shell programmatically:
+
+[source,ruby]
+----
+# Global configuration
+Ukiryu::Config.configure do |config|
+  config.shell = :zsh
+end
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['input.svg'],
+  output: 'output.png',
+  format: :png
+})
+
+# Per-execution override
+result = tool.execute(:export, {
+  inputs: ['input.svg'],
+  output: 'output.png'
+}, shell: :zsh)
+----
+
+=== Shell Auto-Detection
+
+When no shell is explicitly configured, Ukiryu detects the shell automatically:
+
+[source,ruby]
+----
+# Unix/Linux/macOS detection
+# 1. Checks SHELL environment variable
+# 2. Falls back to platform default
+
+# Windows detection
+# 1. Checks for PowerShell (PSModulePath)
+# 2. Checks for Git Bash/MSYS (MSYSTEM, MINGW_PREFIX)
+# 3. Falls back to cmd
+----
+
+=== Use Cases
+
+==== Cross-Platform Scripts
+
+Ensure consistent behavior across platforms:
+
+[source,ruby]
+----
+# Explicitly use bash for consistent quoting on all platforms
+Ukiryu::Config.configure do |config|
+  config.shell = :bash
+end
+----
+
+==== Testing in Different Shells
+
+Test how commands are formatted for different shells:
+
+[source,bash]
+----
+# Test with bash
+ukiryu -s bash exec imagemagick convert inputs=input.jpg output=output.png
+
+# Test with zsh
+ukiryu -s zsh exec imagemagick convert inputs=input.jpg output=output.png
+
+# Test with powershell
+ukiryu -s powershell exec imagemagick convert inputs=input.jpg output=output.png
+----
+
+==== CI/CD Environments
+
+Force a specific shell in automated environments:
+
+[source,yaml]
+----
+# .github/workflows/test.yml
+env:
+  UKIRYU_SHELL: bash  # Force bash for consistent behavior
+----
+
+// Best Practices
+== Best Practices
+
+=== For CI/CD
+
+Use environment variables for consistent behavior:
+
+[source,yaml]
+----
+# .github/workflows/test.yml
+env:
+  UKIRYU_REGISTRY: ./register
+  UKIRYU_TIMEOUT: 180
+  UKIRYU_DEBUG: true
+
+steps:
+  - name: Run tests
+    run: bundle exec rspec
+----
+
+=== For Applications
+
+Use Ruby API configuration in application code:
+
+[source,ruby]
+----
+# config/initializers/ukiryu.rb
+if Rails.env.production?
+  Ukiryu::Executor::DEFAULT_TIMEOUT = 180
+else
+  Ukiryu::Executor::DEFAULT_TIMEOUT = 60
+end
+
+Ukiryu::Register.default_register_path = Rails.root.join('vendor', 'register')
+----
+
+=== For Scripts
+
+Use CLI parameters for flexibility:
+
+[source,bash]
+----
+#!/bin/bash
+# script.sh
+
+REGISTRY=${UKIRYU_REGISTRY:-"./register"}
+TIMEOUT=${UKIRYU_TIMEOUT:-"60"}
+
+ukiryu --register "$REGISTRY" exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  timeout="$TIMEOUT"
+----
+
+=== For Development
+
+Use Ruby API in test code:
+
+[source,ruby]
+----
+# spec/spec_helper.rb
+RSpec.configure do |config|
+  # Use test register
+  Ukiryu::Register.default_register_path = 'spec/fixtures/register'
+
+  # Short timeout for tests
+  Ukiryu::Executor::DEFAULT_TIMEOUT = 10
+end
+----
+
+// See Also
+== See Also
+
+* link:/interfaces/ruby-api[Ruby API] - Programmatic configuration
+* link:/interfaces/cli[CLI] - Command-line configuration
+* link:/reference/configuration-options[Complete Configuration Reference]

@@ -12,6 +12,9 @@
 .rubocop-https*
 Gemfile*.lock
 
+# Gem build artifacts
+*.gem
+
 # Temporary/planning files (not part of repository)
 *.md
 !README.adoc

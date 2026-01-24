@@ -40,7 +40,7 @@ Ukiryu consists of two separate repositories:
                             │ loads
                             ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ukiryu/register (Tool Registry)                                     │
+│  ukiryu/register (Tool Register)                                     │
 │  ┌─────────────────────────────────────────────────────────────────┐ │
 │  │ YAML Profiles: Tool Definitions                                 │ │
 │  │                                                                  │ │
@@ -96,7 +96,7 @@ Ukiryu turns external CLI commands into Ruby methods:
 
 ```ruby
 # Load tool profiles from registry
-Ukiryu::Registry.load_from("ukiryu/register")
+Ukiryu::Register.load_from("ukiryu/register")
 
 # Get the tool
 inkscape = Ukiryu::Tool.get("inkscape")
@@ -244,7 +244,7 @@ Ukiryu separates **framework logic** (Ruby) from **tool definitions** (YAML):
                             │ loads
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 TOOL PROFILES (YAML Registry)              │
+│                 TOOL PROFILES (YAML Register)              │
 │  - inkscape.yaml (all versions)                            │
 │  - ghostscript.yaml (all versions)                         │
 │  - imagemagick.yaml (all versions)                         │
@@ -394,9 +394,9 @@ profiles:
             separator: " "
 ```
 
-### YAML Profile Registry
+### YAML Profile Register
 
-**Registry structure:**
+**Register structure:**
 ```
 ukiryu-register/
 ├── tools/
@@ -429,7 +429,7 @@ ukiryu-register/
 │   └── registry.adoc
 ├── lib/
 │   └── ukiryu/
-│       └── registry.rb           # Registry helper library
+│       └── registry.rb           # Register helper library
 ├── Gemfile                         # json-schema gem
 ├── Rakefile                        # Validation tasks
 └── README.adoc
@@ -438,19 +438,19 @@ ukiryu-register/
 **Version file naming:**
 - Use semantic version: `1.0.yaml`, `0.9.5.yaml`
 - Multiple profiles per version (platform/shell combos) in one file
-- Registry selects newest compatible version
+- Register selects newest compatible version
 
 **Loading profiles in Ukiryu:**
 ```ruby
 # Load from registry
-Ukiryu::Registry.load_from("/path/to/ukiryu/register")
+Ukiryu::Register.load_from("/path/to/ukiryu/register")
 
 # Or load from gem-builtin profiles
-Ukiryu::Registry.load_builtins
+Ukiryu::Register.load_builtins
 
 # Load specific tool/version
-Ukiryu::Registry.load_tool("inkscape", version: "1.0")
-Ukiryu::Registry.load_tool("inkscape")  # Auto-detect latest
+Ukiryu::Register.load_tool("inkscape", version: "1.0")
+Ukiryu::Register.load_tool("inkscape")  # Auto-detect latest
 
 # Use the tool
 inkscape = Ukiryu::Tool.get("inkscape")
@@ -1126,10 +1126,10 @@ end
 
 ```ruby
 # Load from registry
-Ukiryu::Registry.load_from("~/.ukiryu/register")
+Ukiryu::Register.load_from("~/.ukiryu/register")
 
 # Or load from gem
-Ukiryu::Registry.load_builtins
+Ukiryu::Register.load_builtins
 
 # Get tool
 inkscape = Ukiryu::Tool.get("inkscape")
@@ -2837,9 +2837,9 @@ Ukiryu succeeds when:
 
 ---
 
-## Registry Organization
+## Register Organization
 
-**Registry repo structure:**
+**Register repo structure:**
 
 ```
 ukiryu-register/                    # Community registry repo
@@ -2874,12 +2874,12 @@ ukiryu-register/                    # Community registry repo
 │   ├── contributing.adoc
 │   ├── registry.adoc
 │   └── README.adoc
-├── lib/                           # Registry helper library
+├── lib/                           # Register helper library
 │   └── ukiryu/
 │       └── registry.rb
 ├── Gemfile                         # json-schema gem
 ├── Rakefile                        # Validation tasks
-└── README.adoc                     # Registry overview
+└── README.adoc                     # Register overview
 ```
 
 **Ukiryu gem structure:**
@@ -2919,14 +2919,14 @@ gem 'json-schema', '~> 3.0'
 gem 'yaml', '~> 0.3'  # For schema validation
 ```
 
-**Registry README.adoc structure:**
+**Register README.adoc structure:**
 
 ```asciidoc
-= Ukiryu Tool Registry
+= Ukiryu Tool Register
 
 == Overview
 
-The Ukiryu Tool Registry maintains YAML profiles for command-line tools.
+The Ukiryu Tool Register maintains YAML profiles for command-line tools.
 
 == Tools
 

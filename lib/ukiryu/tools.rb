@@ -65,10 +65,10 @@ module Ukiryu
       # @param alias_name [Symbol] the alias to resolve
       # @return [Symbol, nil] the platform-specific tool name
       def find_platform_implementation(alias_name)
-        registry_path = Registry.default_registry_path
-        return nil unless registry_path && Dir.exist?(registry_path)
+        register_path = Register.default_register_path
+        return nil unless register_path && Dir.exist?(register_path)
 
-        tools_dir = File.join(registry_path, 'tools')
+        tools_dir = File.join(register_path, 'tools')
         return nil unless Dir.exist?(tools_dir)
 
         current_platform = Platform.detect

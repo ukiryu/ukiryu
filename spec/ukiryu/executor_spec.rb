@@ -182,7 +182,7 @@ RSpec.describe Ukiryu::Executor do
           # Create a test executable
           test_exe = File.join(tmpdir, 'test_executable')
           File.write(test_exe, '#!/bin/sh\necho test')
-          File.chmod(0755, test_exe)
+          File.chmod(0o755, test_exe)
 
           exe = executor.find_executable('test_executable', additional_paths: [tmpdir])
           expect(exe).to eq(test_exe)
@@ -198,8 +198,8 @@ RSpec.describe Ukiryu::Executor do
           exe2 = File.join(tmpdir2, 'test_cmd')
           File.write(exe1, '#!/bin/sh\necho 1')
           File.write(exe2, '#!/bin/sh\necho 2')
-          File.chmod(0755, exe1)
-          File.chmod(0755, exe2)
+          File.chmod(0o755, exe1)
+          File.chmod(0o755, exe2)
 
           # The first directory in additional_paths should be found first
           exe = executor.find_executable('test_cmd', additional_paths: [tmpdir1, tmpdir2])
@@ -216,7 +216,7 @@ RSpec.describe Ukiryu::Executor do
     let(:bash_class) { Ukiryu::Shell::Bash }
 
     it 'joins executable and arguments properly' do
-      command = executor.build_command('echo', ['hello', 'world'], bash_class)
+      command = executor.build_command('echo', %w[hello world], bash_class)
       # Shell join adds quotes around each argument
       expect(command).to include('hello')
       expect(command).to include('world')
@@ -323,7 +323,8 @@ RSpec.describe Ukiryu::Executor do
     end
 
     it 'properly escapes special shell characters' do
-      result = executor.execute('sh', ['-c', 'echo "$TEST_VAR"'], env: { 'TEST_VAR' => 'value with spaces' }, allow_failure: true)
+      result = executor.execute('sh', ['-c', 'echo "$TEST_VAR"'], env: { 'TEST_VAR' => 'value with spaces' },
+                                                                  allow_failure: true)
 
       expect(result.stdout.strip).to eq('value with spaces')
     end

@@ -20,7 +20,7 @@ module Ukiryu
       #
       # @param request_file [String] path to the request YAML file
       def run(request_file)
-        setup_registry
+        setup_register
 
         # Output debug: Ukiryu CLI Options
         if config.debug
@@ -30,7 +30,7 @@ module Ukiryu
             debug: config.debug,
             dry_run: config.dry_run,
             output: config.output,
-            registry: config.registry,
+            register: config.register,
             request_file: request_file
           }
           logger.debug_section_ukiryu_options(ukiryu_options)

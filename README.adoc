@@ -1,229 +1,525 @@
 = Ukiryu
 
-Platform-adaptive command execution framework using declarative YAML tool
-profiles.
-
 image:https://img.shields.io/gem/v/ukiryu.svg[RubyGems Version]
 image:https://img.shields.io/github/license/ukiryu/ukiryu.svg[License]
 image:https://github.com/ukiryu/ukiryu/actions/workflows/test.yml/badge.svg["Build", link="https://github.com/ukiryu/ukiryu/actions/workflows/test.yml"]
 
+
+== Ukiryu: Open Definitions For CLI Tools
+
+The "OpenAPI" for Command Line Interfaces.
+
+// Purpose
 == Purpose
 
-Ukiryu provides a Ruby framework for executing external commands with:
+Ukiryu is a framework for defining command-line interfaces as declarative APIs.
 
-* Declarative YAML tool profiles
-* Platform-specific command formatting (macOS, Linux, Windows)
-* Shell-specific syntax (bash, zsh, fish, PowerShell, cmd)
-* Version-aware tool detection
-* Fully object-oriented result handling
+It makes the following possible:
+
+* Declarative definition of command-line interfaces, options, parameters and
+  typed arguments
+* Harmonized definitions across platforms and shell environments
+* Unified action interface across versioned and variant command interfaces
+* Structured input and output handling, with type safety and validation
+
+
+The Ukiryu framework has the following components:
+
+* **Register**: A collection of tool profiles encoded in YAML, organized by tool
+name and version
+
+* **Schema**: A formal definition of the structure and types used in tool
+profiles
+
+* **Runtime**: A platform-adaptive Ruby library that provides a harmonized API
+interface for CLI commands.
+
+
+== Origin
+
+The name 浮流 "ukiryu" (lit. "Floating Flow") is inspired by 天浮橋
+"ame-no-ukihashi" (lit. "Floating Bridge of Heaven"), the mythical bridge that
+connects heaven and earth.
+
+The ame-no-ukihashi is described in Japanese mythology as the place where the
+God Izanagi and Goddess Izanami stood at creating the Japanese archipelago.
+
+The pronunciation of "ukiryu" ("yoo-kee-rhoo") is the English transliteration of
+the Kanji characters 「浮流」, read in Hiragana as 「うきりゅう」.
+
+In the view that a command line tool is a vessel for performing tasks, Ukiryu
+serves as the flexible flow that guides its path through different environments.
+
+
+== Why Ukiryu?
+
+* **Platform-adaptive**: Commands work seamlessly across macOS, Linux, and Windows
+* **Shell-aware**: Proper quoting and escaping for bash, zsh, fish, PowerShell, and cmd
+* **Versioned**: Support multiple tool versions with distinct interfaces
+* **Interface-capable**: Different implementations of the same command interface
+* **Declarative**: Tool behavior defined in YAML profiles, not code
+* **Type-safe**: Parameter validation with automatic type coercion
 
 == Features
 
-=== Default Command Resolution
+* **Schema-Driven**: Define CLI behavior in declarative YAML profiles
+* **Type-Safe**: Automatic parameter validation and type coercion
+* **Platform-Aware**: Automatic adaptation across macOS, Linux, and Windows
+* **Structured Results**: Rich response objects instead of parsing stdout/stderr
+* **Versioned APIs**: Support multiple tool versions with compatibility matrices
+* **Intelligent Discovery**: Self-documenting commands with built-in introspection
 
-When a tool implements its own name (e.g., `ping` tool implements `ping` command), you can omit the command name:
+=== What Makes CLIs Unpredictable?
+
+Without Ukiryu, CLI tools suffer from:
+
+* **Argument Fragility**: Positional args break when order changes
+* **Output Parsing Hell**: Grepping unstructured text is brittle
+* **Platform Divergence**: Same command differs on macOS vs Linux
+* **Version Drift**: Tools change behavior between versions
+* **Error Ambiguity**: Is exit code 1 a timeout or validation error?
+* **Discovery Friction**: Which flags exist? What's the syntax?
+
+=== The Ukiryu Solution
+
+[cols="1,1,4"]
+|===|===
+|Problem |Traditional CLI |Ukiryu Solution
+
+|Argument fragility
+|`tool -o output -f input file.txt`
+|`tool input=input.txt output=output.txt`
+
+|Output parsing
+|`grep "success" output.txt`
+|`result.success?` (boolean)
+
+|Platform divergence
+|Different quoting per OS
+|Same code works everywhere
+
+|Version drift
+|Breaking changes silently break scripts
+|Version-specific YAML profiles
+
+|Error ambiguity
+|Exit code 1 = ???|TimeoutError, ValidationError, etc.
+
+|Discovery friction
+|`tool --help` |`ukiryu describe tool command`
+|===
+
+=== Why "OpenAPI for CLIs"?
+
+OpenAPI revolutionized REST APIs by:
+
+1. **Standardizing** - Machine-readable schema definitions
+2. **Documenting** - Auto-generated interactive documentation
+3. **Type-Safe** - Request/response validation
+4. **Versioning** - Multiple API versions coexisting
+
+Ukiryu brings the same revolution to CLI tools:
+
+* **Schema**: YAML profiles replace grepping --help
+* **Docs**: `ukiryu describe` replaces man pages
+* **Types**: Named parameters replace positional args
+* **Versions**: `inkscape/1.0.yaml` and `inkscape/0.92.yaml` coexist
+
+=== Use Cases
+
+* **CLI Developers**: Distribute "intelligent man pages" with your CLI
+* **Tool Users**: Get deterministic, documented command behavior
+* **CI/CD**: Run commands with structured error handling
+* **Libraries**: Wrap CLI tools in type-safe Ruby interfaces
+***DevOps**: Manage tool versions and compatibility automatically
+
+// What is Ukiryu?
+== What is Ukiryu?
+
+Ukiryu is a framework that turns CLI tools into well-defined, versioned APIs through declarative YAML profiles.
+
+=== Key Concepts
+
+* **Tool**: A command-line utility (e.g., `inkscape`, `imagemagick`)
+* **Command**: An action a tool performs (e.g., `export`, `convert`)
+* **Action**: A specific operation within a command (e.g., `export_pdf`)
+* **Routing**: Mapping command names to their implementations
+* **Profile**: YAML file defining tool behavior across platforms/versions
+
+=== Architecture
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│  User Code (Ruby / CLI)                                           │
+│  ├─ tool.execute(:inkscape, { inputs: [...] })                    │
+│  └─ ukiryu exec inkscape export inputs=...                        │
+│                                                                    │
+└─────────────────────────────┬─────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────▼─────────────────────────────────────┐
+│  Ukiryu Framework                                                  │
+│  ├─ Register (loads YAML profiles)                                  │
+│  ├─ Tool (selects profile, detects version)                           │
+│  ├─ CommandBuilder (formats arguments for shell)                    │
+│  ├─ Executor (runs commands, captures output)                        │
+│  └─ Shell Layer (platform-specific quoting/escaping)                │
+│                                                                    │
+└─────────────────────────────┬─────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────▼─────────────────────────────────────┐
+│  YAML Tool Profiles (Declarative API Definition)                   │
+│  ├─ tools/inkscape/1.0.yaml (Modern Inkscape)                        │
+│  ├─ tools/inkscape/0.92.yaml (Legacy Inkscape)                       │
+│  └─ tools/imagemagick/7.1.yaml (ImageMagick 7.1)                   │
+└──────────────────────────────────────────────────────────────────────┘
+----
+
+=== Tool Profile Schema
+
+A tool profile is a YAML file that defines a CLI's complete API surface:
+
+[source,yaml]
+----
+# tools/inkscape/1.0.yaml
+---
+ukiryu_schema: "1.2"
+
+# Tool Metadata
+name: inkscape
+version: "1.0"
+$self: https://www.ukiryu.com/register/1.0/inkscape/1.0
+
+# Version Detection
+version_detection:
+  command: "--version"
+  pattern: "Inkscape (\\d+\\.\\d+)"
+  modern_threshold: "1.0"
+
+# Search Paths (platform-specific)
+search_paths:
+  macos:
+    - "/Applications/Inkscape.app/Contents/MacOS/inkscape"
+  linux:
+    - "/usr/bin/inkscape"
+  windows:
+    - "C:/Program Files/Inkscape/bin/inkscape.exe"
+
+# Platform/Shell/Version Profiles
+profiles:
+  - name: modern_unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    version: ">= 1.0"
+    option_style: double_dash_equals
+
+    # Commands (API Endpoints)
+    commands:
+      - name: export
+        description: Export document to different format
+
+        # Environment variables to apply for this command
+        use_env_vars: [headless]
+
+        # Request Parameters
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+            position: last
+            min: 1
+            description: Input file(s)
+
+        options:
+          - name: output
+            type: file
+            cli: --export-filename
+            format: double_dash_equals
+            required: true
+            description: Output filename
+
+          - name: format
+            type: symbol
+            cli: --export-type
+            format: double_dash_equals
+            values: [svg, png, pdf, eps, ps]
+            description: Output format
+
+        flags:
+          - name: batch_process
+            cli: --batch-process
+            position_constraint: prefix
+            default: true
+            description: Close GUI after processing
+
+        # Exit Codes (API Response Status)
+        exit_codes:
+          standard:
+            "0": "Success"
+            "1": "File not found or cannot be opened"
+            "3": "Initialization error"
+          custom:
+            "2": "Export failed (see stderr for details)"
+
+        # Response Format
+        parse_output:
+          type: hash
+          pattern: 'key:\\s*value'
+----
+
+// Tool, Command, Action, and Routing
+== Tool, Command, Action, and Routing
+
+Ukiryu organizes CLI functionality into a hierarchical structure similar to REST API resources.
+
+=== Tool
+
+A **tool** represents a command-line utility (e.g., `inkscape`, `imagemagick`).
 
 [source,ruby]
 ----
-# Both syntaxes work
-tool.execute(:ping, { host: '127.0.0.1', count: 1 })
-tool.execute(:ping, :ping, { host: '127.0.0.1', count: 1 })
+# Get a tool by name
+tool = Ukiryu::Tool.get(:inkscape)
 ----
 
-The CLI also supports this shorthand:
+*Has metadata*: name, version, homepage, aliases
+*Detects version**: Uses `version_detection` from profile
+*Finds executable**: Searches `search_paths` for the tool
+*Loads profile**: Selects appropriate YAML profile based on version
 
-[source,shell]
+=== Command
+
+A **command** is a major operation a tool performs (e.g., `export`, `convert`, `query`).
+
+[source,yaml]
 ----
-# Both syntaxes work
-ukiryu exec-inline ping host=127.0.0.1 count=1
-ukiryu exec-inline ping ping host=127.0.0.1 count=1
+commands:
+  - name: export
+    description: Export document to different format
+    usage: inkscape [OPTIONS] input1.svg [input2.svg ...]
+----
+
+[source,ruby]
+----
+# Execute a command
+result = tool.execute(:export, { inputs: ['drawing.svg'], output: 'drawing.png' })
+----
+
+*Has parameters*: arguments, options, flags
+*Returns result*: Structured response object
+*May have execution mode*: e.g., `headless` for GUI tools
+
+=== Action
+
+An **action** is a specific operation within a command, used for complex CLIs with nested commands.
+
+[source,yaml]
+----
+# Git has nested commands
+commands:
+  - name: remote
+    description: Manage set of tracked repositories
+
+  - name: branch
+    description: Manage, create, delete, list branch names
+----
+
+With routing:
+
+[source,yaml]
+----
+routing:
+  remote: git-remote        # Maps "tool remote" to git-remote command
+  branch: git-branch        # Maps "tool branch" to git-branch command
+----
+
+[source,ruby]
+----
+# Actions are executed via the command name
+git_tool = Ukiryu::Tool.get(:git)
+
+# Execute 'git remote add' action
+git_tool.execute(:remote, :add, {
+  name: 'origin',
+  url: 'https://github.com/user/repo.git'
+})
+
+# Execute 'git branch delete' action
+git_tool.execute(:branch, :delete, {
+  branch: 'feature-branch',
+  force: true
+})
+----
+
+=== Routing
+
+**Routing** maps command names to their implementations, enabling:
+
+1. **Tool aliases**: Multiple tools implementing the same interface
+2. **Version routing**: Different versions for different behaviors
+3. **Multi-level hierarchies**: Parent/child command relationships
+
+[source,yaml]
+----
+# Ping has platform-specific implementations
+tools:
+  ping:      # Abstract interface
+    implements: ping
+
+  ping_bsd:  # BSD ping implementation
+    implements: ping
+    platforms: [freebsd, openbsd, netbsd]
+
+  ping_gnu:  # GNU ping implementation
+    implements: ping
+    platforms: [linux]
+----
+
+[source,ruby]
+----
+# Ukiryu automatically routes to correct implementation
+tool = Ukiryu::Tool.get(:ping)
+# On FreeBSD: uses ping_bsd
+# On Linux: uses ping_gnu
+----
+
+=== Default Command Resolution
+
+When a tool's name matches its command name, you can omit the command:
+
+[source,ruby]
+----
+# Both syntaxes work when tool.name == command.name
+tool.execute(:ping, { host: '127.0.1.1', count: 1 })
+tool.execute(:ping, :ping, { host: '127.0.1.1', count: 1 })
+----
+
+Similarly in CLI:
+
+[source,bash]
+----
+ukiryu exec ping host=127.0.1.1 count=1
+ukiryu exec ping ping host=127.0.1.1 count=1
+----
+
+=== Complete Example: Inkscape Export
+
+Here's a complete example showing all concepts:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# 1. Get the tool
+tool = Ukiryu::Tool.get(:inkscape)
+
+# 2. Check availability
+unless tool.available?
+  puts "Inkscape not installed"
+  exit 1
+end
+
+# 3. Execute the export command
+result = tool.execute(:export, {
+  inputs: ['~/drawing.svg'],
+  output: '~/drawing.png',
+  format: :png,
+  dpi: 300,
+  width: 1024,
+  height: 768
+})
+
+# 4. Handle the result
+if result.success?
+  puts "✓ Export successful"
+  puts "  Duration: #{result.metadata.formatted_duration}"
+  puts "  Command: #{result.command_info.full_command}"
+else
+  puts "✗ Export failed"
+  puts "  Exit code: #{result.output.exit_status}"
+  puts "  Error: #{result.output.stderr}"
+end
+----
+
+Generated command:
+[source]
+----
+inkscape --batch-process --export-filename=/Users/user/drawing.png --export-type=png --export-width=1024 --dpi=300 /Users/user/drawing.svg
+----
+
+// Configuration Methods
+== Configuration Methods
+
+Ukiryu supports three complementary configuration methods with clear precedence:
+
+[NOTE]
+.Configuration precedence (highest to lowest):
+1. Environment variables (`UKIRYU_*`)
+2. CLI parameters
+3. Ruby API parameters
+4. Profile defaults
 ===
 
-=== Configuration Management
+=== Method 1: Environment Variables (Highest Precedence)
 
-Centralized configuration system supporting multiple sources:
+[source,bash]
+----
+# Global configuration
+export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_TIMEOUT=180
+export UKIRYU_DEBUG=true
+
+# All commands use these settings
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png
+----
+
+=== Method 2: CLI Parameters (Medium Precedence)
+
+[source,bash]
+----
+# Per-command configuration
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  timeout=120
+----
+
+=== Method 3: Ruby API (Lowest Precedence)
 
 [source,ruby]
 ----
 # Programmatic configuration
-Ukiryu::Config.configure do |config|
-  config.format = :json
-  config.debug = true
-  config.timeout = 60
-  config.registry = '/path/to/register'
-end
+Ukiryu::Register.default_register_path = '/path/to/register'
+Ukiryu::Config.debug = true
 
-# Or via environment variables
-ENV['UKIRYU_FORMAT'] = 'json'
-ENV['UKIRYU_DEBUG'] = '1'
-ENV['UKIRYU_TIMEOUT'] = '60'
-----
-
-Configuration priority (highest to lowest):
-. CLI options (`--format`, `--registry`, etc.)
-. Environment variables (`UKIRYU_*`)
-. Programmatic configuration (`Config.configure`)
-. Default values
-
-=== Debug Mode
-
-Comprehensive debug output for troubleshooting:
-
-[source,shell]
-----
-# Enable debug mode
-UKIRYU_DEBUG=1 ukiryu exec-inline ping host=127.0.0.1 count=1
-
-# Debug sections output to stderr:
-# - Ukiryu CLI Options
-# - Tool Resolution Process
-# - Structured Options (tool command options)
-# - Shell Command (actual command to execute)
-# - Raw Command Response (stdout/stderr)
-# - Structured Response (final result)
-----
-
-Debug output uses structured borders with color support (when Paint gem is available).
-
-=== Stdin Support
-
-Ukiryu supports passing data to commands via standard input (stdin), enabling Unix pipe composition and integration with other tools.
-
-[source,shell]
-----
-# Read from pipe using --stdin flag
-echo '{"name": "value"}' | ukiryu exec jq --stdin filter="."
-
-# Read from pipe using stdin=- parameter
-echo '{"name": "value"}' | ukiryu exec jq stdin=- filter="."
-
-# Read from file using stdin=@filename syntax
-ukiryu exec jq stdin=@/path/to/data.json filter="."
-
-# Pass data directly via stdin parameter
-ukiryu exec jq stdin='{"data": "value"}' filter="."
-----
-
-The `stdin` parameter is a special execution parameter that is not passed to the tool's command arguments but is instead written to the child process's stdin stream. This enables composition with other Unix tools:
-
-[source,shell]
-----
-# Compose with other tools
-cat large_data.json | ukiryu exec jq --stdin filter=".name" | sort
-
-# Process output from another command
-curl -s https://api.example.com/data | ukiryu exec jq --stdin filter=".[0:5]"
-----
-
-In dry-run mode, stdin data is previewed (first 100 characters) to show what would be passed to the command.
-
-=== OOP API
-
-Tool-specific classes with a fully object-oriented API:
-
-[source,ruby]
-----
-Ukiryu::Tools::Imagemagick.new.tap do |im|
-  convert_options = im.options_for(:convert)
-  convert_options.set(inputs: ["image.png"], resize: "50%")
-  convert_options.output = "output.jpg"
-  convert_options.run
-end
-----
-
-See <<oop-api,OOP API>> for more details.
-
-=== Tool Registry
-
-Load tool definitions from YAML profiles:
-
-[source,ruby]
-----
-Ukiryu::Registry.default_registry_path = 'path/to/register'
-tool = Ukiryu::Tool.get(:imagemagick)
-----
-
-=== Platform Detection
-
-Automatic platform and shell detection:
-
-[source,ruby]
-----
-Ukiryu::Platform.detect       # => :macos, :linux, or :windows
-Ukiryu::Shell.detect          # => :bash, :zsh, :powershell, etc.
-----
-
-=== Version Awareness
-
-Handle different tool versions with specific profiles:
-
-[source,ruby]
-----
 tool = Ukiryu::Tool.get(:inkscape)
-# Automatically selects 1.0.yaml or 0.92.yaml based on detected version
+result = tool.execute(:export, params, timeout: 60)
 ----
 
-=== OOP Result Handling
-
-Rich, object-oriented execution results:
+=== Precedence Example
 
 [source,ruby]
 ----
-result = tool.execute(:convert, { inputs: ['input.png'], output: 'output.jpg' })
+# Profile default: 90 seconds
+# Ruby API parameter: 60 seconds
+# CLI parameter: 120 seconds
+# ENV variable: 180 seconds (WINS!)
 
-result.command_info.executable     # => "/opt/homebrew/bin/magick"
-result.output.stdout                # => ""
-result.output.success?              # => true
-result.metadata.duration            # => 0.5
-result.metadata.formatted_duration  # => "500ms"
+ENV['UKIRYU_TIMEOUT'] = '180'
+tool = Ukiryu::Tool.get(:inkscape)
+
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png'
+}, timeout: 60)
+
+# Result: Uses 180 second timeout from ENV
 ----
 
-== Architecture
-
-=== Class Hierarchy
-
-[source]
-----
-Ukiryu
-├── Executor
-│   ├── CommandInfo      (command details)
-│   ├── Output           (stdout/stderr with utilities)
-│   ├── ExecutionMetadata(timing information)
-│   └── Result           (composes above three)
-├── Tool               (YAML profile loader and executor)
-├── Registry           (profile discovery and loading)
-├── Platform           (platform detection and utilities)
-├── Shell
-│   ├── Base            (abstract shell interface)
-│   ├── Bash
-│   ├── Zsh
-│   ├── Fish
-│   ├── Sh
-│   ├── PowerShell
-│   └── Cmd
-└── Errors             (custom exception hierarchy)
-----
-
-=== Data Flow
-
-[source]
-----
-┌─────────────────┐      ┌─────────────────┐      ┌──────────────────┐
-│  YAML Profile   │─────►│   Tool Class    │─────►│   Executor       │
-│  (declarative)  │      │  (loader &      │      │  (platform &     │
-│                 │      │   executor)     │      │   shell aware)   │
-└─────────────────┘      └─────────────────┘      └────────┬─────────┘
-                                                             │
-                                                             ▼
-                                                      ┌─────────────┐
-                                                      │   Result    │
-                                                      │  (OOP with  │
-                                                      │  CommandInfo│
-                                                      │  + Output   │
-                                                      │  + Metadata)│
-                                                      └─────────────┘
-----
-
+// Installation
 == Installation
 
 Add this line to your application's Gemfile:
@@ -247,620 +543,1349 @@ Or install it yourself as:
 gem install ukiryu
 ----
 
-== Command Line Interface
+// Quick Start
+== Quick Start
 
-Ukiryu includes a command-line interface (CLI) for exploring and interacting with tool profiles. The CLI requires the `thor` gem.
+=== For CLI Tool Users
 
-=== CLI Commands
+Make your CLI "intelligent" with a bundled Ukiryu definition:
 
-==== list
-
-List all available tools in the registry:
-
-[source,shell]
+[source,bash]
 ----
-ukiryu list
+mytool --definition > mytool-1.0.yaml
+mytool --validate-definition mytool-1.0.yaml
 ----
 
-Example output:
+Your tool now has:
+* Auto-generated `ukiryu describe mytool` documentation
+* Type-safe parameter validation
+* Platform-aware command formatting
+* Structured error responses
 
-[source,shell]
-----
-Available tools (3):
-  [✓]  ghostscript          v10.0.0
-  [✓]  inkscape             v1.3
-  [✗]  imagemagick          version unknown
-----
-
-==== info
-
-Show detailed information about a specific tool:
-
-[source,shell]
-----
-ukiryu info inkscape
-----
-
-Example output:
-
-[source,shell]
-----
-Tool: inkscape
-Display Name: Inkscape Vector Graphics Editor
-Version: 1.3
-Homepage: https://inkscape.org
-
-Aliases: ink, inksc
-
-Version Detection:
-  Command: --version
-  Pattern: (\d+\.\d+)
-  Modern Threshold: 1.0
-
-Search Paths:
-  macos:
-    - /Applications/Inkscape.app/Contents/MacOS/inkscape
-    - /opt/homebrew/bin/inkscape
-
-Profiles (1):
-  default:
-    Platforms: macos, linux
-    Shells: bash, zsh, fish
-    Version: any
-
-Status: INSTALLED
-Executable: /opt/homebrew/bin/inkscape
-Detected Version: 1.3.2
-----
-
-==== commands
-
-List all commands available for a tool:
-
-[source,shell]
-----
-ukiryu commands imagemagick
-----
-
-Example output:
-
-[source,shell]
-----
-Commands for imagemagick:
-  convert              Convert between image formats
-    Usage: magick convert [options] input output
-    Subcommand: convert
-  identify             Describe image format and characteristics
-    Usage: magick identify [options] input
-----
-
-==== opts
-
-Show options for a tool or specific command:
-
-[source,shell]
-----
-# Show all options for a tool
-ukiryu opts inkscape
-
-# Show options for a specific command
-ukiryu opts imagemagick convert
-----
-
-Example output:
-
-[source,shell]
-----
-Options for imagemagick convert:
-Convert between image formats
-
-Arguments:
-  inputs (filevariadic)
-    Position: last
-    Description: Input files to process
-
-Options:
-  --resize              -resize
-    Type: string
-    Values: 50%, 100x100, 50x50!
-
-  --quality             -quality
-    Type: integer
-    Range: 0..100
-    Description: JPEG/MIFF/PNG compression level
-
-Flags:
-  -strip                -strip (default: false)
-    Remove all profiles and text attributes from image
-----
-
-==== exec
-
-Execute a tool command inline with key=value parameters:
-
-[source,shell]
-----
-# With default command (shorthand)
-ukiryu exec ping host=127.0.0.1 count=1
-
-# With explicit command
-ukiryu exec imagemagick convert inputs=input.jpg output=output.jpg resize=50%
-
-# With output format
-ukiryu exec ping host=127.0.0.1 count=1 --format json
-
-# With output to file
-ukiryu exec ping host=127.0.0.1 count=1 --output result.yaml
-
-# Read from stdin (pipe)
-echo '{"name": "value"}' | ukiryu exec jq --stdin filter="."
-
-# Read from file via stdin parameter
-ukiryu exec jq stdin=@/path/to/data.json filter="."
-
-# Debug mode (shows detailed execution info to stderr)
-UKIRYU_DEBUG=1 ukiryu exec ping host=127.0.0.1 count=1
-----
-
-Available options:
-
-* `--registry`, `-r`: Path to tool registry
-* `--format`, `-f`: Response format (`yaml`, `json`, `table`)
-* `--output`, `-o`: Output file for response (default: stdout)
-* `--dry-run`, `-d`: Show execution request without executing
-* `--shell`: Shell to use for command execution (`bash`, `zsh`, `fish`, `sh`, `powershell`, `cmd`)
-* `--stdin`: Read input from stdin and pass to command
-
-==== execute-file
-
-Execute a tool command from a YAML request file:
-
-[source,shell]
-----
-# Create request file
-cat > request.yaml << EOF
-tool: ping
-command: ping
-arguments:
-  host: 127.0.0.1
-  count: 1
-EOF
-
-# Execute from file
-ukiryu execute-file request.yaml
-====
-
-==== execute
-
-Execute a tool command with options:
-
-[source,shell]
-----
-# Basic execution
-ukiryu execute imagemagick convert --resize 50x50 -i input.png -o output.jpg
-
-# Dry run (show command without executing)
-ukiryu execute inkscape export_pdf --dry-run -i input.svg -o output.pdf
-----
-
-Example output:
-
-[source,shell]
-----
-Command completed successfully
-Exit status: 0
-Duration: 1.2s
-
-STDOUT:
-----
-
-==== version
-
-Show Ukiryu CLI version:
-
-[source,shell]
-----
-ukiryu version
-----
-
-Example output:
-
-[source,shell]
-----
-Ukiryu version 0.1.0
-----
-
-=== Registry Configuration
-
-The CLI searches for tool profiles in the following locations:
-
-1. Environment variable: `UKIRYU_REGISTRY`
-2. Sibling `register/` directory relative to gem installation
-3. `../register/` relative to current working directory (development)
-
-Set a custom registry path:
-
-[source,shell]
-----
-export UKIRYU_REGISTRY=/path/to/register
-ukiryu list
-----
-
-Or use the `--registry` option:
-
-[source,shell]
-----
-ukiryu list --registry /path/to/register
-ukiryu info inkscape -r /path/to/register
-----
-
-== Usage
-
-=== Basic Command Execution
+=== For Ruby Developers
 
 [source,ruby]
 ----
 require 'ukiryu'
 
-# Set registry path to tool profiles
-Ukiryu::Registry.default_registry_path = 'path/to/register'
+# Configure register
+Ukiryu::Register.default_register_path = 'path/to/register'
 
 # Get a tool
-tool = Ukiryu::Tool.get(:imagemagick)
+tool = Ukiryu::Tool.get(:inkscape)
 
-# Execute a command
-result = tool.execute(:convert, {
-  inputs: ['input.png'],
-  output: 'output.jpg',
-  resize: '50x50',
-  quality: 85
+# Execute with type safety
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png,          # Symbol - validated against values list
+  dpi: 300,             # Integer - range checked
+  width: 1024           # Integer - range checked
 })
 
-# Check result
-if result.success?
-  puts "Converted in #{result.metadata.formatted_duration}"
-else
-  puts "Error: #{result.output.stderr}"
-end
+puts result.success? ? "Success!" : "Failed: #{result.stderr}"
 ----
 
-=== Passing Stdin
+=== For DevOps Engineers
 
-Pass data to commands via stdin using the `:stdin` parameter:
+[source,yaml]
+----
+# .github/workflows/convert.yml
+name: Convert Images
+
+on: [push]
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ukiryu
+        run: gem install ukiryu
+
+      - name: Convert SVG to PNG
+        env:
+          UKIRYU_REGISTRY: ./register
+        run: |
+          ukiryu exec inkscape export \
+            inputs=drawing.svg \
+            output=drawing.png \
+            format=png
+----
+
+// Distributed Definitions
+== Distributed Definitions
+
+Ukiryu supports loading tool definitions from external files, enabling tool authors to distribute definitions independently from the central register. This allows tools to be distributed with their own definitions, versioned alongside the tool itself.
+
+=== Loading Definitions from Files
+
+Load a tool definition from a local file:
 
 [source,ruby]
 ----
-# Pass string data to stdin
-result = tool.execute(:process, {
-  stdin: '{"name": "value"}',
-  filter: '.'
-})
+require 'ukiryu'
 
-# Read from file and pass to stdin
-result = tool.execute(:process, {
-  stdin: File.read('/path/to/data.json'),
-  filter: '.name'
-})
+# Load from file path
+tool = Ukiryu::Tool.load('path/to/mytool.yaml')
 
-# Pass IO object (file, pipe, etc.)
-File.open('/path/to/data.json', 'r') do |file|
-  result = tool.execute(:process, {
-    stdin: file,
-    filter: '.'
-  })
-end
+# Execute using the loaded definition
+result = tool.execute(:command, { param: 'value' })
 ----
 
-The `:stdin` parameter is a special execution parameter that is extracted before building command arguments and written to the child process's stdin stream.
+The `Tool.load` method (also available as `Tool.from_file`) loads a YAML definition from the filesystem:
 
-=== Accessing Result Details
+* Validates the YAML structure
+* Checks required fields (name, version, profiles)
+* Caches the definition based on file path and modification time
+* Tracks file metadata for cache invalidation
+
+=== Loading Definitions from Strings
+
+Load a tool definition from a YAML string:
 
 [source,ruby]
 ----
-result = tool.execute(:identify, { input: ['test.png'] })
+require 'ukiryu'
 
-# Command information
-result.command_info.executable     # Full path to executable
-result.command_info.arguments      # Array of arguments
-result.command_info.full_command   # Complete command string
-result.command_info.shell          # Shell type used
+yaml_string = <<~YAML
+  name: mytool
+  version: "1.0"
+  profiles:
+    - name: default
+      platforms: [linux, macos]
+      shells: [bash, zsh]
+      commands:
+        - name: process
+          description: Process files
+YAML
 
-# Output
-result.output.stdout                # Stripped stdout
-result.output.stderr                # Stripped stderr
-result.output.stdout_lines          # Array of lines
-result.output.stdout_contains?(/PNG/)
+# Load from string
+tool = Ukiryu::Tool.load_from_string(yaml_string)
 
-# Metadata
-result.metadata.started_at          # Time object
-result.metadata.finished_at         # Time object
-result.metadata.duration            # Float (seconds)
-result.metadata.timed_out?          # Boolean
+# Execute using the loaded definition
+result = tool.execute(:process, { inputs: ['file.txt'] })
 ----
+
+The `Tool.load_from_string` method (also available as `Tool.from_definition`) loads a definition from a YAML string.
+
+=== CLI Usage
+
+Use the `--definition` (or `-d`) flag to load a definition from a file:
+
+[source,bash]
+----
+# Execute using a local definition file
+ukiryu exec --definition ./mytool.yaml mytool command param=value
+
+# Short form
+ukiryu exec -d ./mytool.yaml mytool command param=value
+----
+
+=== Definition Source Tracking
+
+Tools loaded from definitions track their source:
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.load('path/to/tool.yaml')
+
+# Get information about the definition source
+tool.definition_source      # => #<Ukiryu::Definition::Sources::FileSource>
+tool.definition_path        # => "/absolute/path/to/tool.yaml"
+tool.definition_mtime       # => 2024-01-15 10:30:00 +0800
+----
+
+For string-based definitions:
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.load_from_string(yaml_string)
+
+# String sources have content hash instead of path/mtime
+tool.definition_source      # => #<Ukiryu::Definition::Sources::StringSource>
+tool.definition_path        # => nil (not applicable for string sources)
+tool.definition_source.content_hash  # => "a1b2c3d4..."
+----
+
+=== Validation Modes
+
+Definition loading supports three validation modes:
+
+[source,ruby]
+----
+# Strict mode (default) - raises errors for invalid definitions
+tool = Ukiryu::Tool.load('tool.yaml', validation: :strict)
+
+# Lenient mode - warns but continues
+tool = Ukiryu::Tool.load('tool.yaml', validation: :lenient)
+
+# None mode - skips validation entirely
+tool = Ukiryu::Tool.load('tool.yaml', validation: :none)
+----
+
+* **:strict** (default) - Raises `DefinitionValidationError` for missing required fields
+* **:lenient** - Prints warnings but continues loading
+* **:none** - Skips all validation (useful for testing)
 
 === Error Handling
+
+The definition loading system provides specific error types:
 
 [source,ruby]
 ----
 begin
-  result = tool.execute(:convert, { inputs: ['nonexistent.png'], output: 'out.jpg' })
-rescue Ukiryu::ExecutionError => e
-  puts "Command failed: #{e.message}"
-rescue Ukiryu::TimeoutError => e
-  puts "Command timed out: #{e.message}"
+  tool = Ukiryu::Tool.load('tool.yaml')
+rescue Ukiryu::DefinitionNotFoundError => e
+  # File does not exist
+  puts "Definition file not found: #{e.message}"
+rescue Ukiryu::DefinitionLoadError => e
+  # Invalid YAML or file read error
+  puts "Failed to load definition: #{e.message}"
+rescue Ukiryu::DefinitionValidationError => e
+  # Valid YAML but fails validation rules
+  puts "Definition validation failed: #{e.message}"
 end
 ----
 
-=== Tool Availability
+=== Definition Caching
+
+Definitions are cached automatically based on:
+
+* **FileSource**: File path SHA256 hash + modification time
+* **StringSource**: Content SHA256 hash
+
+Clear the cache:
 
 [source,ruby]
 ----
-tool = Ukiryu::Tool.get(:ffmpeg)
+# Clear all cached definitions
+Ukiryu::Tool.clear_definition_cache
 
-if tool.available?
-  puts "FFmpeg #{tool.version} found at #{tool.executable}"
-else
-  puts "FFmpeg not installed"
-end
+# Clear specific source (if you have the source object)
+source = Ukiryu::Definition::Sources::FileSource.new('tool.yaml')
+Ukiryu::Definition::Loader.clear_cache(source)
 ----
 
-[[oop-api]]
-== OOP API
+=== Definition Source Classes
 
-Ukiryu provides a fully object-oriented API for tool interaction. Tool-specific classes are dynamically generated from YAML profiles and available under `Ukiryu::Tools::*`.
+The definition loading system uses an abstract source pattern:
 
-=== Tool Classes
+* **Source** - Abstract base class for all definition sources
+* **FileSource** - Loads from filesystem paths with modification time tracking
+* **StringSource** - Loads from YAML strings with content hashing
+* **BundledSource** - (Planned) Loads from tool-bundled locations
+* **RegisterSource** - (Planned) Loads from central register
 
-Tool classes are generated automatically when first accessed:
+Each source provides:
+* `load` - Returns the YAML content
+* `cache_key` - Unique identifier for caching
+* `source_type` - Symbol identifying the source type
+
+=== Example: Bundling Definitions with Tools
+
+Tool authors can bundle definitions with their tools:
+
+[source,bash]
+----
+# Tool installation directory structure
+/opt/mytool/
+├── bin/mytool
+├── share/ukiryu/
+│   └── 1.0.yaml          # Tool definition
+└── lib/
+----
+
+Users can then load the bundled definition:
 
 [source,ruby]
 ----
-# Access a tool class (autogenerated on first access)
-tool = Ukiryu::Tools::Imagemagick.new
-
-# Check availability and version
-tool.available?  # => true
-tool.version     # => "7.1"
-
-# List available commands
-tool.class.profile[:commands].keys
-# => [:convert, :identify, :mogrify, ...]
+# Load from bundled path
+tool = Ukiryu::Tool.load('/opt/mytool/share/ukiryu/1.0.yaml')
 ----
 
-Available tool classes include:
-* `Ukiryu::Tools::Imagemagick`
-* `Ukiryu::Tools::Ffmpeg`
-* `Ukiryu::Tools::Pandoc`
-* `Ukiryu::Tools::Ghostscript`
-* `Ukiryu::Tools::Inkscape`
-* `Ukiryu::Tools::Optipng`
-* `Ukiryu::Tools::Jpegoptim`
+=== Automatic Definition Discovery
 
-=== Options Classes
+Ukiryu can automatically discover tool definitions in standard filesystem locations following the XDG Base Directory Specification. This allows tools and users to install definitions in well-known locations without manual configuration.
 
-Options classes are generated per-command and provide a fluent interface:
+==== Discovery Priority
 
-[source,ruby]
+Definitions are searched in the following priority order (highest to lowest):
+
+1. **User definitions** - `~/.local/share/ukiryu/definitions/`
+2. **Tool-bundled paths** - Auto-discovered from PATH
+3. **Local system** - `/usr/local/share/ukiryu/definitions/`
+4. **System** - `/usr/share/ukiryu/definitions/`
+
+When multiple definitions exist for the same tool, the highest priority definition is used.
+
+==== XDG Compliance
+
+Ukiryu respects XDG environment variables:
+
+[source,bash]
 ----
-# Create an options object
-convert_options = tool.options_for(:convert)
+# Override user data directory
+export XDG_DATA_HOME=/custom/data
 
-# Set options individually
-convert_options.inputs = ["input.png"]
-convert_options.resize = "50%"
-convert_options.quality = 85
-convert_options.strip = true
-convert_options.output = "output.jpg"
-
-# Or use set() for batch assignment
-convert_options.set(
-  inputs: ["input.png"],
-  resize: "50%",
-  quality: 85,
-  strip: true
-)
-convert_options.output = "output.jpg"
-
-# Execute the command
-result = convert_options.run
-
-# Check the result
-puts result.success?     # => true
-puts result.exit_code    # => 0
-puts result.stdout       # => ""
-puts result.stderr       # => ""
-puts result.duration     # => 0.5
+# Override system data directories
+export XDG_DATA_DIRS=/path1:/path2
 ----
 
-=== Response Classes
+Default values:
+* `XDG_DATA_HOME`: `~/.local/share` (if not set)
+* `XDG_DATA_DIRS`: `/usr/local/share:/usr/share` (if not set)
 
-Response classes wrap execution results in a structured object:
+==== Tool-Bundled Definition Detection
 
-[source,ruby]
+When tools are installed, Ukiryu automatically detects bundled definitions:
+
+[source,bash]
 ----
-result = convert_options.run
-
-# Status information
-result.success?           # => true
-result.exit_code          # => 0
-
-# Output
-result.stdout             # Stripped stdout
-result.stderr             # Stripped stderr
-result.stdout_lines       # Array of lines
-
-# Timing
-result.duration           # Float (seconds)
-result.formatted_duration # "500ms"
-
-# Full command info
-result.executable         # Full path to executable
-result.arguments          # Array of arguments
-result.full_command       # Complete command string
+# Standard installation structure
+/usr/local/
+├── bin/
+│   └── mytool          # Tool executable
+├── share/
+│   └── ukiryu/
+│       └── 1.0.yaml    # Tool definition (auto-discovered)
+└── lib/
 ----
 
-=== Action Pattern
+Ukiryu also detects definitions in `/opt` installations:
 
-An alternative pattern using action classes:
-
-[source,ruby]
+[source,bash]
 ----
-# Create an action
-action = tool.action_for(:convert)
-
-# Get options object
-action_options = action.options
-action_options.set(
-  inputs: ["input.png"],
-  resize: "50%"
-)
-action_options.output = "output.jpg"
-
-# Execute with the action
-result = action.run(action_options)
-
-# Or pass a hash directly (action creates options)
-result = action.run(
-  inputs: ["input.png"],
-  resize: "50%",
-  output: "output.jpg"
-)
+/opt/mytool/
+├── bin/mytool
+├── ukiryu/
+│   └── 1.0.yaml        # Auto-discovered from /opt
+└── lib/
 ----
 
-=== Manual Option Injection
+==== Directory Structure
 
-When tool definitions don't cover all options, use `extra_args`:
+Definitions follow a structured directory layout:
 
-[source,ruby]
+[source,bash]
 ----
-# Pass undefined options via extra_args
-convert_options = tool.options_for(:convert)
-convert_options.set(
-  inputs: ["input.png"],
-  resize: "50%",
-  extra_args: ["-strip", "-quality", "95", "-interlace", "Plane"]
-)
-convert_options.output = "output.jpg"
-
-result = convert_options.run
+~/.local/share/ukiryu/definitions/
+├── inkscape/
+│   ├── 1.0.yaml
+│   └── 0.92.yaml
+├── imagemagick/
+│   ├── 7.1.yaml
+│   └── 6.0.yaml
+└── mytool/
+    └── 1.5.yaml
 ----
 
-The `extra_args` parameter accepts either an array of strings or a single string. All arguments are properly escaped for the detected shell.
+Each tool has its own subdirectory, with version-specific YAML files.
 
-=== Complete Examples
+==== Finding Definitions Programmatically
 
-.Batch Image Conversion
 [source,ruby]
 ----
 require 'ukiryu'
 
-Ukiryu::Registry.default_registry_path = 'path/to/register'
+# Discover all available definitions
+definitions = Ukiryu::Definition::Discovery.discover
 
-im = Ukiryu::Tools::Imagemagick.new
+# Get definitions for a specific tool
+inkscape_defs = Ukiryu::Definition::Discovery.definitions_for('inkscape')
 
-Dir["*.tif"].each do |tif_file|
-  png_file = tif_file.sub('.tif', '.png')
+# Find the best definition (highest priority, latest version)
+metadata = Ukiryu::Definition::Discovery.find('inkscape')
 
-  im.options_for(:convert).tap do |opts|
-    opts.set(inputs: [tif_file], resize: "50%")
-    opts.output = png_file
-    opts.run
-  end
+# Find a specific version
+metadata = Ukiryu::Definition::Discovery.find('inkscape', '1.0')
 
-  puts "Converted #{tif_file} -> #{png_file}"
-end
+# List all available tool names
+tools = Ukiryu::Definition::Discovery.available_tools
+# => ["inkscape", "imagemagick", "mytool"]
 ----
 
-.Video Processing with FFmpeg
+==== Definition Metadata
+
+Each discovered definition has associated metadata:
+
 [source,ruby]
 ----
-ffmpeg = Ukiryu::Tools::Ffmpeg.new
+metadata = Ukiryu::Definition::Discovery.find('inkscape')
 
-# Convert video to MP4 with custom codec settings
-ffmpeg.options_for(:transcode).tap do |opts|
-  opts.set(
-    inputs: ["input.mov"],
-    video_codec: "libx264",
-    bitrate: "2M",
-    extra_args: ["-preset", "slow", "-crf", "22"]
-  )
-  opts.output = "output.mp4"
-  opts.run
-end
+# Basic information
+metadata.name          # => "inkscape"
+metadata.version       # => "1.0"
+metadata.path          # => "/home/user/.local/share/ukiryu/definitions/inkscape/1.0.yaml"
+metadata.source_type   # => :user (or :bundled, :local_system, :system)
+
+# File information
+metadata.exists?       # => true
+metadata.mtime         # => 2024-01-15 10:30:00 +0800
+
+# Load the full definition
+definition = metadata.load_definition
 ----
 
-.Document Conversion with Pandoc
+==== Source Type Priority
+
+Source types determine definition priority:
+
 [source,ruby]
 ----
-pandoc = Ukiryu::Tools::Pandoc.new
-
-# Convert Markdown to PDF
-pandoc.options_for(:convert).tap do |opts|
-  opts.set(
-    inputs: ["document.md"],
-    from: "markdown",
-    to: "pdf",
-    standalone: true,
-    extra_args: ["--pdf-engine", "xelatex", "-V", "geometry:margin=1in"]
-  )
-  opts.output = "document.pdf"
-  result = opts.run
-
-  puts "Conversion #{result.success? ? 'succeeded' : 'failed'}"
-end
+# Priority values (lower = higher priority)
+:user         => 1  # User definitions (~/.local/share)
+:bundled      => 2  # Tool-bundled paths
+:local_system => 3  # /usr/local/share
+:system       => 4  # /usr/share
+:register     => 5  # Central register (planned)
 ----
 
-.SVG Export with Inkscape
+When sorting definitions, higher priority comes first, then higher versions.
+
+==== Version Sorting
+
+Definitions are sorted by version within each priority level:
+
 [source,ruby]
 ----
-inkscape = Ukiryu::Tools::Inkscape.new
-
-# Export SVG to PNG at specific DPI
-inkscape.options_for(:export).tap do |opts|
-  opts.set(
-    inputs: ["design.svg"],
-    dpi: 300,
-    export_area: "page"
-  )
-  opts.output = "design.png"
-  opts.run
-end
+# For the same tool in the same location:
+# 2.0.yaml comes before 1.0.yaml
+# 1.10.yaml comes before 1.9.yaml (semantic versioning)
 ----
 
-== Tool Profiles
+==== CLI Commands for Definitions
 
-Tool profiles are defined in separate https://github.com/ukiryu/register[Ukiryu Register] repository.
+Ukiryu provides CLI commands for managing definitions:
 
-Example profile structure:
+[source,bash]
+----
+# List all discovered definitions
+ukiryu definitions list
+
+# Show where definitions are searched
+ukiryu definitions paths
+
+# Get information about a specific definition
+ukiryu definitions info inkscape
+
+# Install a definition to user directory
+ukiryu definitions add ./mytool-1.0.yaml
+
+# Remove a user definition
+ukiryu definitions remove mytool
+----
+
+===== List Definitions
+
+[source,bash]
+----
+$ ukiryu definitions list
+
+Available Definitions:
+  inkscape/1.0 (user)           - ~/.local/share/ukiryu/definitions/inkscape/1.0.yaml
+  inkscape/0.92 (system)        - /usr/share/ukiryu/definitions/inkscape/0.92.yaml
+  imagemagick/7.1 (bundled)     - /usr/local/share/ukiryu/definitions/imagemagick/7.1.yaml
+----
+
+===== Show Paths
+
+[source,bash]
+----
+$ ukiryu definitions paths
+
+Definition Search Paths:
+  1. ~/.local/share/ukiryu/definitions    (user)
+  2. /usr/local/share/ukiryu/definitions  (local_system)
+  3. /usr/share/ukiryu/definitions        (system)
+----
+
+===== Definition Info
+
+[source,bash]
+----
+$ ukiryu definitions info inkscape
+
+Tool: inkscape
+Version: 1.0
+Source: user
+Path: ~/.local/share/ukiryu/definitions/inkscape/1.0.yaml
+File exists: Yes
+Modified: 2024-01-15 10:30:00 +0800
+----
+
+===== Add Definition
+
+[source,bash]
+----
+$ ukiryu definitions add ./mytool-1.0.yaml
+
+Installing definition to user directory:
+  Source: ./mytool-1.0.yaml
+  Target: ~/.local/share/ukiryu/definitions/mytool/1.0.yaml
+
+✓ Definition installed successfully
+----
+
+===== Remove Definition
+
+[source,bash]
+----
+$ ukiryu definitions remove mytool
+
+Removing user definition:
+  Path: ~/.local/share/ukiryu/definitions/mytool/1.0.yaml
+
+✓ Definition removed successfully
+----
+
+// CLI Reference
+== CLI Reference
+
+=== List Available Tools
+
+[source,bash]
+----
+ukiryu list
+----
+
+=== Get Tool Information
+
+[source,bash]
+----
+ukiryu info inkscape
+----
+
+Shows:
+* Tool metadata (name, version, homepage)
+* Version detection method
+* Search paths for your platform
+* Available profiles with execution mode
+
+=== Describe Commands
+
+[source,bash]
+----
+ukiryu describe inkscape export
+----
+
+Shows:
+* Command description and usage
+* All arguments with types and constraints
+* All options with types and formats
+* All flags with defaults
+* Exit codes and their meanings
+
+=== Execute Commands
+
+[source,bash]
+----
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  format=png
+----
+
+=== System Information
+
+[source,bash]
+----
+ukiryu system
+----
+
+Shows:
+* Available shells on your system
+* All supported shells
+* Platform detection
+
+=== Manage Definitions
+
+==== List All Definitions
+
+[source,bash]
+----
+ukiryu definitions list
+----
+
+Shows all discovered definitions with source type and path.
+
+==== Show Definition Paths
+
+[source,bash]
+----
+ukiryu definitions paths
+----
+
+Shows all search paths in priority order.
+
+==== Get Definition Information
+
+[source,bash]
+----
+ukiryu definitions info inkscape
+----
+
+Shows detailed information about a specific definition.
+
+==== Add Definition
+
+[source,bash]
+----
+ukiryu definitions add ./mytool-1.0.yaml
+----
+
+Installs a definition file to the user definitions directory.
+
+==== Remove Definition
+
+[source,bash]
+----
+ukiryu definitions remove mytool
+----
+
+Removes a user definition.
+
+==== Validate Definition File
+
+[source,bash]
+----
+ukiryu validate --definition ./mytool.yaml
+----
+
+Validates a definition file without installing it.
+
+==== Initialize New Definition
+
+[source,bash]
+----
+ukiryu init mytool
+----
+
+Creates a new tool definition from a template.
+
+[source,bash]
+----
+ukiryu init --list-types
+----
+
+Lists available template types (basic, cli_tool, converter).
+
+[source,bash]
+----
+ukiryu init mytool --type cli_tool --output mytool.yaml
+----
+
+Creates a CLI tool definition and saves to file.
+
+// Developer Experience
+== Developer Experience
+
+=== Error Suggestions
+
+Ukiryu provides intelligent error suggestions to help you fix definition issues quickly:
+
+[source,bash]
+----
+$ ukiryu validate --definition mytool.yaml
+
+✗ Validation failed
+
+  - Unknown field: 'platfoms'
+    Did you mean 'platforms'?
+
+  - Missing required field: 'name'
+    Add a tool name: `name: mytool`
+
+  - Missing required field: 'profiles'
+    Add at least one profile with platform and shell information
+----
+
+=== Template Generation
+
+Ukiryu includes templates for common tool types to help you get started quickly:
+
+[source,bash]
+----
+# Basic template (minimal)
+ukiryu init mytool --type basic --output mytool.yaml
+
+# CLI tool template (with help/version commands)
+ukiryu init mycli --type cli_tool --output mycli.yaml
+
+# Converter template (for file conversion tools)
+ukiryu init imgconv --type converter --output imgconv.yaml
+----
+
+==== Template Types
+
+===== Basic Template
+
+Minimal template with required fields only:
 
 [source,yaml]
 ----
-name: imagemagick
-version: "7.1"
+name: mytool
+version: "1.0"
+$schema: https://ukiryu.com/schema/1.2
+
+profiles:
+  - name: default
+    platforms: [linux, macos]
+    shells: [bash, zsh]
+----
+
+===== CLI Tool Template
+
+Standard CLI tool with common commands:
+
+[source,yaml]
+----
+name: mytool
+version: "1.0"
+$schema: https://ukiryu.com/schema/1.2
+
+display_name: Mytool
+description: A CLI tool for processing data
+homepage: https://example.com/mytool
 
 version_detection:
   command: "--version"
   pattern: "(\\d+\\.\\d+)"
+  modern_threshold: "1.0"
+
+search_paths:
+  macos:
+    - "/usr/local/bin/mytool"
+    - "/opt/homebrew/bin/mytool"
+  linux:
+    - "/usr/bin/mytool"
+    - "/usr/local/bin/mytool"
 
 profiles:
-  - name: unix
-    platforms: [macos, linux]
-    shells: [bash, zsh, fish, sh]
+  - name: default
+    platforms: [linux, macos]
+    shells: [bash, zsh]
+    option_style: double_dash_equals
+
     commands:
-      convert:
+      - name: help
+        description: Show help information
+
+      - name: version
+        description: Show version information
+----
+
+===== Converter Template
+
+File conversion tool with extensive options:
+
+[source,yaml]
+----
+name: imagick
+version: "1.0"
+$schema: https://ukiryu.com/schema/1.2
+
+display_name: Imagick
+description: File conversion tool for various formats
+
+profiles:
+  - name: default
+    platforms: [linux, macos]
+    shells: [bash, zsh]
+
+    # Reusable environment variable sets
+    env_var_sets:
+      headless:
+        - name: DISPLAY
+          value: ''
+          platforms: [macos, linux]
+          description: Disable display for headless operation
+
+    commands:
+      - name: convert
+        description: Convert files between formats
+        use_env_vars: [headless]
+
         arguments:
           - name: inputs
             type: file
             variadic: true
-            position: last
+            min: 1
+            description: Input file(s)
+
         options:
-          - name: resize
-            cli: "-resize"
-        flags:
-          - name: strip
-            cli: "-strip"
+          - name: output
+            type: file
+            cli: --output
+            required: true
+            description: Output file path
+
+          - name: format
+            type: symbol
+            cli: --format
+            values: [png, jpg, pdf, svg]
+            description: Output format
 ----
 
+==== Customizing Templates
+
+[source,bash]
+----
+ukiryu init mytool \
+  --type cli_tool \
+  --version "2.0" \
+  --platforms linux windows \
+  --purpose "image processing" \
+  --output mytool.yaml
+----
+
+Template variables:
+* `tool_name` - The tool name (required)
+* `version` - Tool version (default: "1.0")
+* `platforms` - Target platforms (default: [linux, macos])
+* `shells` - Target shells (default: [bash, zsh])
+* `purpose` - Tool description (for cli_tool)
+* `file_types` - File types description (for converter)
+
+==== Interactive Mode (Opt-In)
+
+When `highline` or `tty-prompt` gems are available, Ukiryu provides interactive prompts:
+
+[source,bash]
+----
+$ ukiryu init
+
+Select template type:
+  1) Basic: Minimal template with required fields only
+  2) CLI Tool: Standard CLI tool with common commands
+  3) Converter: File conversion tool with extensive options
+Selection [1-3] [Basic]:
+
+Tool name: [mytool]:
+
+Version: [1.0]: 2.0
+
+Save to file: [mytool.yaml]: /path/to/mytool.yaml
+
+✓ Definition saved to: /path/to/mytool.yaml
+
+Next steps:
+  1. Review and edit the definition
+  2. Validate: ukiryu validate --definition /path/to/mytool.yaml
+  3. Install: ukiryu definitions add /path/to/mytool.yaml
+----
+
+To enable interactive prompts, add one of these gems to your Gemfile:
+
+[source,ruby]
+----
+# For rich prompts (recommended)
+gem 'tty-prompt'
+
+# Or use highline
+gem 'highline'
+----
+
+// Advanced Features
+== Advanced Features
+
+=== Version Constraints
+
+Ukiryu supports semantic versioning constraints when selecting tool definitions:
+
+[source,ruby]
+----
+# Use specific version
+tool = Ukiryu::Tool.get(:inkscape, version: '1.0')
+
+# Use version constraint (pessimistic)
+# Any 1.x version, but less than 2.0
+constraint = '~> 1.0'
+
+# Find available versions
+versions = Ukiryu::Definition::Discovery
+  .definitions_for('inkscape')
+  .map(&:version)
+
+# Resolve constraint
+selected = Ukiryu::Definition::VersionResolver.resolve(
+  constraint,
+  versions
+)
+----
+
+Supported constraint operators:
+* `1.0` - exact version
+* `>= 1.0` - minimum version (inclusive)
+* `> 1.0` - minimum version (exclusive)
+* `<= 2.0` - maximum version (inclusive)
+* `< 2.0` - maximum version (exclusive)
+* `~> 1.2` - pessimistic version constraint (>= 1.2.0, < 1.3.0)
+* `>= 1.0, < 2.0` - range constraint
+
+=== Tool Aliases
+
+Create shortcuts for frequently used tools:
+
+[source,bash]
+----
+# Simple alias
+ukiryu alias add magick imagemagick
+
+# Versioned alias
+ukiryu alias add gs7 ghostscript
+
+# Command alias
+ukiryu alias add convert imagemagick:convert
+----
+
+List all aliases:
+
+[source,bash]
+----
+$ ukiryu alias list
+
+Tool Aliases:
+  magick                 → imagemagick
+  gs7                    → ghostscript/7.0
+  convert                → imagemagick:convert
+
+Total: 3 aliases
+----
+
+Resolve an alias:
+
+[source,bash]
+----
+$ ukiryu alias resolve magick
+
+Alias: magick
+Resolves to:
+  Tool: imagemagick
+Definition lookup:
+  ✓ Found: imagemagick/7.1 (bundled)
+    Path: /usr/local/share/ukiryu/definitions/imagemagick/7.1.yaml
+----
+
+Remove an alias:
+
+[source,bash]
+----
+ukiryu alias remove magick
+----
+
+=== Definition Caching
+
+Ukiryu automatically caches tool definitions for performance:
+
+[source,bash]
+----
+# View cache information
+ukiryu cache info
+
+Status: Active
+Entries: 5
+TTL: 300 seconds
+Refresh Strategy: lazy
+
+# Show detailed statistics
+ukiryu cache stats
+
+# Clear the cache
+ukiryu cache clear
+----
+
+Cache behavior:
+* **Lazy mode** (default) - Checks staleness on each access, refreshes if needed
+* **Eager mode** - Background thread periodically refreshes all cache
+* **Never mode** - Disables auto-refresh, manual clear only
+
+=== Definition Resolution
+
+See which definition would be used for a tool:
+
+[source,bash]
+----
+$ ukiryu resolve inkscape
+
+Resolution for: inkscape
+
+Available Definitions (2):
+  ★ 1.0 (user)            Priority: 1
+    Path: ~/.local/share/ukiryu/definitions/inkscape/1.0.yaml
+    Mtime: 2024-01-15 10:30:00 +0800
+
+  □ 0.92 (system)         Priority: 4
+    Path: /usr/share/ukiryu/definitions/inkscape/0.92.yaml
+    Mtime: 2023-12-01 15:20:00 +0800
+
+Selected Definition (highest priority):
+  ✓ inkscape/1.0
+    Source: user
+    Path: ~/.local/share/ukiryu/definitions/inkscape/1.0.yaml
+    Priority: 1
+----
+
+Resolve with version constraint:
+
+[source,bash]
+----
+$ ukiryu resolve imagemagick ">= 7.0"
+
+Resolution for: imagemagick
+
+Available Definitions (3):
+  ★ 7.1 (bundled)         Priority: 2
+  ★ 7.0 (system)           Priority: 4
+  □ 6.0 (system)           Priority: 4
+
+Selected Definition (constraint: >= 7.0):
+  ✓ imagemagick/7.1
+----
+
+Priority icons:
+* `★` - User definitions
+* `◆` - Bundled definitions
+* `■` - Local system definitions
+* `□` - System definitions
+* `△` - Register definitions
+
+=== Definition Composition
+
+Definition composition allows building complex definitions from simpler ones:
+
+[source,yaml]
+----
+name: mytool
+version: "2.0"
+
+# Include common profiles from another definition
+includes:
+  - tool: common_tools
+    profile: default
+    commands: [help, version]
+
+profiles:
+  - name: default
+    platforms: [linux, macos]
+    shells: [bash, zsh]
+
+    # Commands from includes are merged here
+    # Add tool-specific commands
+    commands:
+      - name: mycommand
+        description: My custom command
+----
+
+=== Shadowing and Override Behavior
+
+When multiple definitions exist for the same tool, the highest priority definition is used:
+
+1. User definitions (`~/.local/share/ukiryu/definitions/`)
+2. Tool-bundled definitions
+3. Local system definitions (`/usr/local/share/ukiryu/definitions/`)
+4. System definitions (`/usr/share/ukiryu/definitions/`)
+5. Register definitions
+
+To explicitly use a specific definition source:
+
+[source,bash]
+----
+# Use only system definitions
+ukiryu exec --system inkscape export
+
+# Use specific definition file
+ukiryu exec --definition /path/to/inkscape.yaml inkscape export
+----
+
+// Key Features
+== Key Features
+
+=== Structured Responses
+
+No more parsing stdout/stderr:
+
+[source,ruby]
+----
+result = tool.execute(:export, params)
+
+# Rich result object
+result.command_info.executable     # Full path
+result.command_info.full_command   # Complete command
+result.output.success?              # Boolean
+result.output.stdout                # Stripped stdout
+result.output.stderr                # Stripped stderr
+result.metadata.duration            # Float seconds
+result.metadata.formatted_duration  # "500ms"
+----
+
+=== Type Safety
+
+Parameters are validated against the schema:
+
+[source,ruby]
+----
+# Valid
+tool.execute(:export, {
+  format: :png,           # Must be in values list
+  dpi: 300,              # Must be in range
+  width: 1024            # Must be integer
+})
+
+# Invalid - raises Ukiryu::TypeError
+tool.execute(:export, {
+  format: :unsupported,  # Type error!
+  dpi: -5                # Range error!
+})
+----
+
+=== Platform Adaptation
+
+Same code works everywhere:
+
+[source,ruby]
+----
+# Works on macOS, Linux, Windows
+tool.execute(:export, {
+  inputs: ['~/drawing.svg'],     # Tilde expansion
+  output: ['~/drawing.png'],
+  format: :png
+})
+
+# Paths are automatically formatted:
+# macOS: /Users/user/drawing.png
+# Windows: C:\Users\user\drawing.png
+----
+
+=== Version Management
+
+Support multiple tool versions with automatic selection:
+
+[source,yaml]
+----
+register/
+├── tools/
+│   ├── inkscape/
+│   │   ├── 1.0.yaml    # Modern Inkscape
+│   │   └── 0.92.yaml  # Legacy Inkscape
+│   └── imagemagick/
+│       ├── 7.1.yaml    # Current ImageMagick
+│       └── 6.0.yaml    # Old ImageMagick
+----
+
+[source,ruby]
+----
+# Automatically selects correct profile
+tool = Ukiryu::Tool.get(:inkscape)
+# If Inkscape 1.3+ detected → uses 1.0.yaml
+# If Inkscape 0.9.x detected → uses 0.92.yaml
+----
+
+=== Headless Mode
+
+GUI applications run without windows on servers:
+
+[source,ruby]
+----
+# Automatically runs in headless mode
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png'
+})
+# No GUI window appears! Perfect for servers and CI/CD
+----
+
+Check headless support:
+
+[source,bash]
+----
+ukiryu info inkscape | grep "Execution Mode"
+# Shows: Execution Mode: headless
+----
+
+=== Error Handling
+
+Structured exceptions instead of magic exit codes:
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:export, params)
+rescue Ukiryu::ToolNotFoundError => e
+  puts "Tool not found: #{e.tool_name}"
+  puts "Available tools: #{Ukiryu::Register.tools.join(', ')}"
+rescue Ukiryu::ExecutionError => e
+  puts "Command failed!"
+  puts "Exit code: #{e.result.exit_status}"
+  puts "Stderr: #{e.result.stderr}"
+  puts "Stdout: #{e.result.stdout}"
+rescue Ukiryu::TimeoutError => e
+  puts "Command timed out after #{e.timeout}s"
+end
+----
+
+=== Exit Code Semantics
+
+Exit codes are documented in the profile:
+
+[source,yaml]
+----
+exit_codes:
+  standard:
+    "0": "Success"
+    "1": "File not found"
+    "3": "Initialization error"
+  custom:
+    "2": "Export failed (see stderr for details)"
+----
+
+// Ecosystem Tools
+== Ecosystem Tools
+
+Ukiryu provides tools for validating, linting, and documenting tool definitions.
+
+=== Definition Validation
+
+Validate definitions against JSON Schema and structural rules:
+
+[source,bash]
+----
+# Validate a single file
+ukiryu validate file path/to/tool.yaml
+
+# Validate all definitions in register
+ukiryu validate all
+
+# Validate with custom schema
+ukiryu validate file path/to/tool.yaml --schema path/to/schema.json
+
+# Test executable against actual tool (smoke test)
+ukiryu validate file path/to/tool.yaml --executable
+
+# Strict mode (warnings as errors)
+ukiryu validate file path/to/tool.yaml --strict
+
+# JSON output for CI/CD
+ukiryu validate file path/to/tool.yaml --format json
+----
+
+The `--executable` flag performs a smoke test against the actual tool:
+
+* Checks if the tool executable can be found
+* Tests version detection (if defined)
+* Tests basic command execution
+
+Programmatic usage:
+
+[source,ruby]
+----
+result = Ukiryu::Definition::DefinitionValidator.validate_file('tool.yaml')
+
+if result.valid?
+  puts "✓ Valid"
+else
+  puts "✗ Invalid"
+  result.errors.each { |e| puts "  - #{e}" }
+end
+
+# Check for warnings
+if result.has_warnings?
+  result.warnings.each { |w| puts "  Warning: #{w}" }
+end
+----
+
+=== Definition Linting
+
+Check definitions for best practices and potential issues:
+
+[source,bash]
+----
+# Lint a definition file
+ukiryu lint file path/to/tool.yaml
+
+# Lint all definitions
+ukiryu lint all
+
+# List all linting rules
+ukiryu lint rules
+----
+
+Programmatic usage:
+
+[source,ruby]
+----
+result = Ukiryu::Definition::DefinitionLinter.lint_file('tool.yaml')
+
+# Access issues by severity
+result.errors.each { |e| puts "ERROR: #{e.message}" }
+result.warnings.each { |w| puts "WARNING: #{w.message}" }
+
+# Get suggestions for fixes
+result.issues.each do |issue|
+  puts "#{issue.message}"
+  puts "  Suggestion: #{issue.suggestion}" if issue.has_suggestion?
+end
+----
+
+Linting rules include:
+
+* **Naming conventions** - Tool and command name format checks
+* **Completeness** - Missing descriptions, homepages, version detection
+* **Security** - Dangerous shell commands, unvalidated user input
+* **Best practices** - Redundant profiles, missing platform specifications
+
+=== Documentation Generation
+
+Generate human-readable documentation from definitions:
+
+[source,bash]
+----
+# Generate docs for a tool
+ukiryu docs generate imagemagick
+
+# Generate docs to file
+ukiryu docs generate imagemagick --output imagemagick.md
+
+# Generate docs for all tools
+ukiryu docs generate-all --output-dir docs/
+
+# Choose format (markdown or asciidoc)
+ukiryu docs generate imagemagick --format asciidoc
+----
+
+Programmatic usage:
+
+[source,ruby]
+----
+docs = Ukiryu::Definition::DocumentationGenerator.generate(
+  definition,
+  format: :markdown
+)
+
+puts docs
+# Outputs:
+# # imagemagick
+#
+# Version: 7.1
+#
+# ## Commands
+#
+# ### `convert`
+# Convert between image formats...
+----
+
+// Documentation
+== Documentation
+
+Comprehensive documentation is available at:
+
+* https://ukiryu.com[Ukiryu Documentation Site]
+* https://github.com/ukiryu/ukiryu[GitHub Repository]
+* https://github.com/ukiryu/register[Ukiryu Tool Register]
+
+// Development
 == Development
 
 === Running Tests
@@ -883,7 +1908,7 @@ Tests run on:
 * Ubuntu latest
 * macOS latest
 
-== Contributing
+=== Contributing
 
 1. Fork the repository
 2. Create your feature branch
@@ -891,18 +1916,20 @@ Tests run on:
 4. Ensure all tests pass
 5. Submit a pull request
 
+See link:CONTRIBUTING.adoc[CONTRIBUTING] for details.
 
+// License
 == License
 
-The content is available as open source under the terms of the Ribose BSD
-2-Clause License.
+The content is available as open source under the terms of the Ribose BSD 2-Clause License.
 
+// Copyright
 == Copyright
 
 Copyright Ribose.
 
-
+// Related Repositories
 == Related Repositories
 
-* https://github.com/ukiryu/register[ukiryu/register] - Tool profile registry
+* https://github.com/ukiryu/register[ukiryu/register] - Tool profile register
 * https://github.com/ukiryu/schema[ukiryu/schema] - Profile validation schema

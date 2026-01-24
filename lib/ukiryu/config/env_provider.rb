@@ -40,9 +40,9 @@ module Ukiryu
           load_attributes(EnvSchema.all_output_attributes)
         end
 
-        # Load registry-specific environment overrides
-        def load_registry
-          load_attributes(EnvSchema.all_registry_attributes)
+        # Load register-specific environment overrides
+        def load_register
+          load_attributes(EnvSchema.all_register_attributes)
         end
 
         private

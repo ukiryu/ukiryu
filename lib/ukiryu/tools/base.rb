@@ -251,8 +251,8 @@ module Ukiryu
         # Get shell
         shell_sym = Ukiryu::Runtime.instance.shell
 
-        # Build environment variables (including execution mode env vars)
-        env = build_execution_env(command_def, params)
+        # Build environment variables (including env var sets)
+        env = build_execution_env(command_def, @platform_profile, params)
 
         # Execute
         result = Ukiryu::Executor.execute(
@@ -299,30 +299,14 @@ module Ukiryu
         args
       end
 
-      # Build execution environment including execution mode
+      # Build execution environment
       #
       # @param command_def [Models::CommandDefinition] the command definition
+      # @param profile [Models::PlatformProfile] the profile (for env_var_sets)
       # @param params [Hash] the parameters
       # @return [Hash] environment variables
-      def build_execution_env(command_def, params)
-        env = build_env_vars(command_def, params)
-
-        # Handle execution modes
-        execution_mode = command_def.execution_mode
-
-        case execution_mode
-        when 'headless', :headless
-          # Set headless environment variables
-          platform = Ukiryu::Runtime.instance.platform
-          case platform
-          when :macos, :linux
-            env['DISPLAY'] ||= '' # Disable X11 display
-          when :windows
-            # Windows doesn't need special handling for headless
-          end
-        end
-
-        env
+      def build_execution_env(command_def, profile, params)
+        build_env_vars(command_def, profile, params)
       end
 
       # Check if command needs batch processing flag for headless mode
@@ -330,8 +314,8 @@ module Ukiryu
       # @param command_def [Models::CommandDefinition] the command definition
       # @return [Boolean] true if batch processing flag should be added
       def needs_batch_process_flag?(command_def)
-        execution_mode = command_def.execution_mode
-        ['headless', :headless].include?(execution_mode)
+        # Check if command uses the 'headless' env var set
+        command_def.use_env_vars&.include?('headless') || false
       end
 
       # Build a response object
@@ -356,7 +340,10 @@ module Ukiryu
         vd = self.class.tool_definition.version_detection
         return nil unless vd
 
-        cmd = vd.command || '--version'
+        # Only attempt version detection if command is configured
+        return nil if vd.command.nil? || vd.command.empty?
+
+        cmd = vd.command
 
         executable = ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
         return nil unless executable

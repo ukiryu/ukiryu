@@ -2,6 +2,7 @@
 
 require_relative 'type'
 require_relative 'shell'
+require_relative 'models/env_var_definition'
 
 module Ukiryu
   # CommandBuilder module provides shared command building functionality.
@@ -23,7 +24,19 @@ module Ukiryu
       # Add subcommand prefix if present (e.g., for ImageMagick "magick convert")
       args << command.subcommand if command.subcommand
 
-      # Add options first (before arguments)
+      # Add prefix flags FIRST (must come before any options)
+      command.flags&.each do |flag_def|
+        param_key = flag_def.name_sym
+        next unless flag_def.position_constraint_sym == :prefix
+
+        value = params[param_key]
+        value = flag_def.default if value.nil?
+
+        formatted_flag = format_flag(flag_def, value)
+        Array(formatted_flag).each { |flag| args << flag unless flag.nil? || flag.empty? }
+      end
+
+      # Add options (after prefix flags)
       command.options&.each do |opt_def|
         param_key = opt_def.name_sym
         next unless params.key?(param_key)
@@ -33,9 +46,11 @@ module Ukiryu
         Array(formatted_opt).each { |opt| args << opt unless opt.nil? || opt.empty? }
       end
 
-      # Add flags
+      # Add non-prefix flags (after options)
       command.flags&.each do |flag_def|
         param_key = flag_def.name_sym
+        next if flag_def.position_constraint_sym == :prefix
+
         value = params[param_key]
         value = flag_def.default if value.nil?
 
@@ -127,8 +142,11 @@ module Ukiryu
       end
 
       cli = opt_def.cli || ''
-      format_sym = opt_def.format_sym
+      delimiter_sym = opt_def.assignment_delimiter_sym
       separator = opt_def.separator || '='
+
+      # Auto-detect delimiter based on CLI prefix
+      delimiter_sym = detect_delimiter(cli) if delimiter_sym == :auto
 
       # Convert value to string (handle symbols)
       value_str = value.is_a?(Symbol) ? value.to_s : value.to_s
@@ -136,31 +154,44 @@ module Ukiryu
       # Handle array values with separator
       if value.is_a?(Array) && separator
         joined = value.join(separator)
-        case format_sym
-        when :double_dash_equals
-          "#{cli}#{joined}"
-        when :double_dash_space, :single_dash_space
+        case delimiter_sym
+        when :equals
+          "#{cli}=#{joined}"
+        when :space
           [cli, joined] # Return array for space-separated
-        when :single_dash_equals
-          "#{cli}#{joined}"
+        when :colon
+          "#{cli}:#{joined}"
+        when :none
+          cli
         else
-          "#{cli}#{joined}"
+          "#{cli}=#{joined}"
         end
       else
-        case format_sym
-        when :double_dash_equals
-          "#{cli}#{separator}#{value_str}"
-        when :double_dash_space, :single_dash_space
+        case delimiter_sym
+        when :equals
+          "#{cli}=#{value_str}"
+        when :space
           [cli, value_str] # Return array for space-separated
-        when :single_dash_equals
-          "#{cli}#{separator}#{value_str}"
-        when :slash_colon
+        when :colon
           "#{cli}:#{value_str}"
-        when :slash_space
-          "#{cli} #{value_str}"
+        when :none
+          cli
         else
-          "#{cli}#{separator}#{value_str}"
+          "#{cli}=#{value_str}"
         end
+      end
+    end
+
+    # Detect assignment delimiter based on CLI prefix
+    #
+    # @param cli [String] the CLI flag
+    # @return [Symbol] the delimiter
+    def detect_delimiter(cli)
+      case cli
+      when /^--/ then :equals   # --flag=value
+      when /^-/ then :space     # -f value
+      when %r{^/} then :colon # /format:value
+      else :equals
       end
     end
 
@@ -178,11 +209,38 @@ module Ukiryu
     # Build environment variables for command
     #
     # @param command [Models::CommandDefinition] the command definition
+    # @param profile [Models::PlatformProfile] the profile (for env_var_sets)
     # @param params [Hash] the parameters hash
     # @return [Hash] the environment variables hash
-    def build_env_vars(command, params)
+    def build_env_vars(command, profile, params)
       env_vars = {}
 
+      # First, add env vars from sets specified in use_env_vars
+      command.use_env_vars&.each do |set_name|
+        set = profile.env_var_sets&.dig(set_name.to_s)
+        next unless set
+
+        set.each do |ev_data|
+          # Convert hash to EnvVarDefinition if needed
+          ev = ev_data.is_a?(Hash) ? Models::EnvVarDefinition.new(ev_data) : ev_data
+
+          # Check platform restriction
+          platforms = ev.platforms || []
+          next if platforms.any? && !platforms.map(&:to_sym).include?(@platform)
+
+          # Get value - use ev.value if provided, or extract from params
+          value = if ev.value
+                    ev.value
+                  elsif ev.from
+                    params[ev.from.to_sym]
+                  end
+
+          # Set the environment variable if value is defined (including empty string)
+          env_vars[ev.name] = value.to_s unless value.nil?
+        end
+      end
+
+      # Then, add command's own env_vars (can override set values)
       command.env_vars&.each do |ev|
         # Check platform restriction
         platforms = ev.platforms || []
@@ -191,8 +249,8 @@ module Ukiryu
         # Get value - use ev.value if provided, or extract from params
         value = if ev.value
                   ev.value
-                elsif ev.env_var
-                  params[ev.env_var.to_sym]
+                elsif ev.from
+                  params[ev.from.to_sym]
                 end
 
         # Set the environment variable if value is defined (including empty string)

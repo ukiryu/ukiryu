@@ -1,0 +1,539 @@
+# YAML Schema for Ukiryu Tool Profiles
+# This schema defines the structure for tool profile YAML files
+
+# Ukiryu Schema Version (like OpenAPI's "openapi" field)
+# Tool profiles SHOULD include this field to indicate schema version:
+#   ukiryu_schema: "1.0"  # For basic profiles
+#   ukiryu_schema: "1.1"  # For profiles with routing support
+#   ukiryu_schema: "1.2"  # For profiles with $self, components, exit_codes
+
+# Root: Tool Profile
+type: object
+required:
+  - name
+  - version
+  - profiles
+properties:
+  ukiryu_schema:
+    type: string
+    description: |
+      Ukiryu schema format version (now "1.0", future "1.1", "1.2").
+      Indicates which schema version this profile conforms to.
+      Recommended for all profiles, especially those using v1.0+ features.
+
+  $self:
+    type: string
+    format: uri
+    description: |
+      Self-assigned URI of this document (v1.0+).
+      Format: https://www.ukiryu.com/register/{schema_ver}/{tool-name}/{tool-ver}
+      Example: https://www.ukiryu.com/register/1.0/git/2.47
+      Serves as base URI for resolving relative references.
+      Enables future multi-document definitions.
+
+  name:
+    type: string
+    description: The tool name (e.g., 'inkscape', 'ghostscript')
+
+  display_name:
+    type: string
+    description: Human-readable display name for the tool
+
+  homepage:
+    type: string
+    format: uri
+    description: URL to the tool's homepage
+
+  version:
+    type: string
+    description: The version of this profile (e.g., '1.0', '10.0', '2.47.1', '2024.01.17', '4.50')
+
+  aliases:
+    type: array
+    items:
+      type: string
+    description: Alternative names for the tool
+
+  version_detection:
+    type: object
+    description: Configuration for detecting the tool version
+    properties:
+      command:
+        oneOf:
+          - type: string
+            description: Command to get version (e.g., '--version')
+          - type: array
+            items:
+              type: string
+            description: Command with arguments (e.g., ['-c', '1', 'localhost'])
+
+      pattern:
+        type: string
+        description: Regex pattern to extract version number
+
+      modern_threshold:
+        type: string
+        description: Version threshold for 'modern' behavior
+
+  search_paths:
+    type: object
+    description: Platform-specific search paths for the executable
+    properties:
+      windows:
+        type: array
+        items:
+          type: string
+
+      macos:
+        type: array
+        items:
+          type: string
+
+      linux:
+        type: array
+        items:
+          type: string
+
+  timeout:
+    type: integer
+    minimum: 1
+    description: Default timeout in seconds for command execution
+
+  components:
+    type: object
+    description: |
+      Registry of reusable definitions (v1.2+).
+      Components must be explicitly referenced to have effect.
+      Enables sharing common option/argument/flag definitions across commands.
+    properties:
+      options:
+        type: object
+        description: Reusable option definitions
+        additionalProperties:
+          $ref: '#/definitions/option'
+
+      flags:
+        type: object
+        description: Reusable flag definitions
+        additionalProperties:
+          $ref: '#/definitions/flag'
+
+      arguments:
+        type: object
+        description: Reusable argument definitions
+        additionalProperties:
+          $ref: '#/definitions/argument'
+
+      exit_codes:
+        type: object
+        description: Reusable exit code definitions
+        additionalProperties:
+          type: string
+
+  profiles:
+    type: array
+    description: Command execution profiles for different platforms/shells
+    items:
+      $ref: '#/definitions/command_profile'
+
+definitions:
+  command_profile:
+    type: object
+    required:
+      - name
+      - platforms
+      - shells
+    properties:
+      name:
+        type: string
+        description: Profile name (e.g., 'modern_unix', 'windows_powershell')
+
+      display_name:
+        type: string
+        description: Human-readable profile name
+
+      platforms:
+        type: array
+        items:
+          type: string
+          enum: [windows, macos, linux]
+
+      shells:
+        type: array
+        items:
+          type: string
+          enum: [bash, zsh, fish, sh, powershell, cmd]
+
+      version:
+        type: string
+        description: Version constraint (e.g., '>= 1.0')
+
+      option_style:
+        type: string
+        enum: [double_dash_equals, double_dash_space, single_dash_equals, single_dash_space, slash_colon, slash_space]
+        description: Default option style for this profile
+
+      inherits:
+        type: string
+        description: Name of parent profile to inherit from
+
+      routing:
+        type: object
+        additionalProperties:
+          type: string
+        description: |
+          Command routing table.
+          Maps command names to their executable targets.
+          Enables multi-level hierarchies where each level has its own routing.
+          Example: { remote: git-remote, branch: git-branch, stash: git-stash }
+
+      version_requirement:
+        type: string
+        description: |
+          Semantic version requirement for this profile (v1.2+).
+          Supports semantic versioning: ">= 2.30", ">= 2.30, < 3.0", "~> 2.45.0"
+          Used to check if the installed tool version is compatible with this profile.
+
+      exit_codes:
+        type: object
+        description: |
+          Exit code definitions for this tool (v1.2+).
+          Provides machine-readable error semantics.
+        properties:
+          standard:
+            type: object
+            description: Standard exit codes (0, 1, 2, etc.)
+            additionalProperties:
+              type: string
+
+          custom:
+            type: object
+            description: Tool-specific exit codes
+            additionalProperties:
+              type: string
+
+      env_var_sets:
+        type: object
+        description: |
+          Reusable named environment variable sets (v1.2+).
+          Allows defining common env var configurations that can be applied
+          to commands by referencing the set name.
+
+          Example: A "headless" set for GUI tools:
+            env_var_sets:
+              headless:
+                - name: DISPLAY
+                  value: ''
+                  platforms: [macos, linux]
+                  description: Disable display for headless operation
+
+          Commands can then reference these sets via `use_env_vars`.
+
+        additionalProperties:
+          type: array
+          items:
+            $ref: '#/definitions/env_var'
+
+      commands:
+        type: array
+        description: Command definitions for this profile
+        items:
+          $ref: '#/definitions/command'
+
+      post_options:
+        type: array
+        description: Options that come AFTER all input files
+        items:
+          $ref: '#/definitions/option'
+
+  command:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: Command name (e.g., 'convert', 'compress')
+
+      description:
+        type: string
+
+      usage:
+        type: string
+
+      subcommand:
+        type: string
+        description: |
+          Subcommand phrase for this command.
+          - Single word: 'convert' for tools like 'magick convert'
+          - Multi-word: 'get pod' or 'storage account create' for nested subcommands
+          - Omit this field for tools that execute directly (no subcommand word)
+
+      aliases:
+        type: array
+        items:
+          type: string
+        description: |
+          Alternative names for this command.
+          Allows the command to be invoked using any of these aliases.
+          Example: ['ex', 'run'] would allow 'tool ex' and 'tool run' to invoke this command.
+
+      belongs_to:
+        type: string
+        description: |
+          Parent command this action belongs to.
+          Creates hierarchical structure: Tool → Command → Action.
+          Example: action "add" with belongs_to: "remote" means "remote add"
+          References a command name in the routing table.
+
+      cli_flag:
+        type: string
+        description: |
+          CLI flag that selects this action.
+          Used when actions are expressed as flags instead of positional args.
+          Example: git branch -d uses cli_flag: "-d" for the "delete" action.
+          If omitted, the action name is used as a positional argument.
+
+      use_env_vars:
+        type: array
+        items:
+          type: string
+        description: |
+          Names of env var sets from profile-level `env_var_sets` to apply.
+          Allows commands to selectively apply predefined environment configurations.
+
+          Example:
+            use_env_vars: ['headless']
+
+          This would apply all env vars from the 'headless' set defined in
+          the profile's `env_var_sets`. The actual env vars are defined
+          per-profile since headless requirements vary by tool and platform.
+
+      arguments:
+        type: array
+        items:
+          $ref: '#/definitions/argument'
+
+      options:
+        type: array
+        items:
+          $ref: '#/definitions/option'
+
+      flags:
+        type: array
+        items:
+          $ref: '#/definitions/flag'
+
+      post_options:
+        type: array
+        items:
+          $ref: '#/definitions/option'
+
+      env_vars:
+        type: array
+        items:
+          $ref: '#/definitions/env_var'
+
+      exit_codes:
+        type: object
+        description: |
+          Exit code definitions for this command/action (v1.2+).
+          Provides machine-readable error semantics specific to this command.
+        properties:
+          standard:
+            type: object
+            description: Standard exit codes (0, 1, 2, etc.)
+            additionalProperties:
+              type: string
+
+          custom:
+            type: object
+            description: Tool-specific exit codes
+            additionalProperties:
+              type: string
+
+  argument:
+    type: object
+    required:
+      - name
+      - type
+    properties:
+      name:
+        type: string
+
+      type:
+        type: string
+        enum: [file, string, integer, float, symbol, boolean, uri, datetime, hash, array]
+
+      variadic:
+        type: boolean
+        description: Whether this argument can accept multiple values
+
+      position:
+        oneOf:
+          - type: integer
+          - type: string
+            enum: [first, last]
+        description: Position in command line ('first' for first, 'last' for final, or integer index)
+
+      min:
+        type: integer
+        description: Minimum number of values for variadic arguments
+
+      required:
+        type: boolean
+
+      description:
+        type: string
+
+  option:
+    type: object
+    required:
+      - name
+      - cli
+    properties:
+      name:
+        type: string
+
+      type:
+        type: string
+        enum: [file, string, integer, float, symbol, boolean, uri, datetime, hash, array]
+
+      cli:
+        type: string
+        description: |
+          CLI flag including prefix (e.g., '--output', '-o', '/format').
+          This is the unique identifier for the option within a command.
+          MUST be unique among all options and flags in the same command.
+
+          IMPORTANT: The `cli` field must contain ONLY the bare flag name
+          without any delimiter characters (no '=', no ':', no trailing space).
+          The `assignment_delimiter` field controls how the value is attached.
+
+          Examples:
+            cli: "--export-filename"        # CORRECT (bare flag name)
+            cli: "--export-filename="       # WRONG (do NOT include '=')
+
+          When assignment_delimiter is set, the framework automatically
+          adds the appropriate delimiter when building the command:
+            - cli: "--output" with assignment_delimiter: equals   → "--output=value"
+            - cli: "-f" with assignment_delimiter: space         → "-f value"
+            - cli: "/format" with assignment_delimiter: colon    → "/format:value"
+
+      assignment_delimiter:
+        type: string
+        enum: [equals, space, colon, none, auto]
+        default: auto
+        description: |
+          How the option value is attached to the CLI flag.
+          IMPORTANT: When using this field, the `cli` field must NOT include
+          delimiter characters (see `cli` field documentation above).
+
+          - 'equals': Value attached with '=' (--flag=value)
+          - 'space': Value attached with space (--flag value)
+          - 'colon': Value attached with ':' (/flag:value)
+          - 'none': No value (boolean-style, flag alone)
+          - 'auto': Detect based on cli prefix:
+            * '--' prefix uses 'equals' (--flag=value)
+            * '-' prefix uses 'space' (-f value)
+            * '/' prefix uses 'colon' (/format:value)
+
+      separator:
+        type: string
+        description: Separator for array values (e.g., ',', ';', ' ')
+
+      values:
+        type: array
+        items:
+          type: [string, integer]
+        description: Valid values for symbol/enums
+
+      description:
+        type: string
+
+  flag:
+    type: object
+    required:
+      - name
+      - cli
+    properties:
+      name:
+        type: string
+
+      cli:
+        type: string
+        description: |
+          CLI flag including prefix (e.g., '--verbose', '-v', '/VERBOSE').
+          This is the unique identifier for the flag within a command.
+          MUST be unique among all options and flags in the same command.
+
+      assignment_delimiter:
+        type: string
+        enum: [none]
+        default: none
+        description: |
+          Flags always use 'none' (no value assignment).
+          The flag is either present or absent.
+
+      cli_short:
+        type: string
+        description: Short form of the CLI flag
+
+      default:
+        type: boolean
+        description: Default value for the flag
+
+      position_constraint:
+        type: string
+        enum: [any, prefix, after_argument, between_expressions]
+        description: |
+          Positional constraint for flags that must appear in specific locations:
+          - 'any' (default): Flag can appear anywhere
+          - 'prefix': Flag must appear immediately after subcommand (before any options)
+          - 'after_argument': Flag must follow a specific argument (e.g., find's --and/--or after expressions)
+          - 'between_expressions': Flag acts as an operator between expressions
+
+      position_after:
+        type: string
+        description: |
+          Required when position_constraint is 'after_argument'.
+          Specifies which argument this flag must follow.
+
+      conflicts_with:
+        type: array
+        items:
+          type: string
+        description: |
+          List of flag names that are mutually exclusive with this flag.
+          Example: ['quiet', 'silent'] for a verbose flag.
+          Used by CLI to prevent conflicting options from being used together.
+
+      description:
+        type: string
+
+  env_var:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: Environment variable name
+
+      value:
+        type: string
+        description: Static value to set
+
+      from:
+        type: string
+        description: Parameter name to get value from
+
+      platforms:
+        type: array
+        items:
+          type: string
+          enum: [windows, macos, linux]
+        description: Platforms where this env var applies
+
+      description:
+        type: string

@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require_relative '../config'
+require_relative '../register'
 
 module Ukiryu
   module CliCommands
     # Base class for CLI commands
     #
     # Provides shared functionality for all CLI commands including
-    # registry setup, output formatting, and error handling.
+    # register setup, output formatting, and error handling.
     #
     # @abstract Subclasses must implement the `run` method
     class BaseCommand
@@ -31,14 +32,14 @@ module Ukiryu
         raise NotImplementedError, "#{self.class} must implement #run"
       end
 
-      # Setup the registry path
+      # Setup the register path
       #
-      # @param custom_path [String, nil] custom registry path
-      def setup_registry(custom_path = nil)
-        registry_path = custom_path || config.registry || default_registry_path
-        return unless registry_path && Dir.exist?(registry_path)
+      # @param custom_path [String, nil] custom register path
+      def setup_register(custom_path = nil)
+        register_path = custom_path || config.register || default_register_path
+        return unless register_path && Dir.exist?(register_path)
 
-        Registry.default_registry_path = registry_path
+        Register.default_register_path = register_path
       end
 
       # Apply CLI options to the Config instance
@@ -49,7 +50,7 @@ module Ukiryu
         cli_mappings = {
           format: 'yaml', # default format in Thor
           output: nil,
-          registry: nil,
+          register: nil,
           timeout: nil,
           shell: nil
         }
@@ -80,26 +81,14 @@ module Ukiryu
         config.set_cli_option(:dry_run, options[:dry_run])
       end
 
-      # Get the default registry path
+      # Get the default register path
       #
-      # @return [String, nil] the default registry path
-      def default_registry_path
-        # Try multiple approaches to find the registry
-        # Note: ENV and Config.registry are already checked by setup_registry
-
-        # 1. Try relative to gem location
-        gem_root = File.dirname(File.dirname(File.dirname(__FILE__)))
-        registry_path = File.join(gem_root, '..', 'register')
-        return File.expand_path(registry_path) if Dir.exist?(registry_path)
-
-        # 2. Try from current directory (development setup)
-        current = File.expand_path('../register', Dir.pwd)
-        return current if Dir.exist?(current)
-
-        # 3. Try from parent directory
-        parent = File.expand_path('../../register', Dir.pwd)
-        return parent if Dir.exist?(parent)
-
+      # @return [String, nil] the default register path from RegisterAutoManager
+      def default_register_path
+        # Use RegisterAutoManager to find or create the register
+        require_relative '../register_auto_manager'
+        RegisterAutoManager.register_path
+      rescue StandardError
         nil
       end
 

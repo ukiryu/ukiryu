@@ -1,0 +1,70 @@
+# Minimal valid Ghostscript profile for schema validation testing
+ukiryu_schema: '1.0'
+name: ghostscript
+display_name: Ghostscript PS/PDF Interpreter
+homepage: https://www.ghostscript.com/
+"$self": https://www.ukiryu.com/register/1.0/ghostscript/10.0
+version: '10.0'
+aliases:
+- gs
+version_detection:
+  command: "--version"
+  pattern: "(\\d+\\.\\d+)"
+  modern_threshold: '9.0'
+search_paths:
+  macos:
+  - "/opt/homebrew/bin/gs"
+  linux:
+  - "/usr/bin/gs"
+  windows:
+  - "C:/Program Files/gs/gs*/bin/gswin64c.exe"
+timeout: 120
+profiles:
+- name: unix
+  display_name: Ghostscript on Unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  version: ">= 9.0"
+  option_style: single_dash_equals
+  commands:
+  - description: Convert PostScript or PDF to other formats
+    usage: gs [options] input-file
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: Input file(s) to process
+    options:
+    - name: device
+      type: string
+      cli: "-sDEVICE"
+      description: Output device (e.g., png16m, jpeg, pdfwrite)
+      assignment_delimiter: equals
+    - name: output
+      type: file
+      cli: "-sOutputFile"
+      description: Output file path
+      assignment_delimiter: equals
+    - name: resolution
+      type: string
+      cli: "-r"
+      description: Resolution (e.g., 150, 300, or 600x600)
+      assignment_delimiter: auto
+    flags:
+    - name: quiet
+      cli: "-q"
+      description: Quiet mode
+      default: false
+      assignment_delimiter: none
+    - name: batch
+      cli: "-dBATCH"
+      description: Batch mode
+      default: true
+      assignment_delimiter: none
+    name: convert

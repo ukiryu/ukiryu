@@ -18,6 +18,12 @@ module Ukiryu
   class ProfileLoadError < Error; end
 
   # Definition loading errors
+  class DefinitionError < Error; end
+  class DefinitionNotFoundError < DefinitionError; end
+  class DefinitionLoadError < DefinitionError; end
+  class DefinitionValidationError < DefinitionError; end
+
+  # Definition loading errors (legacy, use DefinitionError instead)
   class LoadError < Error; end
 
   # Tool errors

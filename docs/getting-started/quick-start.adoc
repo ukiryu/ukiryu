@@ -1,0 +1,258 @@
+---
+layout: default
+title: Quick Start
+parent: Getting Started
+nav_order: 2
+---
+
+== Quick Start
+
+Learn the basics of using Ukiryu through practical examples.
+
+// Purpose
+== Purpose
+
+This page provides a quick introduction to Ukiryu's three configuration methods: Ruby API, CLI, and environment variables.
+
+// References
+== References
+
+* link:/interfaces/ruby-api[Ruby API Documentation]
+* link:/interfaces/cli[CLI Documentation]
+* link:/features/configuration[Configuration Options]
+
+// Concepts
+== Concepts
+
+* **Tool profiles**: YAML files that define tool behavior
+* **Platform adaptation**: Automatic handling of platform differences
+* **Shell awareness**: Proper quoting and escaping for different shells
+* **Configuration precedence**: ENV > CLI parameters > Ruby API > defaults
+
+// Basic Example
+== Basic Example
+
+Let's start with a simple example: converting an SVG file to PNG using Inkscape.
+
+=== Ruby API
+
+[source,ruby]
+----
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png
+})
+
+if result.success?
+  puts "Conversion successful!"
+  puts "Output file: #{result.command_info.full_command}"
+else
+  puts "Conversion failed!"
+  puts "Error: #{result.stderr}"
+end
+----
+
+=== CLI
+
+[source,bash]
+----
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  format=png
+----
+
+=== Environment Variables
+
+[source,bash]
+----
+# Set default register
+export UKIRYU_REGISTRY=/path/to/register
+
+# Set default timeout for all commands
+export UKIRYU_TIMEOUT=120
+
+# Enable debug output
+export UKIRYU_DEBUG=true
+
+# Now run the command
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png format=png
+----
+
+// Configuration Precedence
+== Configuration Precedence
+
+Understanding how different configuration methods interact:
+
+[NOTE]
+.Configuration Precedence (Highest to Lowest)
+1. Environment variables
+2. Command-line parameters
+3. Ruby API parameters
+4. Profile defaults
+
+=== Example: Setting Timeout
+
+All three methods can set the timeout, but ENV takes precedence:
+
+[source,ruby]
+----
+# Profile default: 90 seconds
+# CLI parameter: 60 seconds
+# ENV variable: 120 seconds (wins!)
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png
+}, timeout: 60)
+----
+
+[source,bash]
+----
+# Environment variable overrides everything
+export UKIRYU_TIMEOUT=120
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png format=png
+----
+
+// Common Operations
+== Common Operations
+
+=== Listing Available Tools
+
+[source,bash]
+----
+ukiryu list
+----
+
+Shows all available tools with their installation status.
+
+=== Getting Tool Information
+
+[source,bash]
+----
+ukiryu info imagemagick
+----
+
+Displays detailed information including search paths, version detection, and profiles.
+
+=== Describing Commands
+
+[source,bash]
+----
+ukiryu describe imagemagick convert
+----
+
+Shows command usage, arguments, options, and flags.
+
+=== Running Commands
+
+[source,bash]
+----
+# Basic usage
+ukiryu exec imagemagick convert inputs=input.jpg output=output.png
+
+# With multiple options
+ukiryu exec imagemagick convert \
+  inputs=input.jpg \
+  output=output.png \
+  resize=50% \
+  quality=85 \
+  strip=true
+----
+
+// Platform Adaptation
+== Platform Adaptation
+
+Ukiryu automatically handles platform differences:
+
+=== Paths
+
+[source,ruby]
+----
+# Same code works on all platforms
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['/path/to/drawing.svg'],    # Unix-style
+  output: '/path/to/drawing.png'
+})
+----
+
+On Windows, paths are automatically converted:
+[source]
+----
+C:\path\to\drawing.svg
+----
+
+=== Shell Quoting
+
+[source,ruby]
+----
+# Arguments with spaces are handled correctly
+result = tool.execute(:export, {
+  inputs: ['My Document.svg'],     # Spaces in filename
+  output: 'output.png'
+})
+----
+
+On different shells, proper quoting is applied:
+* bash/zsh: `'My Document.svg'`
+* PowerShell: `'My Document.svg'`
+* cmd: `"My Document.svg"`
+
+// Error Handling
+== Error Handling
+
+=== Ruby API
+
+[source,ruby]
+----
+require 'ukiryu'
+
+begin
+  tool = Ukiryu::Tool.get(:inkscape)
+  result = tool.execute(:export, {
+    inputs: ['drawing.svg'],
+    output: 'drawing.png',
+    format: :png
+  })
+rescue Ukiryu::ToolNotFoundError => e
+  puts "Tool not found!"
+  puts "Available tools: #{Ukiryu::Register.tools.join(', ')}"
+rescue Ukiryu::ExecutionError => e
+  puts "Command failed!"
+  puts "Exit code: #{e.result.exit_status}"
+  puts "Stderr: #{e.result.stderr}"
+rescue Ukiryu::TimeoutError => e
+  puts "Command timed out!"
+end
+----
+
+=== CLI
+
+The CLI returns exit codes:
+* `0` - Success
+* `1` - Command execution failed
+* Other - Internal error
+
+[source,bash]
+----
+ukiryu exec inkscape export inputs=drawing.svg output=drawing.png format=png
+if [ $? -eq 0 ]; then
+  echo "Success!"
+else
+  echo "Failed with exit code $?"
+fi
+----
+
+// Next Steps
+== Next Steps
+
+* link:/getting-started/core-concepts[Core Concepts] - Understanding profiles, platforms, and shells
+* link:/interfaces/ruby-api[Ruby API] - Complete API reference
+* link:/features/configuration[Configuration Options] - All configuration methods
+* link:/guides/[Guides] - Task-oriented tutorials

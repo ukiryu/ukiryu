@@ -45,15 +45,15 @@ module Ukiryu
           tool_class
         end
 
-        # Load a ToolDefinition model from the registry
+        # Load a ToolDefinition model from the register
         #
         # @param tool_name [Symbol] the tool name
         # @return [Models::ToolDefinition, nil] the tool definition model
         def load_tool_definition(tool_name)
-          require_relative '../registry'
+          require_relative '../register'
 
           # Load the YAML file content
-          yaml_content = Registry.load_tool_yaml(tool_name)
+          yaml_content = Register.load_tool_yaml(tool_name)
           return nil unless yaml_content
 
           # Use lutaml-model's from_yaml to parse
@@ -136,12 +136,12 @@ module Ukiryu
         #
         # @return [Array<Symbol>] list of tool names
         def available_tools
-          require_relative '../registry'
+          require_relative '../register'
 
-          registry_path = Registry.default_registry_path
-          return [] unless registry_path
+          register_path = Register.default_register_path
+          return [] unless register_path
 
-          tools_dir = File.join(registry_path, 'tools')
+          tools_dir = File.join(register_path, 'tools')
           return [] unless Dir.exist?(tools_dir)
 
           Dir.entries(tools_dir)

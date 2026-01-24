@@ -1,0 +1,1217 @@
+---
+layout: default
+title: Ruby API Reference
+parent: Reference
+nav_order: 4
+---
+
+== Ruby API Reference
+
+Complete reference documentation for Ukiryu Ruby classes and methods.
+
+// Module: Ukiryu
+== Module: Ukiryu
+
+The root module for the Ukiryu gem.
+
+[source,ruby]
+----
+require 'ukiryu'
+----
+
+=== Classes
+
+* `Ukiryu::Tool` - Main tool interface
+* `Ukiryu::Config` - Configuration management
+* `Ukiryu::Register` - Tool register
+* `Ukiryu::Executor` - Command execution
+* `Ukiryu::Shell` - Shell abstraction
+* `Ukiryu::Platform` - Platform detection
+* `Ukiryu::Runtime` - Runtime state management
+
+=== Submodules
+
+* `Ukiryu::Tools` - Tool-specific classes
+* `Ukiryu::Definition` - Definition loading
+* `Ukiryu::Execution` - Execution result classes
+* `Ukiryu::Models` - Data models
+
+// Class: Ukiryu::Tool
+== Class: Ukiryu::Tool
+
+Main interface for interacting with CLI tools defined in YAML profiles.
+
+=== Class Methods
+
+==== get
+
+[source,ruby]
+Tool.get(name, options = {}) -> Tool
+----
+
+Get a tool by name from the register.
+
+* **Parameters**:
+  * `name` (String, Symbol) - Tool name
+  * `options` (Hash) - Optional parameters
+    * `:register_path` (String) - Path to tool register
+    * `:platform` (Symbol) - Platform to use (`:macos`, `:linux`, `:windows`)
+    * `:shell` (Symbol) - Shell to use (`:bash`, `:zsh`, `:fish`, `:sh`, `:powershell`, `:cmd`)
+    * `:version` (String) - Specific version to use
+* **Returns** (Tool) - Tool instance
+* **Raises** (ToolNotFoundError) - If tool not found in register
+* **Raises** (ProfileNotFoundError) - If no compatible profile for platform/shell
+
+[source,ruby]
+----
+# Get tool with auto-detected platform/shell
+tool = Ukiryu::Tool.get(:imagemagick)
+
+# Get tool for specific platform
+tool = Ukiryu::Tool.get(:imagemagick, platform: :linux)
+
+# Get specific version
+tool = Ukiryu::Tool.get(:imagemagick, version: '7.1')
+----
+
+==== find_by
+
+[source,ruby]
+Tool.find_by(identifier, options = {}) -> Tool, nil
+----
+
+Find a tool by name, alias, or interface.
+
+* **Parameters**:
+  * `identifier` (String, Symbol) - Tool name, interface, or alias
+  * `options` (Hash) - Optional parameters (same as `get`)
+* **Returns** (Tool, nil) - Tool instance or nil if not found
+
+[source,ruby]
+----
+# Find by exact name
+tool = Ukiryu::Tool.find_by(:imagemagick)
+
+# Find by interface
+tool = Ukiryu::Tool.find_by(:convert)
+
+# Find by alias
+tool = Ukiryu::Tool.find_by(:magick)
+
+# Returns nil if not found
+tool = Ukiryu::Tool.find_by(:nonexistent)  # => nil
+----
+
+==== get_class
+
+[source,ruby]
+Tool.get_class(tool_name) -> Class
+----
+
+Get the tool-specific class (new OOP API).
+
+* **Parameters**:
+  * `tool_name` (String, Symbol) - Tool name
+* **Returns** (Class) - Tool class (e.g., `Ukiryu::Tools::Imagemagick`)
+
+[source,ruby]
+----
+# Get tool class
+tool_class = Ukiryu::Tool.get_class(:imagemagick)
+# => Ukiryu::Tools::Imagemagick
+
+# Create instance
+tool = tool_class.new
+----
+
+==== load
+
+[source,ruby]
+Tool.load(file_path, options = {}) -> Tool
+Tool.from_file(file_path, options = {}) -> Tool
+----
+
+Load a tool definition from a file path.
+
+* **Parameters**:
+  * `file_path` (String) - Path to YAML file
+  * `options` (Hash) - Optional parameters
+    * `:validation` (Symbol) - Validation mode (`:strict`, `:lenient`, `:none`)
+    * `:version_check` (Symbol) - Version check mode (`:strict`, `:lenient`, `:probe`)
+* **Returns** (Tool) - Tool instance
+* **Raises** (DefinitionLoadError) - If file cannot be loaded
+* **Raises** (DefinitionValidationError) - If validation fails
+
+[source,ruby]
+----
+# Load from file
+tool = Ukiryu::Tool.load('/path/to/tool.yaml')
+
+# With validation options
+tool = Ukiryu::Tool.load('/path/to/tool.yaml',
+  validation: :strict,
+  version_check: :probe
+)
+
+# Alias method
+tool = Ukiryu::Tool.from_file('/path/to/tool.yaml')
+----
+
+==== load_from_string
+
+[source,ruby]
+Tool.load_from_string(yaml_string, options = {}) -> Tool
+Tool.from_definition(yaml_string, options = {}) -> Tool
+----
+
+Load a tool definition from a YAML string.
+
+* **Parameters**:
+  * `yaml_string` (String) - YAML content
+  * `options` (Hash) - Optional parameters
+    * `:file_path` (String) - Optional file path for error messages
+    * `:validation` (Symbol) - Validation mode
+    * `:version_check` (Symbol) - Version check mode
+* **Returns** (Tool) - Tool instance
+* **Raises** (DefinitionLoadError) - If YAML cannot be parsed
+
+[source,ruby]
+----
+# Load from string
+yaml = <<-YAML
+name: mytool
+version: "1.0"
+profiles:
+  - name: default
+    platforms: [linux, macos, windows]
+    shells: [bash, zsh, powershell, cmd]
+YAML
+
+tool = Ukiryu::Tool.load_from_string(yaml)
+
+# Alias method
+tool = Ukiryu::Tool.from_definition(yaml)
+----
+
+==== from_bundled
+
+[source,ruby]
+Tool.from_bundled(tool_name, options = {}) -> Tool, nil
+----
+
+Load a tool from bundled system locations.
+
+* **Parameters**:
+  * `tool_name` (String, Symbol) - Tool name
+  * `options` (Hash) - Optional parameters (same as `load`)
+* **Returns** (Tool, nil) - Tool instance or nil if not found
+
+[source,ruby]
+----
+# Search bundled locations
+tool = Ukiryu::Tool.from_bundled(:imagemagick)
+----
+
+==== extract_definition
+
+[source,ruby]
+Tool.extract_definition(tool_name, options = {}) -> Hash
+----
+
+Extract tool definition from an installed CLI tool.
+
+* **Parameters**:
+  * `tool_name` (String, Symbol) - Tool name
+  * `options` (Hash) - Extraction options
+    * `:output` (String) - Output file path
+    * `:method` (Symbol) - Extraction method (`:native`, `:help`, `:auto`)
+    * `:verbose` (Boolean) - Enable verbose output
+* **Returns** (Hash) - Result with keys:
+  * `:success` (Boolean) - Success status
+  * `:yaml` (String) - Extracted YAML
+  * `:method` (Symbol) - Method used
+  * `:error` (String) - Error message if failed
+
+[source,ruby]
+----
+# Extract definition
+result = Ukiryu::Tool.extract_definition(:git)
+if result[:success]
+  puts result[:yaml]
+end
+
+# Extract and write to file
+result = Ukiryu::Tool.extract_definition(:git,
+  output: './git.yaml',
+  method: :auto,
+  verbose: true
+)
+----
+
+==== clear_cache
+
+[source,ruby]
+Tool.clear_cache -> nil
+----
+
+Clear the tool cache.
+
+[source,ruby]
+----
+# Clear all cached tools
+Ukiryu::Tool.clear_cache
+----
+
+==== clear_definition_cache
+
+[source,ruby]
+Tool.clear_definition_cache -> nil
+----
+
+Clear the definition cache only.
+
+[source,ruby]
+----
+# Clear definition cache
+Ukiryu::Tool.clear_definition_cache
+----
+
+==== configure
+
+[source,ruby]
+Tool.configure(options = {}) -> Hash
+----
+
+Configure default options for Tool instances.
+
+* **Parameters**:
+  * `options` (Hash) - Default options
+* **Returns** (Hash) - Current default options
+
+[source,ruby]
+----
+# Configure defaults
+Ukiryu::Tool.configure(
+  timeout: 120,
+  debug: true
+)
+----
+
+=== Instance Methods
+
+==== name
+
+[source,ruby]
+tool.name -> String
+----
+
+Get the tool name.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+tool.name  # => "imagemagick"
+----
+
+==== version
+
+[source,ruby]
+tool.version -> String, nil
+----
+
+Get the detected tool version.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+tool.version  # => "7.1.1-32"
+----
+
+==== executable
+
+[source,ruby]
+tool.executable -> String
+----
+
+Get the executable path.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+tool.executable  # => "/usr/local/bin/magick"
+----
+
+==== available?
+
+[source,ruby]
+tool.available? -> Boolean
+----
+
+Check if the tool is available (executable found).
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+tool.available?  # => true
+----
+
+==== commands
+
+[source,ruby]
+tool.commands -> Hash, nil
+----
+
+Get the commands defined in the active profile.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+tool.commands.keys  # => [:convert, :identify, :mogrify]
+----
+
+==== command?
+
+[source,ruby]
+tool.command?(command_name) -> Boolean
+----
+
+Check if a command is available.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+tool.command?(:convert)  # => true
+tool.command?(:nonexistent)  # => false
+----
+
+==== command_definition
+
+[source,ruby]
+tool.command_definition(command_name) -> CommandDefinition, nil
+----
+
+Get a command definition by name.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+cmd = tool.command_definition(:convert)
+cmd.name  # => "convert"
+cmd.arguments  # => [...]
+----
+
+==== options_for
+
+[source,ruby]
+tool.options_for(command_name) -> Class
+----
+
+Get the options class for a command.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:imagemagick)
+options_class = tool.options_for(:convert)
+options = options_class.new
+options.inputs = ['image.jpg']
+options.output = 'output.png'
+----
+
+==== execute
+
+[source,ruby]
+tool.execute(command_name, params = {}) -> Execution::Result
+----
+
+Execute a command.
+
+* **Parameters**:
+  * `command_name` (String, Symbol) - Command name or root-path (e.g., `'remote:add'`)
+  * `params` (Hash) - Command parameters
+* **Returns** (Execution::Result) - Execution result
+* **Raises** (ExecutionError) - If command fails (non-zero exit)
+
+[source,ruby]
+----
+# Simple command
+result = tool.execute(:convert, {
+  inputs: ['input.jpg'],
+  output: 'output.png',
+  resize: '50%'
+})
+
+# Root-path notation for hierarchical commands
+result = git_tool.execute('remote:add', {
+  name: 'origin',
+  url: 'https://github.com/user/repo.git'
+})
+----
+
+==== execute_action
+
+[source,ruby]
+tool.execute_action(path, params = {}) -> Execution::Result
+----
+
+Execute a routed action (for tools with routing).
+
+* **Parameters**:
+  * `path` (Array<String, Symbol>) - Action path (e.g., `['remote', 'add']`)
+  * `params` (Hash) - Action parameters
+* **Returns** (Execution::Result) - Execution result
+
+[source,ruby]
+----
+result = git_tool.execute_action(['remote', 'add'], {
+  name: 'origin',
+  url: 'https://github.com/user/repo.git'
+})
+----
+
+==== resolve_action_path
+
+[source,ruby]
+tool.resolve_action_path(path) -> Hash, nil
+----
+
+Resolve a hierarchical action path.
+
+* **Parameters**:
+  * `path` (Array<String, Symbol>) - Action path
+* **Returns** (Hash, nil) - Resolution info with `:executable`, `:action`, `:path` keys
+
+[source,ruby]
+----
+resolution = git_tool.resolve_action_path(['remote', 'add'])
+# => {
+#   executable: 'git-remote',
+#   action: <CommandDefinition>,
+#   path: ['remote', 'add']
+# }
+----
+
+==== routing
+
+[source,ruby]
+tool.routing -> Models::Routing, nil
+----
+
+Get the routing table from the active profile.
+
+[source,ruby]
+----
+git_tool = Ukiryu::Tool.get(:git)
+git_tool.routing  # => #<Models::Routing>
+----
+
+==== routing?
+
+[source,ruby]
+tool.routing? -> Boolean
+----
+
+Check if this tool has routing defined.
+
+[source,ruby]
+----
+git_tool = Ukiryu::Tool.get(:git)
+git_tool.routing?  # => true
+
+convert_tool = Ukiryu::Tool.get(:imagemagick)
+convert_tool.routing?  # => false
+----
+
+==== definition_source
+
+[source,ruby]
+tool.definition_source -> Definition::Source, nil
+----
+
+Get the definition source if loaded from non-register source.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.load('/path/to/tool.yaml')
+tool.definition_source  # => #<Definition::Sources::FileSource>
+tool.definition_source.path  # => "/path/to/tool.yaml"
+tool.definition_source.mtime  # => 2024-01-15 10:30:00 UTC
+----
+
+==== probe_flag
+
+[source,ruby]
+tool.probe_flag(flag) -> Boolean
+----
+
+Probe for a feature flag.
+
+* **Parameters**:
+  * `flag` (String) - Feature flag to probe (e.g., `'--worktree'`)
+* **Returns** (Boolean) - True if the feature is supported
+
+[source,ruby]
+----
+git_tool = Ukiryu::Tool.get(:git)
+git_tool.probe_flag('--worktree')  # => true
+git_tool.probe_flag('--nonexistent')  # => false
+----
+
+// Class: Ukiryu::Config
+== Class: Ukiryu::Config
+
+Configuration management for Ukiryu.
+
+=== Class Methods
+
+==== configure
+
+[source,ruby]
+Config.configure { |config| block } -> Config
+----
+
+Configure Ukiryu with a block.
+
+[source,ruby]
+----
+Ukiryu::Config.configure do |config|
+  config.timeout = 120
+  config.debug = true
+  config.format = :json
+  config.register = '/path/to/register'
+end
+----
+
+==== reset!
+
+[source,ruby]
+Config.reset! -> Config
+----
+
+Reset configuration to defaults.
+
+[source,ruby]
+----
+Ukiryu::Config.reset!
+----
+
+=== Instance Methods
+
+==== timeout
+
+[source,ruby]
+config.timeout -> Integer, nil
+config.timeout = value -> Integer
+----
+
+Execution timeout in seconds.
+
+[source,ruby]
+----
+Ukiryu::Config.timeout = 120
+Ukiryu::Config.timeout  # => 120
+----
+
+==== debug
+
+[source,ruby]
+config.debug -> Boolean
+config.debug = value -> Boolean
+----
+
+Debug mode flag.
+
+[source,ruby]
+----
+Ukiryu::Config.debug = true
+Ukiryu::Config.debug  # => true
+----
+
+==== dry_run
+
+[source,ruby]
+config.dry_run -> Boolean
+config.dry_run = value -> Boolean
+----
+
+Dry run flag.
+
+[source,ruby]
+----
+Ukiryu::Config.dry_run = true
+Ukiryu::Config.dry_run  # => true
+----
+
+==== format
+
+[source,ruby]
+config.format -> Symbol
+config.format = value -> Symbol
+----
+
+Output format (`:yaml`, `:json`, `:table`).
+
+[source,ruby]
+----
+Ukiryu::Config.format = :json
+Ukiryu::Config.format  # => :json
+----
+
+==== output
+
+[source,ruby]
+config.output -> String, nil
+config.output = value -> String
+----
+
+Output file path.
+
+[source,ruby]
+----
+Ukiryu::Config.output = '/tmp/result.yaml'
+Ukiryu::Config.output  # => "/tmp/result.yaml"
+----
+
+==== register
+
+[source,ruby]
+config.register -> String, nil
+config.register = value -> String
+----
+
+Register path.
+
+[source,ruby]
+----
+Ukiryu::Config.register = '/opt/ukiryu/register'
+Ukiryu::Config.register  # => "/opt/ukiryu/register"
+----
+
+==== search_paths
+
+[source,ruby]
+config.search_paths -> String, nil
+config.search_paths = value -> String
+----
+
+Search paths (comma-separated).
+
+[source,ruby]
+----
+Ukiryu::Config.search_paths = '/usr/local/bin,/opt/bin'
+Ukiryu::Config.search_paths  # => "/usr/local/bin,/opt/bin"
+----
+
+==== use_color
+
+[source,ruby]
+config.use_color -> Boolean, nil
+config.use_color = value -> Boolean
+----
+
+Color usage flag.
+
+[source,ruby]
+----
+Ukiryu::Config.use_color = false
+Ukiryu::Config.use_color  # => false
+Ukiryu::Config.colors_disabled?  # => true
+----
+
+==== metrics
+
+[source,ruby]
+config.metrics -> Boolean
+config.metrics = value -> Boolean
+----
+
+Metrics collection flag.
+
+[source,ruby]
+----
+Ukiryu::Config.metrics = true
+Ukiryu::Config.metrics  # => true
+----
+
+==== shell
+
+[source,ruby]
+config.shell -> Symbol, nil
+config.shell = value -> Symbol, String
+----
+
+Shell for command execution.
+
+[source,ruby]
+----
+Ukiryu::Config.shell = :zsh
+Ukiryu::Config.shell  # => :zsh
+----
+
+==== to_h
+
+[source,ruby]
+config.to_h -> Hash
+----
+
+Get configuration as hash.
+
+[source,ruby]
+----
+config = Ukiryu::Config.to_h
+# => {
+#   timeout: 120,
+#   debug: true,
+#   dry_run: false,
+#   metrics: false,
+#   shell: :zsh,
+#   format: :yaml,
+#   output: nil,
+#   register: "/path/to/register",
+#   search_paths: "/usr/local/bin,/opt/bin",
+#   use_color: false
+# }
+----
+
+// Class: Ukiryu::Register
+== Class: Ukiryu::Register
+
+Tool profile register management.
+
+=== Class Methods
+
+==== default_register_path
+
+[source,ruby]
+Register.default_register_path -> String, nil
+----
+
+Get the default register path.
+
+[source,ruby]
+----
+path = Ukiryu::Register.default_register_path
+# => "/path/to/register"
+----
+
+==== default_register_path=
+
+[source,ruby]
+Register.default_register_path = path -> String
+----
+
+Set the default register path.
+
+[source,ruby]
+----
+Ukiryu::Register.default_register_path = '/opt/ukiryu/register'
+----
+
+==== tools
+
+[source,ruby]
+Register.tools -> Array<String>
+----
+
+Get list of all available tools.
+
+[source,ruby]
+----
+tools = Ukiryu::Register.tools
+# => ["imagemagick", "inkscape", "ghostscript", "jq", ...]
+----
+
+==== load_tool_yaml
+
+[source,ruby]
+Register.load_tool_yaml(tool_name) -> String, nil
+----
+
+Load YAML content for a tool.
+
+* **Parameters**:
+  * `tool_name` (String, Symbol) - Tool name
+* **Returns** (String, nil) - YAML content or nil if not found
+
+[source,ruby]
+----
+yaml = Ukiryu::Register.load_tool_yaml(:imagemagick)
+----
+
+// Module: Ukiryu::Executor
+== Module: Ukiryu::Executor
+
+Command execution module.
+
+=== Class Methods
+
+==== execute
+
+[source,ruby]
+Executor.execute(executable, args = [], options = {}) -> Execution::Result
+----
+
+Execute a command.
+
+* **Parameters**:
+  * `executable` (String) - Executable path
+  * `args` (Array<String>) - Command arguments
+  * `options` (Hash) - Execution options
+    * `:timeout` (Integer) - Maximum execution time in seconds
+    * `:env` (Hash) - Environment variables
+    * `:cwd` (String) - Working directory
+    * `:shell` (Symbol) - Shell to use
+    * `:stdin` (String, IO) - Stdin input
+    * `:allow_failure` (Boolean) - Don't raise on non-zero exit
+    * `:tool_name` (String) - Tool name for exit code lookups
+    * `:command_name` (String) - Command name for exit code lookups
+* **Returns** (Execution::Result) - Execution result
+
+[source,ruby]
+----
+result = Ukiryu::Executor.execute(
+  '/usr/local/bin/convert',
+  ['input.jpg', 'output.png'],
+  timeout: 30,
+  env: { 'MAGICK_MEMORY_LIMIT' => '256MB' }
+)
+----
+
+==== find_executable
+
+[source,ruby]
+Executor.find_executable(command, options = {}) -> String, nil
+----
+
+Find an executable in system PATH.
+
+* **Parameters**:
+  * `command` (String) - Command name
+  * `options` (Hash) - Search options
+    * `:additional_paths` (Array<String>) - Additional search paths
+* **Returns** (String, nil) - Full path or nil
+
+[source,ruby]
+----
+path = Ukiryu::Executor.find_executable('magick')
+# => "/usr/local/bin/magick"
+
+path = Ukiryu::Executor.find_executable('magick',
+  additional_paths: ['/opt/bin']
+)
+----
+
+// Module: Ukiryu::Shell
+== Module: Ukiryu::Shell
+
+Shell abstraction module.
+
+=== Class Methods
+
+==== detect
+
+[source,ruby]
+Shell.detect -> Symbol
+----
+
+Auto-detect current shell.
+
+[source,ruby]
+----
+shell = Ukiryu::Shell.detect  # => :bash, :zsh, :powershell, etc.
+----
+
+==== class_for
+
+[source,ruby]
+Shell.class_for(shell_name) -> Class
+----
+
+Get shell implementation class.
+
+* **Parameters**:
+  * `shell_name` (Symbol) - Shell name
+* **Returns** (Class) - Shell class
+
+[source,ruby]
+----
+klass = Ukiryu::Shell.class_for(:bash)
+# => Ukiryu::Shell::Bash
+----
+
+==== available_shells
+
+[source,ruby]
+Shell.available_shells -> Array<Symbol>
+----
+
+Get list of available shells.
+
+[source,ruby]
+----
+shells = Ukiryu::Shell.available_shells
+# => [:bash, :zsh, :fish, :sh, :powershell, :cmd]
+----
+
+// Class: Ukiryu::Platform
+== Class: Ukiryu::Platform
+
+Platform detection.
+
+=== Class Methods
+
+==== detect
+
+[source,ruby]
+Platform.detect -> Symbol
+----
+
+Detect current platform.
+
+[source,ruby]
+----
+platform = Ukiryu::Platform.detect
+# => :macos, :linux, or :windows
+----
+
+==== macos?
+
+[source,ruby]
+Platform.macos? -> Boolean
+----
+
+Check if running on macOS.
+
+[source,ruby]
+----
+Ukiryu::Platform.macos?  # => true or false
+----
+
+==== linux?
+
+[source,ruby]
+Platform.linux? -> Boolean
+----
+
+Check if running on Linux.
+
+[source,ruby]
+----
+Ukiryu::Platform.linux?  # => true or false
+----
+
+==== windows?
+
+[source,ruby]
+Platform.windows? -> Boolean
+----
+
+Check if running on Windows.
+
+[source,ruby]
+----
+Ukiryu::Platform.windows?  # => true or false
+----
+
+// Module: Ukiryu::Runtime
+== Module: Ukiryu::Runtime
+
+Runtime state management.
+
+=== Class Methods
+
+==== instance
+
+[source,ruby]
+Runtime.instance -> Runtime
+----
+
+Get the runtime instance (singleton).
+
+[source,ruby]
+----
+runtime = Ukiryu::Runtime.instance
+----
+
+=== Instance Methods
+
+==== platform
+
+[source,ruby]
+runtime.platform -> Symbol
+----
+
+Get current platform.
+
+[source,ruby]
+----
+platform = Ukiryu::Runtime.instance.platform  # => :macos
+----
+
+==== shell
+
+[source,ruby]
+runtime.shell -> Symbol
+----
+
+Get current shell.
+
+[source,ruby]
+----
+shell = Ukiryu::Runtime.instance.shell  # => :bash
+----
+
+// Class: Ukiryu::Execution::Result
+== Class: Ukiryu::Execution::Result
+
+Execution result object.
+
+=== Attributes
+
+==== command_info
+
+[source,ruby]
+result.command_info -> Execution::CommandInfo
+----
+
+Command information.
+
+[source,ruby]
+----
+info = result.command_info
+info.executable    # => "/usr/local/bin/convert"
+info.arguments     # => ["input.jpg", "output.png"]
+info.full_command  # => "convert 'input.jpg' 'output.png'"
+info.shell         # => :bash
+----
+
+==== output
+
+[source,ruby]
+result.output -> Execution::Output
+----
+
+Command output.
+
+[source,ruby]
+----
+output = result.output
+output.stdout      # => "Conversion complete"
+output.stderr      # => ""
+output.exit_status # => 0
+output.success?    # => true
+output.failure?    # => false
+output.stdout_lines  # => ["Conversion complete"]
+----
+
+==== metadata
+
+[source,ruby]
+result.metadata -> Execution::ExecutionMetadata
+----
+
+Execution metadata.
+
+[source,ruby]
+----
+meta = result.metadata
+meta.started_at          # => 2024-01-15 10:30:00 UTC
+meta.finished_at         # => 2024-01-15 10:30:01 UTC
+meta.duration_seconds    # => 1.234
+meta.formatted_duration  # => "1.2s"
+----
+
+=== Convenience Methods
+
+==== success?
+
+[source,ruby]
+result.success? -> Boolean
+----
+
+Check if command succeeded (exit code 0).
+
+[source,ruby]
+----
+if result.success?
+  puts "Success!"
+end
+----
+
+==== failure?
+
+[source,ruby]
+result.failure? -> Boolean
+----
+
+Check if command failed (non-zero exit).
+
+[source,ruby]
+----
+if result.failure?
+  puts "Failed!"
+end
+----
+
+==== stdout
+
+[source,ruby]
+result.stdout -> String
+----
+
+Get stdout (stripped).
+
+[source,ruby]
+----
+puts result.stdout
+----
+
+==== stderr
+
+[source,ruby]
+result.stderr -> String
+----
+
+Get stderr (stripped).
+
+[source,ruby]
+----
+puts result.stderr
+----
+
+==== stdout_lines
+
+[source,ruby]
+result.stdout_lines -> Array<String>
+----
+
+Get stdout as array of lines.
+
+[source,ruby]
+----
+result.stdout_lines.each do |line|
+  puts line
+end
+----
+
+==== stderr_lines
+
+[source,ruby]
+result.stderr_lines -> Array<String>
+----
+
+Get stderr as array of lines.
+
+[source,ruby]
+----
+result.stderr_lines.each do |line|
+  warn line
+end
+----
+
+// See Also
+== See Also
+
+* link:/interfaces/ruby-api[Ruby API Guide] - Usage guide and examples
+* link:/reference/error-codes[Error Codes] - Error handling
+* link:/reference/configuration-options[Configuration Options] - All configuration methods
+* link:/reference/tool-profile-schema[Tool Profile Schema] - YAML definition reference

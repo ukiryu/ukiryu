@@ -12,11 +12,11 @@ module Ukiryu
       # @param tool_name [String] the tool name
       # @param command_name [String, nil] optional command name
       def run(tool_name, command_name = nil)
-        setup_registry
+        setup_register
 
         # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
         tool = Tool.find_by(tool_name.to_sym)
-        error!("Tool not found: #{tool_name}\nAvailable tools: #{Registry.tools.sort.join(', ')}") unless tool
+        error!("Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}") unless tool
 
         tool_commands = tool.commands
         error! "No commands defined for #{tool_name}" unless tool_commands

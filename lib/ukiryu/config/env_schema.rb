@@ -17,8 +17,8 @@ module Ukiryu
         format: :symbol,
         output: :string,
 
-        # Registry options
-        registry: :string,
+        # Register options
+        register: :string,
 
         # Tool discovery options
         search_paths: :string, # Comma-separated paths
@@ -48,14 +48,14 @@ module Ukiryu
           %i[format output use_color]
         end
 
-        # All registry attributes
-        def all_registry_attributes
-          %i[registry search_paths]
+        # All register attributes
+        def all_register_attributes
+          %i[register search_paths]
         end
 
         # All attributes
         def all_attributes
-          %i[timeout debug dry_run metrics shell format output registry search_paths use_color]
+          %i[timeout debug dry_run metrics shell format output register search_paths use_color]
         end
       end
     end

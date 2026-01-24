@@ -32,13 +32,13 @@ module Ukiryu
   #   context = Ukiryu::ExecutionContext.current
   #   context.platform  # => :macos
   #   context.shell     # => :bash
-  #   context.registry  # => '/path/to/registry'
+  #   context.register  # => '/path/to/register'
   #
   # @example Using ExecutionContext in tests
   #   context = Ukiryu::ExecutionContext.new(
   #     platform: :linux,
   #     shell: :zsh,
-  #     registry_path: '/test/registry'
+  #     register_path: '/test/register'
   #   )
   #   context.platform  # => :linux
   #   context.shell     # => :zsh
@@ -85,7 +85,7 @@ module Ukiryu
         new(
           platform: runtime.platform,
           shell: runtime.shell,
-          registry_path: Registry.default_registry_path,
+          register_path: Register.default_register_path,
           timeout: Config.timeout,
           debug: Config.debug,
           metrics: Config.metrics
@@ -110,10 +110,10 @@ module Ukiryu
     # @return [Symbol] the shell
     attr_reader :shell
 
-    # Registry path for tool profiles
+    # Register path for tool profiles
     #
-    # @return [String, nil] the registry path
-    attr_reader :registry_path
+    # @return [String, nil] the register path
+    attr_reader :register_path
 
     # Execution timeout in seconds
     #
@@ -139,21 +139,21 @@ module Ukiryu
     #
     # @param platform [Symbol] the platform (:macos, :linux, :windows)
     # @param shell [Symbol] the shell (:bash, :zsh, :fish, :powershell, :cmd)
-    # @param registry_path [String, nil] the registry path
+    # @param register_path [String, nil] the register path
     # @param timeout [Integer, nil] execution timeout in seconds
     # @param debug [Boolean] debug mode flag
     # @param metrics [Boolean] metrics collection flag
     # @param options [Hash] additional options
     def initialize(platform: nil,
                    shell: nil,
-                   registry_path: nil,
+                   register_path: nil,
                    timeout: nil,
                    debug: false,
                    metrics: false,
                    options: {})
       @platform = platform
       @shell = shell
-      @registry_path = registry_path
+      @register_path = register_path
       @timeout = timeout
       @debug = debug
       @metrics = metrics
@@ -226,7 +226,7 @@ module Ukiryu
       self.class.new(
         platform: changes.fetch(:platform, @platform),
         shell: changes.fetch(:shell, @shell),
-        registry_path: changes.fetch(:registry_path, @registry_path),
+        register_path: changes.fetch(:register_path, @register_path),
         timeout: changes.fetch(:timeout, @timeout),
         debug: changes.fetch(:debug, @debug),
         metrics: changes.fetch(:metrics, @metrics),
@@ -238,7 +238,7 @@ module Ukiryu
     #
     # @return [String] the context as a string
     def to_s
-      "ExecutionContext(platform=#{@platform}, shell=#{@shell}, registry=#{@registry_path})"
+      "ExecutionContext(platform=#{@platform}, shell=#{@shell}, register=#{@register_path})"
     end
 
     # Inspect

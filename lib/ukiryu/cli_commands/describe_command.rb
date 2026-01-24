@@ -12,11 +12,11 @@ module Ukiryu
       # @param tool_name [String] the tool name
       # @param command_name [String, nil] optional command name
       def run(tool_name, command_name = nil)
-        setup_registry
+        setup_register
 
         # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
         tool = Tool.find_by(tool_name.to_sym)
-        error!("Tool not found: #{tool_name}\nAvailable tools: #{Registry.tools.sort.join(', ')}") unless tool
+        error!("Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}") unless tool
 
         tool_commands = tool.commands
         error! "No commands defined for #{tool_name}" unless tool_commands
@@ -78,6 +78,9 @@ module Ukiryu
 
           # Show usage if available
           say "    Usage: #{cmd.usage}", :dim if cmd.usage
+
+          # Show env var sets if available
+          say "    Env Var Sets: #{cmd.use_env_vars.join(', ')}", :dim if cmd.use_env_vars && !cmd.use_env_vars.empty?
         end
 
         say '', :clear
@@ -123,6 +126,9 @@ module Ukiryu
           cmd_display = (cmd.name || 'unnamed').to_s.ljust(20)
           desc_display = cmd.description || 'No description'
           say "  #{cmd_display} #{desc_display}", :white
+
+          # Show env var sets if available
+          say "    Env Var Sets: #{cmd.use_env_vars.join(', ')}", :dim if cmd.use_env_vars && !cmd.use_env_vars.empty?
         end
 
         say '', :clear
@@ -154,9 +160,9 @@ module Ukiryu
           say '', :clear
         end
 
-        # Execution mode
-        if cmd.execution_mode
-          say "Execution Mode: #{cmd.execution_mode}", :white
+        # Env var sets
+        if cmd.use_env_vars && !cmd.use_env_vars.empty?
+          say "Env Var Sets: #{cmd.use_env_vars.join(', ')}", :white
           say '', :clear
         end
 
@@ -200,13 +206,13 @@ module Ukiryu
             name = opt.name || 'unnamed'
             cli = opt.cli || 'N/A'
             type = opt.type || 'string'
-            format = opt.format || 'N/A'
+            assignment_delimiter = opt.assignment_delimiter || 'auto'
             default = opt.default
             platforms = opt.platforms || []
 
             say "  #{name} (#{type})", :white
             say "    CLI: #{cli}", :dim
-            say "    Format: #{format}", :dim if format != 'N/A'
+            say "    Assignment Delimiter: #{assignment_delimiter}", :dim if assignment_delimiter != 'auto'
             say "    Default: #{default}", :dim if default
             say "    Platforms: #{platforms.join(', ')}", :dim if platforms.any?
             say "    Description: #{opt.description}", :dim if opt.description

@@ -11,11 +11,11 @@ module Ukiryu
       #
       # @param tool_name [String] the tool name
       def run(tool_name)
-        setup_registry
+        setup_register
 
         # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
         tool = Tool.find_by(tool_name.to_sym)
-        error!("Tool not found: #{tool_name}\nAvailable tools: #{Registry.tools.sort.join(', ')}") unless tool
+        error!("Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}") unless tool
 
         profile = tool.profile
         show_all = options[:all]
@@ -122,22 +122,22 @@ module Ukiryu
       # @param current_tool_name [String] the current tool name to exclude
       # @return [Array<String>] list of other tool names
       def find_other_implementations(interface_name, current_tool_name)
-        require_relative '../registry'
+        require_relative '../register'
 
         implementations = []
         interface_sym = interface_name.to_sym
 
         if config.debug
           say "  [DEBUG] Looking for tools implementing '#{interface_name}' (excluding '#{current_tool_name}')", :dim
-          say "  [DEBUG] Registry tools: #{Registry.tools.inspect}", :dim
+          say "  [DEBUG] Register tools: #{Register.tools.inspect}", :dim
         end
 
-        Registry.tools.each do |tool_name|
+        Register.tools.each do |tool_name|
           next if tool_name == current_tool_name
 
           begin
-            # Don't pass registry_path - let it use the default
-            tool_metadata = Registry.load_tool_metadata(tool_name.to_sym)
+            # Don't pass register_path - let it use the default
+            tool_metadata = Register.load_tool_metadata(tool_name.to_sym)
             if config.debug
               say "  [DEBUG] #{tool_name} -> metadata: #{tool_metadata ? tool_metadata.implements : 'nil'}", :dim
             end

@@ -13,14 +13,14 @@ module Ukiryu
     #     name: 'quality',
     #     cli: '-q',
     #     type: 'integer',
-    #     format: 'single_dash_space',
+    #     assignment_delimiter: 'space',
     #     description: 'JPEG quality'
     #   )
     class OptionDefinition < Lutaml::Model::Serializable
       attribute :name, :string
       attribute :cli, :string
       attribute :type, :string, default: 'string'
-      attribute :format, :string, default: 'single_dash_space'
+      attribute :assignment_delimiter, :string, default: 'auto'
       attribute :separator, :string
       attribute :default, :string
       # Array for numeric range [min, max]
@@ -36,7 +36,7 @@ module Ukiryu
         map_element 'name', to: :name
         map_element 'cli', to: :cli
         map_element 'type', to: :type
-        map_element 'format', to: :format
+        map_element 'assignment_delimiter', to: :assignment_delimiter
         map_element 'separator', to: :separator
         map_element 'default', to: :default
         map_element 'range', to: :range
@@ -63,11 +63,11 @@ module Ukiryu
         type == 'boolean'
       end
 
-      # Get format as symbol (cached for performance)
+      # Get assignment delimiter as symbol
       #
-      # @return [Symbol] the format
-      def format_sym
-        @format_sym ||= format&.to_sym || :single_dash_space
+      # @return [Symbol] the assignment delimiter
+      def assignment_delimiter_sym
+        @assignment_delimiter_sym ||= assignment_delimiter.to_sym
       end
 
       # Hash-like access for Type validation compatibility

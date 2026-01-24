@@ -11,11 +11,11 @@ module Ukiryu
       #
       # @param tool_name [String] the tool name
       def run(tool_name)
-        setup_registry
+        setup_register
 
         # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
         tool = Tool.find_by(tool_name.to_sym)
-        error!("Tool not found: #{tool_name}\nAvailable tools: #{Registry.tools.sort.join(', ')}") unless tool
+        error!("Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}") unless tool
 
         tool_commands = tool.commands
         error! "No commands defined for #{tool_name}" unless tool_commands
@@ -73,9 +73,9 @@ module Ukiryu
         end
 
         # Show cli_flag if this is a flag-based action
-        if cmd.flag_action?
-          say "    Action flag: #{cmd.cli_flag}", :dim
-        end
+        return unless cmd.flag_action?
+
+        say "    Action flag: #{cmd.cli_flag}", :dim
       end
 
       # Display hierarchical commands with routing information
@@ -86,8 +86,8 @@ module Ukiryu
       def display_hierarchical_commands(tool, grouped)
         # Show routing table first
         if tool.routing?
-          say "  Routing table:", :dim
-          tool.routing.keys.each do |key|
+          say '  Routing table:', :dim
+          tool.routing.each_key do |key|
             target = tool.routing.resolve(key)
             say "    #{key} => #{target}", :dim
           end
@@ -96,7 +96,7 @@ module Ukiryu
 
         # Show top-level commands (no belongs_to)
         if grouped.key?(nil) && !grouped[nil].empty?
-          say "  Top-level commands:", :cyan
+          say '  Top-level commands:', :cyan
           grouped[nil].each do |cmd|
             display_command(cmd)
           end

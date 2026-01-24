@@ -1,0 +1,666 @@
+---
+layout: default
+title: Core Concepts
+parent: Getting Started
+nav_order: 3
+---
+
+== Core Concepts
+
+Understanding the fundamental concepts behind Ukiryu.
+
+// Purpose
+== Purpose
+
+This page explains the core concepts that power Ukiryu: Tool, Route, Action, Options/Flags, Shell, and Platform.
+
+// References
+== References
+
+* link:/understanding/architecture[Architecture & Internals]
+* link:/reference/tool-profile-schema[Tool Profile Schema]
+* link:/advanced/writing-profiles[Writing Tool Profiles]
+
+// Core Concepts Overview
+== Core Concepts Overview
+
+Ukiryu is built around these fundamental concepts:
+
+* **Tool**: Wrapper for external CLI tools with YAML-based configuration
+* **Route**: Maps command names to executable targets (enables multi-level hierarchies)
+* **Action**: Specific operations within tools (formerly called "commands")
+* **Option/Flag**: Command-line parameters with type validation
+* **Shell**: Platform-specific command formatting (bash, zsh, fish, PowerShell, cmd)
+* **Platform**: OS detection (macOS, Linux, Windows)
+
+=== Concept Hierarchy
+
+----
+Tool
+├── Route (maps "remote" → git-remote executable)
+│   └── Action ("add" belongs to "remote")
+│       ├── Arguments
+│       ├── Options
+│       └── Flags
+├── Shell (bash, zsh, PowerShell, etc.)
+└── Platform (macOS, Linux, Windows)
+----
+
+// Tool
+== Tool
+
+A **Tool** is the main wrapper class for external command-line tools. It provides a Ruby interface to CLI tools defined in YAML profiles.
+
+=== What a Tool Does
+
+* Loads YAML profiles from the Register
+* Finds compatible profile based on platform/shell/version
+* Discovers executables via custom search paths + PATH
+* Caches instances by `{name}-{platform}-{shell}-{version}` key for performance
+* Validates types and formats command arguments correctly
+
+=== Tool APIs
+
+==== Traditional API (Backward Compatible)
+
+[source,ruby]
+----
+# Get a tool instance
+tool = Ukiryu::Tool.get(:imagemagick)
+
+# Execute an action
+result = tool.execute(:convert, {
+  inputs: ['image.png'],
+  resize: '50%',
+  output: 'output.jpg'
+})
+
+# Access result
+puts result.output.stdout
+puts result.metadata.duration
+----
+
+==== Modern OOP API (Recommended)
+
+[source,ruby]
+----
+# Create tool instance
+tool = Ukiryu::Tools::Imagemagick.new
+
+# Get options for an action
+convert_options = tool.options_for(:convert)
+convert_options.set(
+  inputs: ['image.png'],
+  resize: '50%'
+)
+convert_options.output = 'output.jpg'
+
+# Run
+convert_options.run
+----
+
+=== Tool Discovery
+
+Tools are discovered from the Register in this order:
+
+1. `UKIRYU_REGISTER` environment variable
+2. `~/.ukiryu/register` (auto-cloned on first use)
+
+// Route
+== Route
+
+A **Route** maps command names to their executable targets, enabling hierarchical tools like `git remote` where the command routes to the `git-remote` executable.
+
+=== How Routing Works
+
+* **Single-level routing**: `tool remote` → `git-remote` executable
+* **Multi-level routing**: `tool remote add` → nested command structure
+* **O(1) lookup** via routing table for performance
+
+=== Routing Table Example
+
+[source,yaml]
+----
+# tools/git/2.30.yaml
+name: git
+version: '2.30'
+
+routing:
+  remote: git-remote        # Maps "remote" to git-remote command
+  branch: git-branch        # Maps "branch" to git-branch command
+  stash: git-stash          # Maps "stash" to git-stash command
+  tag: git-tag              # Maps "tag" to git-tag command
+----
+
+=== Resolving Routes
+
+[source,ruby]
+----
+# Resolve single command
+routing.resolve('remote')  # => 'git-remote'
+
+# Multi-level routing
+routing.resolve_path(['remote', 'add'])
+# => ['git-remote', 'action']
+----
+
+=== Child Routing Tables
+
+Commands can have their own child routing tables for nested hierarchies:
+
+[source,yaml]
+----
+commands:
+  - name: remote
+    routing:
+      add: git-remote-add
+      remove: git-remote-remove
+      prune: git-remote-prune
+----
+
+// Action
+== Action
+
+An **Action** is a specific operation within a tool (formerly called "commands"). Actions represent individual operations that can be executed.
+
+=== Actions vs Routes
+
+| Aspect | Route | Action |
+|===
+|*Purpose* | Maps command names to executables | Specific operations to execute |
+|*Example* | `remote` → `git-remote` | `add` in `git remote add` |
+|*Hierarchy* | Top-level mapping | Can belong to parent commands |
+|*Syntax* | Defined in `routing:` table | Defined in `commands:` list |
+|===}
+
+=== Action Types
+
+==== Standalone Actions
+
+[source,yaml]
+----
+commands:
+  - name: export
+    description: Export document to different format
+    arguments:
+      - name: inputs
+        type: file
+        variadic: true
+        position: last
+----
+
+==== Hierarchical Actions (with `belongs_to`)
+
+[source,yaml]
+----
+commands:
+  - name: remote
+    description: Manage remote repositories
+
+  - name: add
+    description: Add remote repository
+    belongs_to: remote        # Belongs to "remote" parent
+    cli_flag: -a             # Can be invoked as flag
+    arguments:
+      - name: name
+        type: string
+        required: true
+      - name: url
+        type: string
+        required: true
+----
+
+This creates: `git remote add <name> <url>`
+
+==== Flag-Based Actions
+
+[source,yaml]
+----
+commands:
+  - name: branch
+    description: Manage branches
+
+  - name: delete
+    description: Delete a branch
+    belongs_to: branch
+    cli_flag: -d             # Invoked as: git branch -d
+----
+
+=== Action Features
+
+* **Aliases**: Alternative names for actions
+* **Subcommands**: Multi-word commands like `storage account create`
+* **CLI Flags**: Actions invoked as flags (e.g., `-d` for delete)
+* **Arguments**: Positional and variadic parameters
+* **Options**: Named parameters with type validation
+* **Flags**: Boolean switches
+* **Env vars**: Environment variables to set
+
+// Options and Flags
+== Options and Flags
+
+Options and flags are defined in action definitions with rich metadata for type validation and formatting.
+
+=== Options
+
+Options are named parameters with values.
+
+[source,yaml]
+----
+options:
+  - name: output
+    type: file
+    cli: --export-filename
+    description: Output filename
+    required: true
+    assignment_delimiter: equals
+
+  - name: format
+    type: symbol
+    cli: --export-type
+    values: [svg, png, pdf, eps]
+    description: Output format
+----
+
+=== Flags
+
+Flags are boolean switches without values.
+
+[source,yaml]
+----
+flags:
+  - name: verbose
+    cli: --verbose
+    description: Verbose output
+    default: false
+    assignment_delimiter: none
+
+  - name: quiet
+    cli: -q
+    description: Quiet mode
+    default: false
+    assignment_delimiter: none
+----
+
+=== Option Styles
+
+Supported option styles across platforms:
+
+[cols="2,1,2"]
+|===
+|Style |Example |Platforms
+
+|double_dash_equals
+|`--output=file.png`
+|Unix-like
+
+|double_dash_space
+|`--output file.png`
+|Unix-like
+
+|single_dash_equals
+|`-q=85`
+|Unix-like
+
+|single_dash_space
+|`-q 85`
+|Unix-like
+
+|slash_colon
+|`/format:pdf`
+|Windows (cmd)
+
+|slash_space
+|`/format pdf`
+|Windows (cmd)
+|===
+
+Use `assignment_delimiter: auto` to detect automatically from the `cli:` prefix.
+
+// Shell
+== Shell
+
+Ukiryu supports multiple shells with proper command formatting and argument escaping.
+
+=== Supported Shells
+
+* **Unix-like**: `bash`, `zsh`, `fish`, `sh`
+* **Windows**: `powershell`, `cmd`
+* **Git Bash/MSYS**: `bash` on Windows
+
+=== Shell Detection
+
+[source,ruby]
+----
+# Automatic detection
+shell = Ukiryu::Shell.detect  # => :bash, :zsh, :powershell, etc.
+
+# Platform-specific available shells
+Ukiryu::Shell.valid_for_platform(:macos)  # => [:bash, :zsh, :fish, :sh]
+Ukiryu::Shell.valid_for_platform(:windows) # => [:powershell, :cmd]
+
+# Check availability
+Ukiryu::Shell.available?(:zsh)  # => true/false
+----
+
+=== Shell-Specific Formatting
+
+Each shell handles paths, escaping, and joining differently:
+
+[source,ruby]
+----
+# Bash/Zsh/Fish - single quotes for literal strings
+tool.execute(:convert, inputs: ['My File.svg'])
+# => inkscape 'My File.svg' --export-filename=output.png
+
+# PowerShell - different escaping
+tool.execute(:convert, inputs: ['My File.svg'])
+# => inkscape 'My File.svg' --export-filename=output.png
+
+# cmd - double quotes for paths with spaces
+tool.execute(:convert, inputs: ['My File.svg'])
+# => inkscape "My File.svg" --export-filename=output.png
+----
+
+=== Explicit Shell Configuration
+
+[source,ruby]
+----
+# Set shell explicitly
+Ukiryu.configure do |config|
+  config.default_shell = :zsh
+end
+
+# Or per-tool
+tool = Ukiryu::Tool.get(:inkscape, shell: :fish)
+----
+
+// Platform
+== Platform
+
+Ukiryu detects the operating system and adapts behavior accordingly.
+
+=== Supported Platforms
+
+* **`:macos`** - macOS systems
+* **`:linux`** - Linux distributions
+* **`:windows`** - Windows systems
+
+=== Platform Detection
+
+[source,ruby]
+----
+# Automatic detection
+platform = Ukiryu::Platform.detect  # => :macos, :linux, or :windows
+
+# Platform checks
+Ukiryu::Platform.macos?    # => true/false
+Ukiryu::Platform.linux?    # => true/false
+Ukiryu::Platform.windows?  # => true/false
+Ukiryu::Platform.unix?     # => true for macOS or Linux
+----
+
+=== Platform-Specific Behavior
+
+==== Search Paths
+
+Each platform has different executable locations:
+
+[source,yaml]
+----
+search_paths:
+  macos:
+    - '/Applications/Inkscape.app/Contents/MacOS/inkscape'
+    - '/opt/homebrew/bin/inkscape'
+    - '/usr/local/bin/inkscape'
+  linux:
+    - '/usr/bin/inkscape'
+    - '/usr/local/bin/inkscape'
+  windows:
+    - 'C:/Program Files/Inkscape/bin/inkscape.exe'
+    - 'C:/Program Files (x86)/Inkscape/bin/inkscape.exe'
+----
+
+==== Profile Selection
+
+Tools select compatible profiles based on platform:
+
+[source,yaml]
+----
+profiles:
+  - name: modern_unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+
+  - name: windows_powershell
+    platforms: [windows]
+    shells: [powershell]
+----
+
+=== Explicit Platform Configuration
+
+[source,ruby]
+----
+# Set platform explicitly
+Ukiryu.configure do |config|
+  config.default_platform = :linux
+end
+
+# Or per-tool
+tool = Ukiryu::Tool.get(:inkscape, platform: :macos)
+----
+
+// Type System
+== Type System
+
+Ukiryu validates parameters against defined types.
+
+=== Supported Types
+
+[cols="1,1,2"]
+|===
+|Type |Description |Example
+
+|file
+|File path with platform formatting
+|`inputs: ['drawing.svg']`
+
+|string
+|Text string
+|`text: 'hello world'`
+
+|integer
+|Whole number with range validation
+|`dpi: 300`
+
+|float
+|Decimal number with range validation
+|`opacity: 0.5`
+
+|symbol
+|Enumerated value from list
+|`format: :png`
+
+|boolean
+|True/false flag
+|`verbose: true`
+
+|array
+|Multiple values with separator
+|`export_ids: ['id1', 'id2']`
+|===
+
+=== Type Validation
+
+[source,ruby]
+----
+# Valid
+tool.execute(:export, {
+  inputs: ['drawing.svg'],  # Array of files
+  format: :png,              # Symbol
+  dpi: 300                   # Integer
+})
+
+# Invalid - raises error
+tool.execute(:export, {
+  format: :unsupported,  # Not in values list
+  dpi: -5                 # Outside range
+})
+----
+
+// Register Auto-Management
+== Register Auto-Management
+
+Ukiryu automatically manages the tool register for you.
+
+=== Automatic Discovery
+
+The register location is automatically discovered in this order:
+
+1. **Environment Variable**: `UKIRYU_REGISTER` (highest priority)
+2. **Auto-Clone**: `~/.ukiryu/register` (auto-cloned on first use)
+
+=== Auto-Cloning
+
+On first use, if no register is found, Ukiryu will:
+
+1. Check if git is available
+2. Clone from `https://github.com/ukiryu/register`
+3. Store in `~/.ukiryu/register`
+4. Validate the clone integrity
+
+[source,bash]
+----
+# First run - auto-clone happens automatically
+ukiryu list
+# => Cloning register from https://github.com/ukiryu/register...done
+# => Listing tools from ~/.ukiryu/register/tools/
+----
+
+=== Manual Register Management
+
+[source,bash]
+----
+# Update register
+ukiryu register update
+
+# Re-clone register
+ukiryu register reclone
+
+# Show register info
+ukiryu register info
+----
+
+=== Using a Custom Register
+
+[source,bash]
+----
+# Set custom register location
+export UKIRYU_REGISTER=/path/to/custom/register
+ukiryu list
+----
+
+// Schema Validation
+== Schema Validation
+
+Tool definitions are validated against JSON Schema.
+
+=== Schema Discovery
+
+The schema is discovered in this order:
+
+1. **Environment Variable**: `UKIRYU_SCHEMA_PATH`
+2. **Remote URL**: `https://raw.githubusercontent.com/ukiryu/schemas/refs/heads/main/v1/tool.schema.yaml`
+
+=== Using a Local Schema
+
+[source,bash]
+----
+# Set custom schema location
+export UKIRYU_SCHEMA_PATH=/path/to/custom/schema.yaml
+ukiryu validate file tool.yaml
+----
+
+// Configuration Precedence
+== Configuration Precedence
+
+Ukiryu supports multiple configuration methods with clear precedence.
+
+=== Configuration Layers
+
+[cols="1,1,2"]
+|===
+|Method |Precedence |Use Case
+
+|Environment Variables
+|Highest
+|CI/CD, deployment scripts
+
+|CLI Parameters
+|Medium
+|Interactive use, one-off commands
+
+|Ruby API
+|Low
+|Programmatic use, libraries
+
+|Profile Defaults
+|Lowest
+|Tool-specific defaults
+|===
+
+=== Example: Setting Timeout
+
+[source,ruby]
+----
+# Profile default: 90 seconds
+# Ruby API parameter: 60 seconds
+# CLI parameter: 120 seconds
+# ENV variable: 180 seconds (wins!)
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, params, timeout: 60)
+----
+
+[source,bash]
+----
+# Environment variable always wins
+export UKIRYU_TIMEOUT=180
+ukiryu exec inkscape export timeout=120 inputs=drawing.svg
+----
+
+// Error Handling
+== Error Handling
+
+Ukiryu provides structured error information.
+
+=== Error Types
+
+* `ToolNotFoundError` - Tool not in register
+* `ProfileNotFoundError` - No compatible profile for platform/shell
+* `ExecutionError` - Command failed (non-zero exit)
+* `TimeoutError` - Command exceeded timeout
+
+=== Error Information
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:export, params)
+rescue Ukiryu::ExecutionError => e
+  puts "Command failed!"
+  puts "Executable: #{e.result.command_info.executable}"
+  puts "Full command: #{e.result.command_info.full_command}"
+  puts "Exit status: #{e.result.output.exit_status}"
+  puts "Stderr: #{e.result.output.stderr}"
+  puts "Duration: #{e.result.metadata.duration_seconds}s"
+end
+----
+
+// Next Steps
+== Next Steps
+
+* link:/interfaces/ruby-api[Ruby API] - Programming interface details
+* link:/interfaces/cli[Command Line Interface] - CLI usage and options
+* link:/understanding/architecture[Architecture] - Deep dive into internals
+* link:/advanced/writing-profiles[Writing Profiles] - Create your own tool profiles

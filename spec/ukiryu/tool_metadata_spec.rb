@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Ukiryu::ToolMetadata do
-  let(:registry_path) { File.expand_path('../../register', __dir__) }
+  let(:register_path) { '/dummy/register/path' }
 
   describe '#initialize' do
     it 'creates metadata with all attributes' do
@@ -16,7 +16,7 @@ RSpec.describe Ukiryu::ToolMetadata do
         description: 'A test tool',
         aliases: %w[test tst],
         tool_name: 'test_tool',
-        registry_path: registry_path,
+        register_path: register_path,
         default_command: :default
       )
 
@@ -28,7 +28,7 @@ RSpec.describe Ukiryu::ToolMetadata do
       expect(metadata.description).to eq('A test tool')
       expect(metadata.aliases).to eq(%w[test tst])
       expect(metadata.tool_name).to eq('test_tool')
-      expect(metadata.registry_path).to eq(registry_path)
+      expect(metadata.register_path).to eq(register_path)
       expect(metadata.default_command).to eq(:default)
     end
 
@@ -46,7 +46,7 @@ RSpec.describe Ukiryu::ToolMetadata do
       expect(metadata.description).to be_nil
       expect(metadata.aliases).to eq([])
       expect(metadata.tool_name).to eq('test_tool')
-      expect(metadata.registry_path).to be_nil
+      expect(metadata.register_path).to be_nil
       # default_command falls back to name when not provided
       expect(metadata.default_command).to eq(:test_tool)
     end
@@ -203,7 +203,7 @@ RSpec.describe Ukiryu::ToolMetadata do
     end
 
     it 'creates metadata from a hash' do
-      metadata = described_class.from_hash(hash, tool_name: 'test_tool', registry_path: registry_path)
+      metadata = described_class.from_hash(hash, tool_name: 'test_tool', register_path: register_path)
 
       expect(metadata.name).to eq('test_tool')
       expect(metadata.version).to eq('1.0.0')
@@ -214,7 +214,7 @@ RSpec.describe Ukiryu::ToolMetadata do
       expect(metadata.aliases).to eq(%w[test tst])
       expect(metadata.default_command).to eq('custom_default')
       expect(metadata.tool_name).to eq('test_tool')
-      expect(metadata.registry_path).to eq(registry_path)
+      expect(metadata.register_path).to eq(register_path)
     end
 
     it 'handles nil values in the hash' do
@@ -224,7 +224,7 @@ RSpec.describe Ukiryu::ToolMetadata do
         'aliases' => nil
       }
 
-      metadata = described_class.from_hash(hash, tool_name: 'test_tool', registry_path: registry_path)
+      metadata = described_class.from_hash(hash, tool_name: 'test_tool', register_path: register_path)
 
       expect(metadata.implements).to be_nil
       expect(metadata.aliases).to eq([])
@@ -236,15 +236,15 @@ RSpec.describe Ukiryu::ToolMetadata do
         'implements' => 'ping'
       }
 
-      metadata = described_class.from_hash(hash, tool_name: 'ping_tool', registry_path: registry_path)
+      metadata = described_class.from_hash(hash, tool_name: 'ping_tool', register_path: register_path)
 
       expect(metadata.implements).to eq(:ping)
     end
   end
 
-  describe 'integration with Registry' do
+  describe 'integration with Register' do
     it 'can load metadata for a real tool' do
-      metadata = Ukiryu::Registry.load_tool_metadata(:ping, registry_path: registry_path)
+      metadata = Ukiryu::Register.load_tool_metadata(:ping, register_path: register_path)
 
       expect(metadata).to be_a(described_class)
       expect(metadata.name).to be_a(String)
@@ -253,7 +253,7 @@ RSpec.describe Ukiryu::ToolMetadata do
 
     it 'can find tools by interface' do
       # Ping tool implements the 'ping' interface
-      metadata = Ukiryu::Registry.load_tool_metadata(:ping, registry_path: registry_path)
+      metadata = Ukiryu::Register.load_tool_metadata(:ping, register_path: register_path)
 
       expect(metadata).to be_a(described_class)
       expect(metadata.implements).to eq(:ping)

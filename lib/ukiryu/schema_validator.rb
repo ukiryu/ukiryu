@@ -65,16 +65,10 @@ module Ukiryu
 
       # Get the default schema path
       #
-      # @return [String, nil] the default schema path
+      # @return [String, nil] the default schema path (from UKIRYU_SCHEMA_PATH env var)
       def default_schema_path
-        # Schema is in the sibling 'schema' directory at the same level as the gem
-        # From lib/ukiryu/, we go up to gem root, then to sibling schema/
-        gem_root = File.expand_path('../..', __dir__) # ukiryu gem root
-        schema_dir = File.expand_path('../schema', gem_root) # src/ukiryu/schema/
-        schema_file = File.join(schema_dir, 'tool-profile.schema.yaml')
-        return schema_file if File.exist?(schema_file)
-
-        nil
+        # Check environment variable for schema path
+        ENV['UKIRYU_SCHEMA_PATH']
       end
 
       private

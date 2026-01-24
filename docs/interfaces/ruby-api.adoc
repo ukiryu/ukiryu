@@ -1,0 +1,538 @@
+---
+layout: default
+title: Ruby API
+parent: Interfaces
+nav_order: 1
+---
+
+== Ruby API
+
+The Ruby API provides a programmatic interface for executing tools with type-safe parameters and structured results.
+
+// Purpose
+== Purpose
+
+This page documents the Ruby API for executing commands, handling results, and managing configuration.
+
+// References
+== References
+
+* `Ukiryu::Tool` - Main tool interface
+* `Ukiryu::Register` - Tool profile register
+* `Ukiryu::Execution::Result` - Result object
+* link:/reference/ruby-api[API Reference]
+
+// Concepts
+== Concepts
+
+* **Tool instance**: Cached object representing a specific tool
+* **Command execution**: Type-safe parameter passing with validation
+* **Result object**: Structured output with metadata
+* **Error handling**: Exception-based error reporting
+* **Configuration precedence**: ENV > parameters > defaults
+
+// Basic Usage
+== Basic Usage
+
+=== Getting a Tool
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Get tool by name
+tool = Ukiryu::Tool.get(:inkscape)
+
+# Check availability
+if tool.available?
+  puts "Inkscape is installed at: #{tool.executable}"
+  puts "Version: #{tool.version}"
+else
+  puts "Inkscape is not installed"
+end
+----
+
+=== Executing Commands
+
+[source,ruby]
+----
+# Execute a command with parameters
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png
+})
+
+# Check success
+if result.success?
+  puts "Conversion successful!"
+else
+  puts "Conversion failed!"
+  puts "Error: #{result.stderr}"
+end
+----
+
+// Configuration Methods
+== Configuration Methods
+
+=== Method 1: Ruby API Parameters (Lowest Precedence)
+
+Pass parameters directly to `execute`:
+
+[source,ruby]
+----
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png,
+  dpi: 300,
+  width: 1024,
+  height: 768
+}, timeout: 60)  # Execution timeout in seconds
+----
+
+=== Method 2: Global Configuration (Medium Precedence)
+
+Set default configuration for all operations:
+
+[source,ruby]
+----
+# Set register path
+Ukiryu::Register.default_register_path = '/path/to/register'
+
+# Set default timeout
+Ukiryu::Executor::DEFAULT_TIMEOUT = 120
+----
+
+=== Method 3: Environment Variables (Highest Precedence)
+
+Set environment variables to override all other configuration:
+
+[source,ruby]
+----
+# Set before loading Ukiryu
+ENV['UKIRYU_REGISTRY'] = '/path/to/register'
+ENV['UKIRYU_TIMEOUT'] = '180'
+ENV['UKIRYU_DEBUG'] = 'true'
+
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, params)
+# Uses 180 second timeout from ENV
+----
+
+=== Configuration Precedence Example
+
+[source,ruby]
+----
+# Profile default: 90 seconds
+# Ruby API parameter: 60 seconds
+# ENV variable: 180 seconds (wins!)
+
+ENV['UKIRYU_TIMEOUT'] = '180'
+tool = Ukiryu::Tool.get(:inkscape)
+
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png'
+}, timeout: 60)
+
+# Result: Uses 180 second timeout from ENV
+----
+
+// Result Object
+== Result Object
+
+The `execute` method returns a structured result object:
+
+[source,ruby]
+----
+result = tool.execute(:export, params)
+
+# Command information
+puts "Executable: #{result.command_info.executable}"
+puts "Arguments: #{result.command_info.arguments}"
+puts "Full command: #{result.command_info.full_command}"
+puts "Shell: #{result.command_info.shell}"
+
+# Output
+puts "Exit status: #{result.output.exit_status}"
+puts "Stdout: #{result.output.stdout}"
+puts "Stderr: #{result.output.stderr}"
+puts "Success: #{result.success?}"
+
+# Metadata
+puts "Duration: #{result.metadata.duration_seconds}s"
+puts "Formatted: #{result.metadata.formatted_duration}"
+puts "Started: #{result.metadata.started_at}"
+puts "Finished: #{result.metadata.finished_at}"
+----
+
+=== Convenience Methods
+
+[source,ruby]
+----
+result = tool.execute(:export, params)
+
+# Check success
+result.success?           # => true if exit status == 0
+result.failure?           # => true if exit status != 0
+
+# Access output
+result.stdout             # => Stdout (stripped)
+result.stderr             # => Stderr (stripped)
+result.stdout_lines       # => Array of lines
+result.stderr_lines       # => Array of lines
+----
+
+// Type System
+== Type System
+
+Ukiryu validates parameter types against the profile definition.
+
+=== Supported Types
+
+[source,ruby]
+----
+# file - File path with platform formatting
+tool.execute(:export, {
+  inputs: ['drawing.svg'],   # Array of file paths
+  output: 'output.png'       # Single file path
+})
+
+# string - Text value
+tool.execute(:convert, {
+  text: 'Hello World'
+})
+
+# integer - Whole number with range
+tool.execute(:export, {
+  dpi: 300                    # Within 1-10000 range
+})
+
+# float - Decimal number with range
+tool.execute(:export, {
+  background_opacity: 0.5     # Within 0.0-1.0 range
+})
+
+# symbol - Enumerated value
+tool.execute(:export, {
+  format: :png                # Must be in values list
+})
+
+# boolean - True/false flag
+tool.execute(:export, {
+  plain: true,
+  batch_process: true
+})
+
+# array - Multiple values
+tool.execute(:export, {
+  export_ids: ['id1', 'id2', 'id3']  # Joined with separator
+})
+----
+
+=== Type Validation Errors
+
+[source,ruby]
+----
+# Invalid type raises error
+begin
+  tool.execute(:export, {
+    format: :unsupported  # Not in values list
+  })
+rescue Ukiryu::TypeError => e
+  puts "Type error: #{e.message}"
+  # => "Invalid value :unsupported for format. Valid values: svg, png, pdf, ..."
+end
+
+# Out of range raises error
+begin
+  tool.execute(:export, {
+    dpi: -5  # Outside range 1-10000
+  })
+rescue Ukiryu::RangeError => e
+  puts "Range error: #{e.message}"
+  # => "Value -5 is outside valid range 1-10000 for dpi"
+end
+----
+
+// Error Handling
+== Error Handling
+
+=== Exception Types
+
+[source,ruby]
+----
+require 'ukiryu'
+
+begin
+  tool = Ukiryu::Tool.get(:inkscape)
+  result = tool.execute(:export, params)
+
+rescue Ukiryu::ToolNotFoundError => e
+  # Tool not in register
+  puts "Tool not found!"
+  puts "Available tools: #{Ukiryu::Register.tools.join(', ')}"
+
+rescue Ukiryu::ProfileNotFoundError => e
+  # No compatible profile for platform/shell
+  puts "No profile available for this platform/shell"
+
+rescue Ukiryu::ExecutionError => e
+  # Command failed (non-zero exit)
+  puts "Command failed!"
+  puts "Exit code: #{e.result.exit_status}"
+  puts "Command: #{e.result.command}"
+  puts "Stderr: #{e.result.stderr}"
+
+rescue Ukiryu::TimeoutError => e
+  # Command exceeded timeout
+  puts "Command timed out after #{e.timeout} seconds"
+end
+----
+
+=== Handling Failures Gracefully
+
+[source,ruby]
+----
+# Allow failure without exception
+result = tool.execute(:export, params, allow_failure: true)
+
+if result.failure?
+  # Handle failure gracefully
+  logger.warn("Export failed: #{result.stderr}")
+  # Continue processing...
+end
+----
+
+=== Detailed Error Information
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:export, params)
+rescue Ukiryu::ExecutionError => e
+  # Access full result information
+  result = e.result
+
+  puts "Executable: #{result.command_info.executable}"
+  puts "Command: #{result.command_info.full_command}"
+  puts "Exit status: #{result.exit_status}"
+  puts "Stdout: #{result.stdout}"
+  puts "Stderr: #{result.stderr}"
+
+  # Log error details
+  logger.error("Command failed", {
+    executable: result.command_info.executable,
+    command: result.command_info.full_command,
+    exit_status: result.exit_status,
+    stderr: result.stderr
+  })
+end
+----
+
+// Advanced Usage
+== Advanced Usage
+
+=== Tool Caching
+
+[source,ruby]
+----
+# Tool instances are cached by {name}-{platform}-{shell}-{version}
+tool1 = Ukiryu::Tool.get(:inkscape)
+tool2 = Ukiryu::Tool.get(:inkscape)
+
+tool1.equal?(tool2)  # => true (same cached instance)
+
+# Clear cache and reload
+Ukiryu::Tool.clear_cache
+tool3 = Ukiryu::Tool.get(:inkscape, reload: true)
+----
+
+=== Version Selection
+
+[source,ruby]
+----
+# Get specific version
+tool = Ukiryu::Tool.get(:inkscape, version: '0.92')
+
+# Auto-detect version
+tool = Ukiryu::Tool.get(:inkscape)
+# Uses version detection from profile
+# Matches highest compatible profile
+
+# Get version info
+puts "Profile version: #{tool.profile.version}"
+puts "Detected version: #{tool.version}"
+----
+
+=== Platform/Shell Override
+
+[source,ruby]
+----
+# Auto-detect platform and shell
+tool = Ukiryu::Tool.get(:inkscape)
+
+# Force specific platform
+tool = Ukiryu::Tool.get(:inkscape, platform: :linux)
+
+# Force specific shell
+tool = Ukiryu::Tool.get(:inkscape, shell: :zsh)
+----
+
+=== Working Directory
+
+[source,ruby]
+----
+# Execute in specific directory
+result = tool.execute(:export, params, cwd: '/path/to/directory')
+----
+
+=== Stdin Input
+
+[source,ruby]
+----
+# Pass stdin data to command
+result = tool.execute(:compress, {
+  inputs: ['-']  # Read from stdin
+}, stdin: "Hello World\n")
+
+# Or pass IO object
+File.open('data.txt') do |file|
+  result = tool.execute(:compress, {
+    inputs: ['-']
+  }, stdin: file)
+end
+----
+
+// Examples
+== Examples
+
+=== Image Conversion with ImageMagick
+
+[source,ruby]
+----
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:imagemagick)
+
+# Convert to different format
+result = tool.execute(:convert, {
+  inputs: ['photo.jpg'],
+  output: 'photo.png'
+})
+
+# With options
+result = tool.execute(:convert, {
+  inputs: ['photo.jpg'],
+  output: 'photo.png',
+  resize: '50%',
+  quality: 85,
+  strip: true  # Remove metadata
+})
+
+if result.success?
+  puts "Conversion successful!"
+  puts "Output size: #{File.size('photo.png')} bytes"
+end
+----
+
+=== PDF Processing with Ghostscript
+
+[source,ruby]
+----
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:ghostscript)
+
+# Compress PDF
+result = tool.execute(:convert, {
+  inputs: ['document.pdf'],
+  device: :pdfwrite,
+  output: 'document-compressed.pdf',
+  safer: true,
+  quiet: true
+})
+
+# Extract pages as images
+result = tool.execute(:convert, {
+  inputs: ['presentation.pdf'],
+  device: :png16m,
+  output: 'slide-%03d.png',
+  quiet: true
+})
+----
+
+=== Batch Processing
+
+[source,ruby]
+----
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:inkscape)
+
+# Process multiple files
+files = Dir['*.svg']
+files.each do |input_file|
+  output_file = input_file.sub('.svg', '.png')
+
+  result = tool.execute(:export, {
+    inputs: [input_file],
+    output: output_file,
+    format: :png,
+    dpi: 300
+  })
+
+  if result.failure?
+    puts "Failed to convert #{input_file}: #{result.stderr}"
+  else
+    puts "Converted #{input_file} -> #{output_file}"
+  end
+end
+----
+
+=== Custom Error Handling
+
+[source,ruby]
+----
+require 'ukiryu'
+
+class ConversionService
+  def initialize(tool_name)
+    @tool = Ukiryu::Tool.get(tool_name)
+  end
+
+  def convert(input, output, options = {})
+    result = @tool.execute(:export, {
+      inputs: [input],
+      output: output
+    }.merge(options))
+
+    unless result.success?
+      raise ConversionError, "Failed to convert #{input} to #{output}: #{result.stderr}"
+    end
+
+    result
+  end
+
+  class ConversionError < StandardError; end
+end
+
+# Usage
+service = ConversionService.new(:inkscape)
+begin
+  service.convert('drawing.svg', 'drawing.png', format: :png)
+rescue ConversionService::ConversionError => e
+  puts e.message
+end
+----
+
+// See Also
+== See Also
+
+* link:/interfaces/cli[Command Line Interface] - Shell-based tool usage
+* link:/features/configuration[Configuration Options] - All configuration methods
+* link:/guides/[Guides] - Task-specific tutorials
+* link:/reference/ruby-api[API Reference] - Complete API documentation

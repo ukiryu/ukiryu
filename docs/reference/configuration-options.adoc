@@ -1,0 +1,720 @@
+---
+layout: default
+title: Configuration Options
+parent: Reference
+nav_order: 2
+---
+
+== Configuration Options
+
+This page documents all configuration options available in Ukiryu, including environment variables, Ruby API settings, and CLI options.
+
+// Overview
+== Overview
+
+Ukiryu provides multiple ways to configure behavior:
+
+* **CLI options** (highest priority) - Passed at runtime
+* **Environment variables** (medium priority) - Set before running
+* **Ruby API** (medium priority) - Set programmatically
+* **Default values** (lowest priority) - Built-in defaults
+
+// Configuration Precedence
+== Configuration Precedence
+
+Configuration is resolved in the following order (highest to lowest):
+
+.Precedence example for `timeout`
+[source,ruby]
+----
+# 1. CLI option (highest) - wins!
+ukiryu exec TOOL command --timeout 120
+
+# 2. Environment variable
+export UKIRYU_TIMEOUT=60
+ukiryu exec TOOL command
+
+# 3. Ruby API configuration
+Ukiryu::Config.configure do |config|
+  config.timeout = 45
+end
+tool.execute(:command, params)
+
+# 4. Default value
+# timeout: nil (no timeout)
+----
+
+// Environment Variables
+== Environment Variables
+
+All environment variables use the `UKIRYU_` prefix:
+
+=== Execution Options
+
+==== UKIRYU_TIMEOUT
+
+*Execution timeout in seconds.*
+
+* **Type**: Integer
+* **Default**: `nil` (no timeout)
+* **Example**: `export UKIRYU_TIMEOUT=120`
+
+[source,shell]
+----
+# Set 2-minute timeout
+export UKIRYU_TIMEOUT=120
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+==== UKIRYU_DEBUG
+
+*Enable debug mode.*
+
+* **Type**: Boolean
+* **Default**: `false`
+* **Values**: `1`, `true`, `yes`, `on` (enabled); `0`, `false`, `no`, `off` (disabled)
+* **Example**: `export UKIRYU_DEBUG=1`
+
+[source,shell]
+----
+# Enable debug output
+export UKIRYU_DEBUG=1
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+==== UKIRYU_DRY_RUN
+
+*Enable dry run mode (show commands without executing).*
+
+* **Type**: Boolean
+* **Default**: `false`
+* **Values**: `1`, `true`, `yes`, `on` (enabled); `0`, `false`, `no`, `off` (disabled)
+* **Example**: `export UKIRYU_DRY_RUN=1`
+
+[source,shell]
+----
+# Show what would be executed
+export UKIRYU_DRY_RUN=1
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+==== UKIRYU_METRICS
+
+*Enable metrics collection.*
+
+* **Type**: Boolean
+* **Default**: `false`
+* **Values**: `1`, `true`, `yes`, `on` (enabled); `0`, `false`, `no`, `off` (disabled)
+* **Example**: `export UKIRYU_METRICS=1`
+
+[source,shell]
+----
+# Collect execution metrics
+export UKIRYU_METRICS=1
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+==== UKIRYU_SHELL
+
+*Specify shell for command execution.*
+
+* **Type**: Symbol
+* **Default**: `nil` (auto-detect)
+* **Values**: `bash`, `zsh`, `fish`, `sh`, `powershell`, `cmd`
+* **Example**: `export UKIRYU_SHELL=zsh`
+
+[source,shell]
+----
+# Use zsh instead of auto-detected shell
+export UKIRYU_SHELL=zsh
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+=== Output Options
+
+==== UKIRYU_FORMAT
+
+*Output format for results.*
+
+* **Type**: Symbol
+* **Default**: `yaml`
+* **Values**: `yaml`, `json`, `table`, `raw`
+* **Example**: `export UKIRYU_FORMAT=json`
+
+[source,shell]
+----
+# Output as JSON
+export UKIRYU_FORMAT=json
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+==== UKIRYU_OUTPUT
+
+*Output file path (stdout if not set).*
+
+* **Type**: String
+* **Default**: `nil` (stdout)
+* **Example**: `export UKIRYU_OUTPUT=/tmp/result.yaml`
+
+[source,shell]
+----
+# Write output to file
+export UKIRYU_OUTPUT=/tmp/result.yaml
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+==== UKIRYU_USE_COLOR
+
+*Enable or disable colored output.*
+
+* **Type**: Boolean
+* **Default**: `nil` (auto-detect based on TTY)
+* **Values**: `1`, `true`, `yes`, `on` (enabled); `0`, `false`, `no`, `off` (disabled)
+* **Example**: `export UKIRYU_USE_COLOR=0`
+
+[source,shell]
+----
+# Disable colors
+export UKIRYU_USE_COLOR=0
+ukiryu list
+----
+
+*Note*: Setting `NO_COLOR=1` (any value) will also disable colors per the https://no-color.io/[NO_COLOR] standard.
+
+=== Register Options
+
+==== UKIRYU_REGISTER
+
+*Path to tool register.*
+
+* **Type**: String
+* **Default**: `~/.ukiryu/register` (auto-cloned on first use)
+* **Example**: `export UKIRYU_REGISTER=/opt/ukiryu/register`
+
+[source,shell]
+----
+# Use custom register
+export UKIRYU_REGISTER=/opt/ukiryu/register
+ukiryu list
+----
+
+==== UKIRYU_SCHEMA_PATH
+
+*Path to JSON Schema for validation.*
+
+* **Type**: String
+* **Default**: Remote URL (fetched automatically)
+* **Example**: `export UKIRYU_SCHEMA_PATH=/path/to/schema.yaml`
+
+[source,shell]
+----
+# Use local schema for validation
+export UKIRYU_SCHEMA_PATH=/path/to/tool.schema.yaml
+ukiryu validate file tool.yaml
+----
+
+If not set, the schema is automatically fetched from:
+`https://raw.githubusercontent.com/ukiryu/schemas/refs/heads/main/v1/tool.schema.yaml`
+
+=== Tool Discovery Options
+
+==== UKIRYU_SEARCH_PATHS
+
+*Additional search paths for tool executables (comma-separated).*
+
+* **Type**: String (comma-separated paths)
+* **Default**: `nil`
+* **Example**: `export UKIRYU_SEARCH_PATHS=/usr/local/bin:/opt/bin`
+
+[source,shell]
+----
+# Add custom search paths
+export UKIRYU_SEARCH_PATHS=/usr/local/bin:/opt/bin
+ukiryu which imagemagick
+----
+
+// Ruby API Configuration
+== Ruby API Configuration
+
+=== Config.configure Block
+
+Configure Ukiryu programmatically:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Configure with block
+Ukiryu::Config.configure do |config|
+  config.timeout = 120
+  config.debug = true
+  config.format = :json
+  config.register = '/path/to/register'
+  config.search_paths = '/usr/local/bin,/opt/bin'
+  config.use_color = false
+  config.metrics = true
+  config.shell = :bash
+end
+
+# Use configuration
+tool = Ukiryu::Tool.get(:imagemagick)
+result = tool.execute(:convert, params)
+----
+
+=== Config Attributes
+
+==== timeout
+
+*Execution timeout in seconds.*
+
+[source,ruby]
+----
+Ukiryu::Config.timeout = 120
+puts Ukiryu::Config.timeout  # => 120
+----
+
+==== debug
+
+*Debug mode flag.*
+
+[source,ruby]
+----
+Ukiryu::Config.debug = true
+puts Ukiryu::Config.debug  # => true
+----
+
+==== dry_run
+
+*Dry run mode flag.*
+
+[source,ruby]
+----
+Ukiryu::Config.dry_run = true
+puts Ukiryu::Config.dry_run  # => true
+----
+
+==== format
+
+*Output format.*
+
+[source,ruby]
+----
+Ukiryu::Config.format = :json
+puts Ukiryu::Config.format  # => :json
+----
+
+==== output
+
+*Output file path.*
+
+[source,ruby]
+----
+Ukiryu::Config.output = '/tmp/result.yaml'
+puts Ukiryu::Config.output  # => "/tmp/result.yaml"
+----
+
+==== register
+
+*Register path.*
+
+[source,ruby]
+----
+Ukiryu::Config.register = '/opt/ukiryu/register'
+puts Ukiryu::Config.register  # => "/opt/ukiryu/register"
+----
+
+==== search_paths
+
+*Search paths (comma-separated).*
+
+[source,ruby]
+----
+Ukiryu::Config.search_paths = '/usr/local/bin,/opt/bin'
+puts Ukiryu::Config.search_paths  # => "/usr/local/bin,/opt/bin"
+----
+
+==== use_color
+
+*Color output flag.*
+
+[source,ruby]
+----
+Ukiryu::Config.use_color = false
+puts Ukiryu::Config.use_color  # => false
+
+# Check if colors are disabled
+puts Ukiryu::Config.colors_disabled?  # => true
+----
+
+==== metrics
+
+*Metrics collection flag.*
+
+[source,ruby]
+----
+Ukiryu::Config.metrics = true
+puts Ukiryu::Config.metrics  # => true
+----
+
+==== shell
+
+*Shell for command execution.*
+
+[source,ruby]
+----
+Ukiryu::Config.shell = :zsh
+puts Ukiryu::Config.shell  # => :zsh
+----
+
+=== Configuration Hash
+
+Get all configuration as a hash:
+
+[source,ruby]
+----
+config = Ukiryu::Config.to_h
+# => {
+#   timeout: 120,
+#   debug: true,
+#   dry_run: false,
+#   metrics: false,
+#   shell: :zsh,
+#   format: :yaml,
+#   output: nil,
+#   register: "/path/to/register",
+#   search_paths: "/usr/local/bin,/opt/bin",
+#   use_color: false
+# }
+----
+
+=== Reset Configuration
+
+Reset to defaults:
+
+[source,ruby]
+----
+# Reset global configuration
+Ukiryu::Config.reset!
+
+# Or reset instance
+config = Ukiryu::Config.instance
+config.reset!
+----
+
+// CLI Options
+== CLI Options
+
+CLI options take the highest priority and override environment variables and Ruby API configuration.
+
+=== Global Options
+
+==== --register, -r
+
+*Path to tool register.*
+
+[source,shell]
+----
+ukiryu --register /opt/ukiryu/register list
+ukiryu -r /opt/ukiryu/register list
+----
+
+==== --timeout
+
+*Execution timeout in seconds.*
+
+[source,shell]
+----
+ukiryu exec imagemagick convert input.jpg output.png --timeout 120
+----
+
+==== --debug
+
+*Enable debug mode.*
+
+[source,shell]
+----
+ukiryu --debug exec imagemagick convert input.jpg output.png
+----
+
+==== --dry-run, -d
+
+*Show commands without executing.*
+
+[source,shell]
+----
+ukiryu --dry-run exec imagemagick convert input.jpg output.png
+ukiryu -d exec imagemagick convert input.jpg output.png
+----
+
+==== --format, -f
+
+*Output format.*
+
+[source,shell]
+----
+ukiryu exec imagemagick convert input.jpg output.png --format json
+ukiryu exec imagemagick convert input.jpg output.png -f json
+----
+
+==== --output, -o
+
+*Output file path.*
+
+[source,shell]
+----
+ukiryu exec imagemagick convert input.jpg output.png --output result.yaml
+ukiryu exec imagemagick convert input.jpg output.png -o result.yaml
+----
+
+==== --shell, -s
+
+*Shell for command execution.*
+
+[source,shell]
+----
+ukiryu exec imagemagick convert input.jpg output.png --shell zsh
+ukiryu exec imagemagick convert input.jpg output.png -s zsh
+----
+
+=== Command-Specific Options
+
+==== --definition, -d (validate, exec commands)
+
+*Path to tool definition file.*
+
+[source,shell]
+----
+# Validate a definition file
+ukiryu validate --definition /path/to/tool.yaml
+ukiryu validate -d /path/to/tool.yaml
+
+# Execute using a definition file
+ukiryu exec --definition /path/to/tool.yaml mytool command
+----
+
+==== --executable (validate command)
+
+*Test executable against actual tool.*
+
+[source,shell]
+----
+ukiryu validate --definition /path/to/tool.yaml --executable
+----
+
+==== --strict (validate command)
+
+*Treat warnings as errors.*
+
+[source,shell]
+----
+ukiryu validate --definition /path/to/tool.yaml --strict
+----
+
+==== --schema (validate command)
+
+*Path to JSON Schema file.*
+
+[source,shell]
+----
+ukiryu validate --definition /path/to/tool.yaml --schema /path/to/schema.json
+----
+
+==== --stdin (exec command)
+
+*Read input from stdin pipe.*
+
+[source,shell]
+----
+# Read from stdin
+cat input.json | ukiryu exec jq process --stdin
+
+# Pass stdin explicitly
+echo '{"key": "value"}' | ukiryu exec jq process --stdin
+----
+
+==== --raw (exec command)
+
+*Output raw stdout/stderr without wrapping.*
+
+[source,shell]
+----
+ukiryu exec imagemagick convert input.jpg - --raw > output.jpg
+----
+
+// Definition Path Configuration
+== Definition Path Configuration
+
+### UKIRYU_DEFINITION_PATH
+
+*Colon-separated list of paths to search for tool definitions.*
+
+[source,shell]
+----
+# Unix/Linux/macOS
+export UKIRYU_DEFINITION_PATH="/usr/share/ukiryu:~/.local/share/ukiryu:./definitions"
+
+# Windows
+set UKIRYU_DEFINITION_PATH="C:\Ukiryu\Definitions;D:\MyDefinitions"
+----
+
+[source,ruby]
+----
+# Can also be set via Ruby API
+Ukiryu::Config.definition_path = '/path/to/definitions:/another/path'
+----
+
+### Definition Search Order
+
+Definitions are searched in the following order:
+
+. File specified via `--definition` flag
+. Paths in `UKIRYU_DEFINITION_PATH` (left to right)
+. XDG data directories: `~/.local/share/ukiryu/`
+. System directories: `/usr/share/ukiryu/`, `/usr/local/share/ukiryu/`
+. Bundled definitions (tool installation directory)
+. Register (default location)
+
+// Platform-Specific Configuration
+== Platform-Specific Configuration
+
+=== Shell-Specific Values
+
+Some values need different formats for different shells:
+
+[source,ruby]
+----
+# Boolean values
+# bash/zsh/sh: true, false
+export UKIRYU_DEBUG=true
+
+# fish: true, false
+set -x UKIRYU_DEBUG true
+
+# PowerShell: $true, $false
+$env:UKIRYU_DEBUG = "true"
+
+# cmd: 1, 0
+set UKIRYU_DEBUG=1
+
+# Path separators
+# Unix/Linux/macOS: colon (:)
+export UKIRYU_SEARCH_PATHS=/usr/local/bin:/opt/bin
+
+# Windows: semicolon (;)
+set UKIRYU_SEARCH_PATHS=C:\bin;D:\Tools
+----
+
+=== Default Paths by Platform
+
+.Default tool locations by platform
+[cols="1,2"]
+|===
+|Platform |Default Search Paths
+
+|macOS
+|`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`
+
+|Linux
+|`/usr/local/bin`, `/usr/bin`, `/bin`
+
+|Windows
+|`C:\Program Files\Git\cmd`, `C:\Windows\System32`
+|===
+
+// Examples
+== Examples
+
+=== Example 1: Custom Register
+
+[source,shell]
+----
+# Set custom register
+export UKIRYU_REGISTER=/opt/my-register
+
+# List tools from custom register
+ukiryu list
+----
+
+=== Example 2: Debug Mode
+
+[source,shell]
+----
+# Enable debug for troubleshooting
+export UKIRYU_DEBUG=1
+
+# Execute with debug output
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+[source,ruby]
+----
+# Or enable in Ruby
+Ukiryu::Config.debug = true
+tool = Ukiryu::Tool.get(:imagemagick)
+result = tool.execute(:convert, params)
+----
+
+=== Example 3: Output Format
+
+[source,shell]
+----
+# Output as JSON
+export UKIRYU_FORMAT=json
+ukiryu exec imagemagick convert input.jpg output.png
+
+# Or use CLI option
+ukiryu exec imagemagick convert input.jpg output.png --format json
+----
+
+[source,ruby]
+----
+# Or configure in Ruby
+Ukiryu::Config.format = :json
+tool = Ukiryu::Tool.get(:imagemagick)
+result = tool.execute(:convert, params)
+----
+
+=== Example 4: Timeout Configuration
+
+[source,shell]
+----
+# Set 5-minute timeout globally
+export UKIRYU_TIMEOUT=300
+
+# Override for specific command
+ukiryu exec ghostscript convert input.pdf output.pdf --timeout 600
+----
+
+[source,ruby]
+----
+# Or configure in Ruby
+Ukiryu::Config.timeout = 300
+tool = Ukiryu::Tool.get(:ghostscript)
+result = tool.execute(:convert, params, timeout: 600)
+----
+
+=== Example 5: Multiple Search Paths
+
+[source,shell]
+----
+# Add multiple search paths (Unix)
+export UKIRYU_SEARCH_PATHS=/usr/local/bin:/opt/bin:~/bin
+
+# Add multiple search paths (Windows)
+set UKIRYU_SEARCH_PATHS=C:\Tools;D:\MyTools
+----
+
+[source,ruby]
+----
+# Or configure in Ruby
+Ukiryu::Config.search_paths = '/usr/local/bin,/opt/bin,~/bin'
+tool = Ukiryu::Tool.get(:imagemagick)
+----
+
+// See Also
+== See Also
+
+* link:/features/configuration[Configuration Guide] - Configuration overview
+* link:/interfaces/cli[CLI Reference] - All CLI options
+* link:/interfaces/ruby-api[Ruby API] - Ruby configuration methods
+* link:/reference/error-codes[Error Codes] - Error handling

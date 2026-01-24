@@ -153,7 +153,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
 
       tool = get_tool(:imagemagick)
       result = tool.execute(:identify, {
-                              input: [input]
+                              inputs: [input]
                             })
 
       expect(result.success?).to be true
@@ -168,7 +168,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
 
       tool = get_tool(:imagemagick)
       result = tool.execute(:identify, {
-                              input: [input1, input2]
+                              inputs: [input1, input2]
                             })
 
       expect(result.success?).to be true

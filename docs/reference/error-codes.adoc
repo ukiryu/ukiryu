@@ -1,0 +1,634 @@
+---
+layout: default
+title: Error Codes
+parent: Reference
+nav_order: 3
+---
+
+== Error Codes
+
+This page documents all error types raised by Ukiryu, their meanings, and recovery strategies.
+
+// Overview
+== Overview
+
+Ukiryu uses Ruby's exception mechanism to report errors. All errors inherit from `Ukiryu::Error`, allowing you to catch all Ukiryu-specific errors with a single rescue clause.
+
+// Error Hierarchy
+== Error Hierarchy
+
+.Error inheritance tree
+[source,ruby]
+----
+Ukiryu::Error                           # Base error class
+|
++- Ukiryu::UnknownShellError            # Shell detection failed
++- Ukiryu::UnsupportedPlatformError    # Platform not supported
++- Ukiryu::ValidationError              # Type validation failed
++- Ukiryu::LoadError                    # Legacy load error (use DefinitionError)
++- Ukiryu::VersionDetectionError        # Version detection failed
+|
++- Ukiryu::ProfileNotFoundError         # No compatible profile found
++- Ukiryu::ProfileLoadError             # Profile loading failed
+|
++- Ukiryu::DefinitionError              # Definition-related errors
+|  |
+|  +- Ukiryu::DefinitionNotFoundError   # Definition file not found
+|  +- Ukiryu::DefinitionLoadError       # Definition parsing failed
+|  +- Ukiryu::DefinitionValidationError # Definition validation failed
+|
++- Ukiryu::ToolNotFoundError            # Tool not in register
++- Ukiryu::ExecutableNotFoundError      # Tool executable not found
+|
++- Ukiryu::ExecutionError               # Command execution failed
++- Ukiryu::TimeoutError                 # Command timeout exceeded
+----
+
+// Error Types
+== Error Types
+
+=== Base Error
+
+==== Ukiryu::Error
+
+*Base class for all Ukiryu errors.*
+
+* **Meaning**: Generic Ukiryu error
+* **When raised**: As a fallback for unspecified errors
+* **Recovery**: Check error message for details
+
+[source,ruby]
+----
+begin
+  # ... Ukiryu operations ...
+rescue Ukiryu::Error => e
+  puts "Ukiryu error: #{e.message}"
+end
+----
+
+=== Shell and Platform Errors
+
+==== Ukiryu::UnknownShellError
+
+*Shell detection or specification failed.*
+
+* **Meaning**: Cannot determine or use the specified shell
+* **When raised**:
+  * Shell cannot be auto-detected
+  * Specified shell is not supported
+  * Shell executable not found
+* **Recovery**:
+  * Specify a supported shell: `bash`, `zsh`, `fish`, `sh`, `powershell`, `cmd`
+  * Install the shell if missing
+  * Check `UKIRYU_SHELL` environment variable
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:imagemagick, shell: :unknown_shell)
+rescue Ukiryu::UnknownShellError => e
+  puts "Shell error: #{e.message}"
+  # Try with auto-detected shell
+  tool = Ukiryu::Tool.get(:imagemagick)
+end
+----
+
+==== Ukiryu::UnsupportedPlatformError
+
+*Platform is not supported.*
+
+* **Meaning**: Current platform is not supported
+* **When raised**: Running on an unsupported operating system
+* **Recovery**: Ukiryu supports `:macos`, `:linux`, and `:windows`
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:imagemagick)
+rescue Ukiryu::UnsupportedPlatformError => e
+  puts "Platform not supported: #{e.message}"
+end
+----
+
+=== Validation Errors
+
+==== Ukiryu::ValidationError
+
+*Type validation failed.*
+
+* **Meaning**: Parameter value does not match expected type or constraints
+* **When raised**:
+  * Wrong type for parameter
+  * Value outside allowed range
+  * Value not in allowed enumeration
+* **Recovery**:
+  * Check parameter type against tool definition
+  * Verify value is within range
+  * Ensure value is in allowed values list
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:inkscape)
+  result = tool.execute(:export, {
+    format: :unsupported,  # Not in values list
+    dpi: -5                 # Outside range 1-10000
+  })
+rescue Ukiryu::ValidationError => e
+  puts "Validation error: #{e.message}"
+  # Correct the parameters and retry
+  result = tool.execute(:export, {
+    format: :png,
+    dpi: 300
+  })
+end
+----
+
+=== Profile Errors
+
+==== Ukiryu::ProfileNotFoundError
+
+*No compatible profile found for the current platform/shell.*
+
+* **Meaning**: Tool definition exists but has no profile for current platform/shell combination
+* **When raised**:
+  * No profile matches current platform
+  * No profile matches current shell
+  * Version constraint not satisfied
+* **Recovery**:
+  * Check tool definition has profile for your platform
+  * Check tool definition has profile for your shell
+  * Try specifying platform/shell explicitly
+  * Verify tool version matches profile requirements
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:imagemagick, platform: :windows)
+rescue Ukiryu::ProfileNotFoundError => e
+  puts "No profile for this platform: #{e.message}"
+  # Try without platform constraint
+  tool = Ukiryu::Tool.get(:imagemagick)
+end
+----
+
+==== Ukiryu::ProfileLoadError
+
+*Profile loading failed.*
+
+* **Meaning**: Cannot load tool profile from definition
+* **When raised**: Corrupted or invalid profile data
+* **Recovery**:
+  * Verify YAML syntax is correct
+  * Check profile structure matches schema
+  * Review error message for specific issue
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:broken_tool)
+rescue Ukiryu::ProfileLoadError => e
+  puts "Profile load error: #{e.message}"
+  # Check tool definition file
+end
+----
+
+=== Definition Errors
+
+==== Ukiryu::DefinitionError
+
+*Base class for definition-related errors.*
+
+* **Meaning**: Generic definition error
+* **When raised**: As a fallback for definition-related issues
+* **Recovery**: Check error message and definition file
+
+==== Ukiryu::DefinitionNotFoundError
+
+*Definition file not found.*
+
+* **Meaning**: Specified definition file does not exist
+* **When raised**:
+  * File path does not exist
+  * Using `Tool.from_file` with invalid path
+  * Using `Tool.from_bundled` with no bundled definition
+* **Recovery**:
+  * Verify file path is correct
+  * Check file has `.yaml` extension
+  * Use absolute path if relative path fails
+  * Check tool is in register
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.load('/nonexistent/tool.yaml')
+rescue Ukiryu::DefinitionNotFoundError => e
+  puts "Definition not found: #{e.message}"
+  # Check file path
+  if File.exist?('/path/to/tool.yaml')
+    tool = Ukiryu::Tool.load('/path/to/tool.yaml')
+  end
+end
+----
+
+==== Ukiryu::DefinitionLoadError
+
+*Definition parsing or loading failed.*
+
+* **Meaning**: Cannot parse or load definition file
+* **When raised**:
+  * Invalid YAML syntax
+  * File cannot be read
+  * Encoding issues
+* **Recovery**:
+  * Validate YAML syntax
+  * Check file is readable
+  * Verify file encoding is UTF-8
+  * Use `ukiryu validate` to check definition
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.load('/path/to/tool.yaml')
+rescue Ukiryu::DefinitionLoadError => e
+  puts "Definition load error: #{e.message}"
+  # Validate the definition
+  system('ukiryu', 'validate', '--definition', '/path/to/tool.yaml')
+end
+----
+
+==== Ukiryu::DefinitionValidationError
+
+*Definition validation failed.*
+
+* **Meaning**: Definition does not conform to schema or validation rules
+* **When raised**:
+  * Missing required fields
+  * Invalid field values
+  * Schema violations
+* **Recovery**:
+  * Run `ukiryu validate` for detailed errors
+  * Compare with schema
+  * Check tool definition examples
+  * Fix validation errors and retry
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.load('/path/to/invalid.yaml')
+rescue Ukiryu::DefinitionValidationError => e
+  puts "Definition validation error: #{e.message}"
+  # Validate for detailed errors
+  system('ukiryu', 'validate', '--definition', '/path/to/invalid.yaml')
+end
+----
+
+=== Tool Errors
+
+==== Ukiryu::ToolNotFoundError
+
+*Tool not found in register.*
+
+* **Meaning**: Tool name does not exist in tool register
+* **When raised**:
+  * Tool name not in register
+  * Register path is incorrect
+  * Tool not installed
+* **Recovery**:
+  * Check tool name spelling
+  * Verify register path is correct
+  * List available tools with `ukiryu list`
+  * Check `UKIRYU_REGISTRY` environment variable
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:nonexistent_tool)
+rescue Ukiryu::ToolNotFoundError => e
+  puts "Tool not found: #{e.message}"
+  puts "Available tools: #{Ukiryu::Register.tools.join(', ')}"
+end
+----
+
+==== Ukiryu::ExecutableNotFoundError
+
+*Tool executable not found on system.*
+
+* **Meaning**: Tool is defined in register but executable not found
+* **When raised**:
+  * Tool not installed
+  * Executable not in PATH
+  * Search paths don't contain executable
+* **Recovery**:
+  * Install the tool
+  * Add executable to PATH
+  * Configure search_paths in tool definition
+  * Use `ukiryu which TOOL` to check executable location
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:imagemagick)
+  result = tool.execute(:convert, params)
+rescue Ukiryu::ExecutableNotFoundError => e
+  puts "Executable not found: #{e.message}"
+  puts "Install ImageMagick or configure search paths"
+end
+----
+
+=== Execution Errors
+
+==== Ukiryu::ExecutionError
+
+*Command execution failed.*
+
+* **Meaning**: Tool command returned non-zero exit code
+* **When raised**:
+  * Command failed (exit code != 0)
+  * `allow_failure: false` (default)
+* **Recovery**:
+  * Check `e.result.exit_status` for exit code
+  * Check `e.result.stderr` for error message
+  * Verify parameters are correct
+  * Use `allow_failure: true` to handle failures gracefully
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:inkscape)
+  result = tool.execute(:export, params)
+rescue Ukiryu::ExecutionError => e
+  puts "Command failed!"
+  puts "Exit code: #{e.result.exit_status}"
+  puts "Stderr: #{e.result.stderr}"
+  puts "Command: #{e.result.command_info.full_command}"
+end
+----
+
+==== Ukiryu::TimeoutError
+
+*Command execution exceeded timeout.*
+
+* **Meaning**: Tool command took longer than allowed timeout
+* **When raised**:
+  * Command exceeded default timeout (90s)
+  * Command exceeded custom timeout
+* **Recovery**:
+  * Increase timeout parameter
+  * Check `UKIRYU_TIMEOUT` environment variable
+  * Verify tool is not hanging
+  * Optimize command parameters
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:ghostscript)
+  result = tool.execute(:convert, large_pdf_params, timeout: 30)
+rescue Ukiryu::TimeoutError => e
+  puts "Command timed out after #{e.timeout} seconds"
+  # Retry with longer timeout
+  result = tool.execute(:convert, large_pdf_params, timeout: 300)
+end
+----
+
+=== Version Errors
+
+==== Ukiryu::VersionDetectionError
+
+*Version detection failed.*
+
+* **Meaning**: Cannot determine installed tool version
+* **When raised**:
+  * Version command failed
+  * Version pattern not matched
+  * Tool not responding to version command
+* **Recovery**:
+  * Verify tool is installed correctly
+  * Check version_detection command in tool definition
+  * Test version command manually
+  * Update version pattern if needed
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:imagemagick)
+  version = tool.version
+rescue Ukiryu::VersionDetectionError => e
+  puts "Version detection failed: #{e.message}"
+  # Tool will still work, but version is unknown
+  puts "Continuing without version info..."
+end
+----
+
+=== Legacy Error
+
+==== Ukiryu::LoadError
+
+*Legacy load error (deprecated).*
+
+* **Meaning**: Generic loading error
+* **Deprecation Note**: Use `DefinitionError` instead
+* **When raised**: As fallback for load-related issues
+* **Recovery**: Update code to catch `DefinitionError`
+
+[source,ruby]
+----
+# Legacy code (still works but deprecated)
+begin
+  tool = Ukiryu::Tool.load('/path/to/tool.yaml')
+rescue Ukiryu::LoadError => e
+  puts "Load error: #{e.message}"
+end
+
+# Updated code
+begin
+  tool = Ukiryu::Tool.load('/path/to/tool.yaml')
+rescue Ukiryu::DefinitionError => e
+  puts "Definition error: #{e.message}"
+end
+----
+
+// Error Handling Patterns
+== Error Handling Patterns
+
+=== Catch All Ukiryu Errors
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:imagemagick)
+  result = tool.execute(:convert, params)
+rescue Ukiryu::Error => e
+  # Catch all Ukiryu-specific errors
+  logger.error("Ukiryu error: #{e.message}")
+  raise
+rescue => e
+  # Catch other errors (StandardError subclasses)
+  logger.error("Unexpected error: #{e.message}")
+  raise
+end
+----
+
+=== Specific Error Recovery
+
+[source,ruby]
+----
+require 'ukiryu'
+
+class ToolExecutor
+  def execute_with_retry(tool_name, command, params, max_retries = 3)
+    tool = Ukiryu::Tool.get(tool_name)
+    retries = 0
+
+    begin
+      tool.execute(command, params)
+
+    rescue Ukiryu::ExecutableNotFoundError => e
+      # Fatal error - don't retry
+      raise
+
+    rescue Ukiryu::TimeoutError => e
+      # Retry with longer timeout
+      retries += 1
+      if retries < max_retries
+        new_timeout = e.timeout * 2
+        puts "Timeout, retrying with #{new_timeout}s timeout..."
+        tool.execute(command, params, timeout: new_timeout)
+      else
+        raise
+      end
+
+    rescue Ukiryu::ExecutionError => e
+      # Command failed - check if retryable
+      if retryable_exit_code?(e.result.exit_status) && retries < max_retries
+        retries += 1
+        sleep(2 ** retries)  # Exponential backoff
+        retry
+      else
+        raise
+      end
+    end
+  end
+
+  private
+
+  def retryable_exit_code?(code)
+    # Define which exit codes are retryable
+    [1, 130].include?(code)
+  end
+end
+----
+
+=== Allow Failure Pattern
+
+[source,ruby]
+----
+# Execute without raising on non-zero exit
+result = tool.execute(:convert, params, allow_failure: true)
+
+if result.failure?
+  # Handle failure gracefully
+  if result.exit_status == 127
+    puts "Command not found"
+  elsif result.stderr.include?('timeout')
+    puts "Operation timed out"
+  else
+    puts "Command failed: #{result.stderr}"
+  end
+end
+----
+
+// Error Information
+== Error Information
+
+=== ExecutionError Result Access
+
+When `ExecutionError` is raised, the result object is accessible:
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:convert, params)
+rescue Ukiryu::ExecutionError => e
+  result = e.result
+
+  # Access all result information
+  puts "Exit status: #{result.exit_status}"
+  puts "Executable: #{result.command_info.executable}"
+  puts "Command: #{result.command_info.full_command}"
+  puts "Shell: #{result.command_info.shell}"
+  puts "Stdout: #{result.stdout}"
+  puts "Stderr: #{result.stderr}"
+  puts "Duration: #{result.metadata.duration_seconds}s"
+end
+----
+
+=== Timeout Information
+
+[source,ruby]
+----
+begin
+  result = tool.execute(:convert, params, timeout: 30)
+rescue Ukiryu::TimeoutError => e
+  puts "Command timed out after #{e.timeout} seconds"
+  puts "Command was: #{e.result.command_info.full_command}"
+end
+----
+
+// Debugging Errors
+== Debugging Errors
+
+=== Enable Debug Mode
+
+Set `UKIRYU_DEBUG=1` for structured debug output:
+
+[source,shell]
+----
+export UKIRYU_DEBUG=1
+ukiryu exec imagemagick convert input.jpg output.png
+----
+
+[source,ruby]
+----
+ENV['UKIRYU_DEBUG'] = 'true'
+tool = Ukiryu::Tool.get(:imagemagick)
+result = tool.execute(:convert, params)
+----
+
+=== Validate Definitions
+
+Use the validate command to check definitions:
+
+[source,shell]
+----
+# Validate a definition file
+ukiryu validate --definition /path/to/tool.yaml
+
+# Validate with executable testing
+ukiryu validate --definition /path/to/tool.yaml --executable
+
+# Validate all definitions in register
+ukiryu validate all
+----
+
+=== Check Tool Availability
+
+[source,shell]
+----
+# Check if tool is available
+ukiryu which imagemagick
+
+# Show tool information
+ukiryu info imagemagick
+
+# List available tools
+ukiryu list
+----
+
+// See Also
+== See Also
+
+* link:/reference/configuration-options[Configuration Options] - Environment variables and config
+* link:/interfaces/ruby-api[Ruby API] - Error handling in Ruby API
+* link:/interfaces/cli[Command Line Interface] - CLI error messages
+* link:/advanced/validating-definitions[Validating Definitions] - Using validation tools

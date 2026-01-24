@@ -9,7 +9,7 @@ module Ukiryu
   # This class maintains cached mappings for:
   # - Interfaces to tools (multiple tools can implement one interface)
   # - Aliases to tool names
-  # - Registry change detection via mtime
+  # - Register change detection via mtime
   #
   # Built once and cached for the lifetime of the process.
   #
@@ -31,13 +31,13 @@ module Ukiryu
 
     # Initialize the index
     #
-    # @param registry_path [String] the path to the tool registry
-    def initialize(registry_path: Ukiryu::Registry.default_registry_path)
-      @registry_path = registry_path
+    # @param register_path [String] the path to the tool register
+    def initialize(register_path: Ukiryu::Register.default_register_path)
+      @register_path = register_path
       @interface_to_tools = {} # interface => [tool_names]
       @alias_to_tool = {}      # alias => tool_name
       @built = false
-      @cache_key = nil        # Registry state for change detection
+      @cache_key = nil # Register state for change detection
     end
 
     # Find tool metadata by interface name
@@ -89,7 +89,7 @@ module Ukiryu
       @interface_to_tools.dup
     end
 
-    # Check if the index needs rebuilding due to registry changes
+    # Check if the index needs rebuilding due to register changes
     #
     # @return [Boolean] true if rebuild is needed
     def stale?
@@ -99,13 +99,13 @@ module Ukiryu
       @cache_key != current_cache_key
     end
 
-    # Update the registry path
+    # Update the register path
     #
-    # @param new_path [String] the new registry path
-    def registry_path=(new_path)
-      return if @registry_path == new_path
+    # @param new_path [String] the new register path
+    def register_path=(new_path)
+      return if @register_path == new_path
 
-      @registry_path = new_path
+      @register_path = new_path
       @built = false # Rebuild index with new path
       @cache_key = nil
       @interface_to_tools = {}
@@ -119,12 +119,12 @@ module Ukiryu
       build_index if stale?
     end
 
-    # Build cache key for registry change detection
-    # Uses mtime of registry directory + file count for fast comparison
+    # Build cache key for register change detection
+    # Uses mtime of register directory + file count for fast comparison
     #
     # @return [String] the cache key
     def build_cache_key
-      current_path = registry_path
+      current_path = register_path
       return 'empty' unless current_path
 
       tools_dir = File.join(current_path, 'tools')
@@ -137,17 +137,17 @@ module Ukiryu
       "#{mtime}-#{file_count}"
     end
 
-    # Get the current registry path
+    # Get the current register path
     #
-    # @return [String, nil] the registry path
-    def registry_path
-      @registry_path ||= Ukiryu::Registry.default_registry_path
+    # @return [String, nil] the register path
+    def register_path
+      @register_path ||= Ukiryu::Register.default_register_path
     end
 
     # Build the index by scanning tool directories
     # This is done once and cached
     def build_index
-      current_path = registry_path
+      current_path = register_path
       return unless current_path
 
       tools_dir = File.join(current_path, 'tools')
@@ -175,7 +175,7 @@ module Ukiryu
 
         # Index by alias
         aliases = hash['aliases']
-        if aliases && aliases.respond_to?(:each)
+        if aliases.respond_to?(:each)
           aliases.each do |alias_name|
             @alias_to_tool[alias_name.to_sym] = tool_sym
           end
@@ -200,7 +200,7 @@ module Ukiryu
       hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol])
       return nil unless hash
 
-      ToolMetadata.from_hash(hash, tool_name: tool_name.to_s, registry_path: registry_path)
+      ToolMetadata.from_hash(hash, tool_name: tool_name.to_s, register_path: register_path)
     end
 
     # Load YAML content for a specific tool
@@ -208,7 +208,7 @@ module Ukiryu
     # @param tool_name [Symbol, String] the tool name
     # @return [String, nil] the YAML content
     def load_yaml_for_tool(tool_name)
-      current_path = registry_path
+      current_path = register_path
       return nil unless current_path
 
       # Search for version files

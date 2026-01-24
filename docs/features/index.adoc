@@ -1,0 +1,31 @@
+---
+layout: default
+title: Features
+nav_order: 4
+has_children: true
+---
+
+= Features
+
+Ukiryu provides powerful features for cross-platform tool execution, including multiple configuration methods, headless mode support, and comprehensive platform adaptation.
+
+// Overview
+== Overview
+
+Key features that make Ukiryu suitable for production use:
+
+* **Multiple Configuration Methods** - ENV, CLI, and Ruby API with clear precedence
+* **Headless Mode** - GUI-free execution for tools like Inkscape
+* **Platform Adaptation** - Automatic handling of macOS, Linux, and Windows differences
+* **Type Safety** - Parameter validation with automatic type coercion
+* **Structured Results** - Rich result objects with metadata and error information
+* **Shell Awareness** - Proper quoting and escaping for all major shells
+
+// Featured Topics
+== Featured Topics
+
+* link:/features/configuration[Configuration Methods] - Three ways to configure Ukiryu
+* link:/features/headless-mode[Headless Mode] - GUI-free execution for graphics tools
+* link:/features/platform-support[Platform Support] - Cross-platform compatibility
+* link:/features/type-system[Type System] - Parameter validation and coercion
+* link:/features/error-handling[Error Handling] - Structured error information

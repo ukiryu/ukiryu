@@ -5,12 +5,15 @@ require 'yaml'
 
 RSpec.describe Ukiryu::SchemaValidator do
   describe '.validate_profile' do
-    # Helper to get the register directory
-    let(:register_dir) { '/Users/mulgogi/src/ukiryu/register' }
-    let(:schema_path) { '/Users/mulgogi/src/ukiryu/schema/tool-profile.schema.yaml' }
+    # Use UKIRYU_SCHEMA_PATH environment variable for schema location
+    let(:schema_path) { ENV['UKIRYU_SCHEMA_PATH'] }
 
-    context 'with valid Inkscape profile' do
-      let(:profile_path) { File.join(register_dir, 'tools/inkscape/1.0.yaml') }
+    before do
+      skip 'Set UKIRYU_SCHEMA_PATH environment variable for schema validation tests' unless schema_path && File.exist?(schema_path)
+    end
+
+    context 'with valid Inkscape profile (from fixture)' do
+      let(:profile_path) { File.join(__dir__, '../fixtures/profiles/inkscape_1.0.yaml') }
       let(:profile_content) { File.read(profile_path) }
       let(:profile) { YAML.safe_load(profile_content, permitted_classes: [], permitted_symbols: [], aliases: true) }
 
@@ -21,14 +24,36 @@ RSpec.describe Ukiryu::SchemaValidator do
       end
     end
 
-    context 'with valid Ghostscript profile' do
-      let(:profile_path) { File.join(register_dir, 'tools/ghostscript/10.0.yaml') }
+    context 'with valid Ghostscript profile (from fixture)' do
+      let(:profile_path) { File.join(__dir__, '../fixtures/profiles/ghostscript_10.0.yaml') }
       let(:profile_content) { File.read(profile_path) }
       let(:profile) { YAML.safe_load(profile_content, permitted_classes: [], permitted_symbols: [], aliases: true) }
 
       it 'returns empty errors array' do
         symbolized_profile = symbolize_keys(profile)
         errors = described_class.validate_profile(symbolized_profile, schema_path: schema_path)
+        expect(errors).to eq([])
+      end
+    end
+
+    context 'with minimal valid profile' do
+      let(:profile) do
+        {
+          name: 'test_tool',
+          version: '1.0',
+          profiles: [
+            {
+              name: 'default',
+              platforms: ['linux'],
+              shells: ['bash'],
+              commands: []
+            }
+          ]
+        }
+      end
+
+      it 'returns empty errors array' do
+        errors = described_class.validate_profile(profile, schema_path: schema_path)
         expect(errors).to eq([])
       end
     end
@@ -48,46 +73,34 @@ RSpec.describe Ukiryu::SchemaValidator do
       end
     end
 
-    context 'with invalid platforms' do
+    context 'with invalid option type' do
       let(:profile) do
         {
           name: 'test_tool',
           version: '1.0',
           profiles: [
             {
-              name: 'test_profile',
-              platforms: ['invalid_platform'], # Invalid
-              shells: ['bash'],
-              commands: {}
-            }
-          ]
-        }
-      end
-
-      it 'returns error for invalid platform' do
-        errors = described_class.validate_profile(profile, schema_path: schema_path)
-        expect(errors).to_not be_empty
-        # JSON schema validation will catch enum violations
-      end
-    end
-
-    context 'with invalid shells' do
-      let(:profile) do
-        {
-          name: 'test_tool',
-          version: '1.0',
-          profiles: [
-            {
-              name: 'test_profile',
+              name: 'default',
               platforms: ['linux'],
-              shells: ['invalid_shell'], # Invalid
-              commands: {}
+              shells: ['bash'],
+              commands: [
+                {
+                  name: 'convert',
+                  options: [
+                    {
+                      name: 'quality',
+                      type: 'invalid_type',
+                      cli: '-q'
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
       end
 
-      it 'returns error for invalid shell' do
+      it 'returns errors for invalid enum values' do
         errors = described_class.validate_profile(profile, schema_path: schema_path)
         expect(errors).to_not be_empty
       end
@@ -95,14 +108,33 @@ RSpec.describe Ukiryu::SchemaValidator do
   end
 
   describe '.default_schema_path' do
-    it 'returns the schema path' do
+    it 'returns nil when UKIRYU_SCHEMA_PATH is not set' do
+      original_env = ENV.delete('UKIRYU_SCHEMA_PATH')
       path = described_class.default_schema_path
-      expect(path).to_not be_nil
-      expect(File.exist?(path)).to be true
+      expect(path).to be_nil
+    ensure
+      ENV['UKIRYU_SCHEMA_PATH'] = original_env if original_env
+    end
+
+    it 'returns the schema path from UKIRYU_SCHEMA_PATH environment variable' do
+      original_env = ENV['UKIRYU_SCHEMA_PATH']
+      temp_schema = nil
+      begin
+        # Create a temporary schema file
+        temp_schema = File.expand_path('test_tool.schema.yaml', Dir.pwd)
+        File.write(temp_schema, { type: 'object' }.to_yaml)
+        ENV['UKIRYU_SCHEMA_PATH'] = temp_schema
+
+        path = described_class.default_schema_path
+        expect(path).to eq(temp_schema)
+      ensure
+        ENV['UKIRYU_SCHEMA_PATH'] = original_env
+        File.delete(temp_schema) if temp_schema && File.exist?(temp_schema)
+      end
     end
   end
 
-  # Helper method to symbolize keys recursively (matches Registry behavior)
+  # Helper method to symbolize keys recursively (matches Register behavior)
   def symbolize_keys(hash)
     return hash unless hash.is_a?(Hash)
 

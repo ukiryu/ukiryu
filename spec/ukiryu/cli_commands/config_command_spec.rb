@@ -58,9 +58,9 @@ RSpec.describe Ukiryu::CliCommands::ConfigCommand do
         expect { command.run('get', 'debug') }.not_to raise_error
       end
 
-      it 'gets registry configuration' do
+      it 'gets register configuration' do
         command = described_class.new(options)
-        expect { command.run('get', 'registry') }.not_to raise_error
+        expect { command.run('get', 'register') }.not_to raise_error
       end
 
       it 'gets format configuration' do
@@ -81,9 +81,9 @@ RSpec.describe Ukiryu::CliCommands::ConfigCommand do
         expect(File.exist?(test_config_file)).to be true
       end
 
-      it 'sets registry path' do
+      it 'sets register path' do
         command = described_class.new(options)
-        expect { command.run('set', 'registry', '/test/path') }.not_to raise_error
+        expect { command.run('set', 'register', '/test/path') }.not_to raise_error
         expect(File.exist?(test_config_file)).to be true
       end
 
@@ -111,7 +111,7 @@ RSpec.describe Ukiryu::CliCommands::ConfigCommand do
       before do
         # Create a test config file
         FileUtils.mkdir_p(test_config_dir)
-        File.write(test_config_file, { 'debug' => 'true', 'registry' => '/test' }.to_yaml)
+        File.write(test_config_file, { 'debug' => 'true', 'register' => '/test' }.to_yaml)
       end
 
       it 'unsets an existing key' do
@@ -152,9 +152,9 @@ RSpec.describe Ukiryu::CliCommands::ConfigCommand do
 
     it 'preserves string values' do
       command = described_class.new(options)
-      command.run('set', 'registry', '/custom/path')
+      command.run('set', 'register', '/custom/path')
       loaded = YAML.load_file(test_config_file)
-      expect(loaded['registry']).to eq('/custom/path')
+      expect(loaded['register']).to eq('/custom/path')
     end
   end
 
@@ -176,11 +176,11 @@ RSpec.describe Ukiryu::CliCommands::ConfigCommand do
     it 'preserves other keys when updating one key' do
       command = described_class.new(options)
       command.run('set', 'debug', 'true')
-      command.run('set', 'registry', '/test')
+      command.run('set', 'register', '/test')
       command.run('unset', 'debug')
       loaded = YAML.load_file(test_config_file)
       expect(loaded.key?('debug')).to be false
-      expect(loaded['registry']).to eq('/test')
+      expect(loaded['register']).to eq('/test')
     end
   end
 end

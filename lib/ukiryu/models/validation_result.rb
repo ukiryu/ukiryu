@@ -49,7 +49,7 @@ module Ukiryu
       # @return [String] status message
       def status_message
         if valid?
-          "✓ Valid"
+          '✓ Valid'
         else
           "✗ Invalid (#{errors.size} error#{errors.size == 1 ? '' : 's'})"
         end

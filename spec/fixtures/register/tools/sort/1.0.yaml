@@ -1,0 +1,47 @@
+# Minimal sort tool profile for testing
+ukiryu_schema: '1.0'
+name: sort
+display_name: Sort (Unix)
+homepage: https://www.gnu.org/software/coreutils/
+version: '1.0'
+version_detection:
+  command: --version
+  pattern: '(\d+\.\d+)'
+search_paths:
+  macos:
+  - /usr/bin/sort
+  linux:
+  - /usr/bin/sort
+  - /bin/sort
+timeout: 30
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  commands:
+  - name: sort
+    description: Sort lines of text
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      description: Input files to sort
+    options:
+    - name: output
+      type: file
+      cli: -o
+      description: Output file
+    - name: numeric_sort
+      type: boolean
+      cli: -n
+      description: Numeric sort
+    flags:
+    - name: reverse
+      cli: -r
+      description: Reverse sort

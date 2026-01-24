@@ -10,11 +10,14 @@ require_relative 'ukiryu/runtime'
 require_relative 'ukiryu/execution_context'
 require_relative 'ukiryu/type'
 require_relative 'ukiryu/executor'
-require_relative 'ukiryu/registry'
+require_relative 'ukiryu/register'
 require_relative 'ukiryu/tool'
 require_relative 'ukiryu/options_builder'
 require_relative 'ukiryu/schema_validator'
 require_relative 'ukiryu/io'
+
+# Definition loading
+require_relative 'ukiryu/definition'
 
 # Models - OOP representation of YAML profiles
 require_relative 'ukiryu/models'
@@ -60,11 +63,11 @@ module Ukiryu
 
   # Configuration class for global settings
   class Configuration
-    attr_accessor :default_shell, :registry_path
+    attr_accessor :default_shell, :register_path
 
     def initialize
       @default_shell = nil # Auto-detect by default
-      @registry_path = nil
+      @register_path = nil
     end
   end
 end

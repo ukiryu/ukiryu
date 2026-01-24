@@ -2,18 +2,18 @@
 
 require_relative 'base_command'
 require_relative '../tool'
-require_relative '../registry'
+require_relative '../register'
 
 module Ukiryu
   module CliCommands
-    # List all available tools in the registry
+    # List all available tools in the register
     class ListCommand < BaseCommand
       # Execute the list command
       def run
-        setup_registry
+        setup_register
 
-        tools = Registry.tools
-        error! 'No tools found in registry' if tools.empty?
+        tools = Register.tools
+        error! 'No tools found in register' if tools.empty?
 
         say "Available tools (#{tools.count}):", :cyan
 
@@ -22,7 +22,7 @@ module Ukiryu
         standalone_tools = []
 
         tools.sort.each do |name|
-          metadata = Registry.load_tool_metadata(name.to_sym)
+          metadata = Register.load_tool_metadata(name.to_sym)
 
           if metadata&.implements
             # This tool implements an interface

@@ -14,12 +14,24 @@ RSpec.configure do |config|
     c.syntax = :expect
   end
 
-  # Set the default registry path for tests
+  # Set the default register path for tests
   config.before(:suite) do
-    # Register directory is at ../../register from the spec directory
-    # (sibling to the ukiryu gem directory)
-    registry_path = File.expand_path('../../register', __dir__)
-    Ukiryu::Registry.default_registry_path = registry_path if Dir.exist?(registry_path)
+    # Set up test register path if UKIRYU_REGISTER is not already set
+    unless ENV['UKIRYU_REGISTER']
+      test_register = File.expand_path('fixtures/register', __dir__)
+      if Dir.exist?(test_register)
+        ENV['UKIRYU_REGISTER'] = test_register
+        Ukiryu::Register.default_register_path = test_register
+      end
+    end
+
+    # Set up test schema path if UKIRYU_SCHEMA_PATH is not already set
+    unless ENV['UKIRYU_SCHEMA_PATH']
+      test_schema = File.expand_path('fixtures/tool.schema.yaml', __dir__)
+      if File.exist?(test_schema)
+        ENV['UKIRYU_SCHEMA_PATH'] = test_schema
+      end
+    end
   end
 
   # Reset singleton state before each test to prevent pollution

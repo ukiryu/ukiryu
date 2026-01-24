@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe 'Ukiryu::Tool Direct Loading' do
-  let(:registry_path) { File.expand_path('../../register', __dir__) }
+  let(:register_path) { '/dummy/register/path' }
   let(:valid_profile_content) do
     <<~YAML
       name: test_tool
@@ -36,7 +36,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
     YAML
   end
 
-  let(:invalid_yaml) { "invalid: yaml: content: [unclosed" }
+  let(:invalid_yaml) { 'invalid: yaml: content: [unclosed' }
 
   let(:minimal_profile) do
     <<~YAML
@@ -87,21 +87,21 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
     end
 
     context 'with invalid YAML' do
-      it 'raises LoadError for syntax errors' do
-        expect {
+      it 'raises DefinitionLoadError for syntax errors' do
+        expect do
           Ukiryu::Tool.load_from_string(invalid_yaml)
-        }.to raise_error(Ukiryu::LoadError)
+        end.to raise_error(Ukiryu::DefinitionLoadError)
       end
     end
 
     context 'with validation mode :strict' do
-      it 'raises LoadError for missing required fields' do
-        expect {
+      it 'raises DefinitionValidationError for missing required fields' do
+        expect do
           Ukiryu::Tool.load_from_string(profile_with_missing_fields, validation: :strict)
-        }.to raise_error(Ukiryu::LoadError, /Missing 'version' field/)
+        end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'version' field/)
       end
 
-      it 'raises LoadError for invalid ukiryu_schema format' do
+      it 'raises DefinitionValidationError for invalid ukiryu_schema format' do
         invalid_schema = <<~YAML
           ukiryu_schema: "invalid"
           name: test
@@ -112,12 +112,12 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
               shells: [bash]
         YAML
 
-        expect {
+        expect do
           Ukiryu::Tool.load_from_string(invalid_schema, validation: :strict)
-        }.to raise_error(Ukiryu::LoadError, /Invalid ukiryu_schema format/)
+        end.to raise_error(Ukiryu::DefinitionValidationError, /Invalid ukiryu_schema format/)
       end
 
-      it 'raises LoadError for invalid $self URI' do
+      it 'raises DefinitionValidationError for invalid $self URI' do
         invalid_self = <<~YAML
           ukiryu_schema: "1.1"
           $self: "not-a-uri"
@@ -129,26 +129,26 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
               shells: [bash]
         YAML
 
-        expect {
+        expect do
           Ukiryu::Tool.load_from_string(invalid_self, validation: :strict)
-        }.to raise_error(Ukiryu::LoadError, /Invalid \$self URI format/)
+        end.to raise_error(Ukiryu::DefinitionValidationError, /Invalid \$self URI format/)
       end
     end
 
     context 'with validation mode :lenient' do
       it 'warns but creates tool for missing fields' do
-        expect {
+        expect do
           Ukiryu::Tool.load_from_string(profile_with_missing_fields, validation: :lenient)
-        }.to output(/Profile validation failed/).to_stderr
-          .and raise_error(Ukiryu::ProfileNotFoundError)
+        end.to output(/Profile validation failed/).to_stderr
+                                                  .and raise_error(Ukiryu::ProfileNotFoundError)
       end
     end
 
     context 'with validation mode :none' do
       it 'skips validation but still fails on profile initialization' do
-        expect {
+        expect do
           Ukiryu::Tool.load_from_string(profile_with_missing_fields, validation: :none)
-        }.to raise_error(Ukiryu::ProfileNotFoundError)
+        end.to raise_error(Ukiryu::ProfileNotFoundError)
       end
     end
   end
@@ -169,18 +169,18 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       expect(tool.name).to eq('test_tool')
     end
 
-    it 'raises LoadError for non-existent file' do
-      expect {
+    it 'raises DefinitionNotFoundError for non-existent file' do
+      expect do
         Ukiryu::Tool.load('/nonexistent/path/to/file.yaml')
-      }.to raise_error(Ukiryu::LoadError)
+      end.to raise_error(Ukiryu::DefinitionNotFoundError)
     end
 
     it 'passes validation mode to load_from_string' do
       File.write(temp_file, profile_with_missing_fields)
 
-      expect {
+      expect do
         Ukiryu::Tool.load(temp_file, validation: :strict)
-      }.to raise_error(Ukiryu::LoadError, /Missing 'version' field/)
+      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'version' field/)
     end
   end
 
@@ -259,15 +259,16 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
   describe '.validate_profile (private method)' do
     let(:tool_definition_class) { Ukiryu::Models::ToolDefinition }
+    let(:loader) { Ukiryu::Definition::Loader }
 
     it 'validates a complete profile' do
       profile = tool_definition_class.from_hash(
         YAML.safe_load(valid_profile_content, permitted_classes: [Symbol])
       )
 
-      expect {
-        Ukiryu::Tool.send(:validate_profile, profile, :strict)
-      }.not_to raise_error
+      expect do
+        loader.send(:validate_profile, profile, :strict)
+      end.not_to raise_error
     end
 
     it 'detects missing name' do
@@ -275,9 +276,9 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       profile.version = '1.0'
       profile.profiles = []
 
-      expect {
-        Ukiryu::Tool.send(:validate_profile, profile, :strict)
-      }.to raise_error(Ukiryu::LoadError, /Missing 'name' field/)
+      expect do
+        loader.send(:validate_profile, profile, :strict)
+      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'name' field/)
     end
 
     it 'detects missing version' do
@@ -285,9 +286,9 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       profile.name = 'test'
       profile.profiles = []
 
-      expect {
-        Ukiryu::Tool.send(:validate_profile, profile, :strict)
-      }.to raise_error(Ukiryu::LoadError, /Missing 'version' field/)
+      expect do
+        loader.send(:validate_profile, profile, :strict)
+      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'version' field/)
     end
 
     it 'detects missing or empty profiles' do
@@ -295,28 +296,30 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       profile.name = 'test'
       profile.version = '1.0'
 
-      expect {
-        Ukiryu::Tool.send(:validate_profile, profile, :strict)
-      }.to raise_error(Ukiryu::LoadError, /Missing 'profiles' field/)
+      expect do
+        loader.send(:validate_profile, profile, :strict)
+      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'profiles' field/)
     end
   end
 
   describe '.valid_uri? (private method)' do
+    let(:loader) { Ukiryu::Definition::Loader }
+
     it 'returns true for valid HTTP URI' do
-      expect(Ukiryu::Tool.send(:valid_uri?, 'http://example.com')).to be true
+      expect(loader.send(:valid_uri?, 'http://example.com')).to be true
     end
 
     it 'returns true for valid HTTPS URI' do
-      expect(Ukiryu::Tool.send(:valid_uri?, 'https://www.ukiryu.com/register/1.1/test/1.0')).to be true
+      expect(loader.send(:valid_uri?, 'https://www.ukiryu.com/register/1.1/test/1.0')).to be true
     end
 
     it 'returns true for file:// URI' do
-      expect(Ukiryu::Tool.send(:valid_uri?, 'file:///path/to/file.yaml')).to be true
+      expect(loader.send(:valid_uri?, 'file:///path/to/file.yaml')).to be true
     end
 
     it 'returns false for invalid URI' do
-      expect(Ukiryu::Tool.send(:valid_uri?, 'not-a-uri')).to be false
-      expect(Ukiryu::Tool.send(:valid_uri?, 'ftp://example.com')).to be false
+      expect(loader.send(:valid_uri?, 'not-a-uri')).to be false
+      expect(loader.send(:valid_uri?, 'ftp://example.com')).to be false
     end
   end
 end

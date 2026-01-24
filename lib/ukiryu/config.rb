@@ -129,16 +129,16 @@ module Ukiryu
       @resolver.set_programmatic(:output, value)
     end
 
-    # Registry path
-    # @return [String, nil] path to tool registry
-    def registry
-      @resolver.resolve(:registry)
+    # Register path
+    # @return [String, nil] path to tool register
+    def register
+      @resolver.resolve(:register)
     end
 
-    # Set registry path
-    # @param value [String] path to tool registry
-    def registry=(value)
-      @resolver.set_programmatic(:registry, value)
+    # Set register path
+    # @param value [String] path to tool register
+    def register=(value)
+      @resolver.set_programmatic(:register, value)
     end
 
     # Tool search paths (comma-separated)
@@ -214,7 +214,7 @@ module Ukiryu
         shell: shell,
         format: format,
         output: output,
-        registry: registry,
+        register: register,
         search_paths: search_paths,
         use_color: use_color
       }
@@ -231,9 +231,9 @@ module Ukiryu
         shell: nil,
         format: :yaml,
         output: nil,
-        registry: nil,
+        register: nil,
         search_paths: nil,
-        use_color: nil # nil means auto-detect
+        use_color: nil
       }
 
       env = EnvProvider.load_all

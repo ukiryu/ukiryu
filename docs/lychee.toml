@@ -1,0 +1,49 @@
+# Lychee configuration for Ukiryu documentation
+# https://github.com/lycheeverse/lychee
+
+# Exclude common false positives
+exclude = [
+  # Local file links
+  '^file://',
+
+  # External documentation (may require auth)
+  '^https://rubygems.org',
+  '^https://guides.rubygems.org',
+
+  # GitHub (rate limiting)
+  '^https://github.com/.*.git#',
+
+  # Example domains (comment out or remove as needed)
+  # '^http://example.com',
+  # '^https://example.org',
+]
+
+# Only check https and http links
+scheme = [ 'https', 'http' ]
+
+# Maximum number of concurrent requests
+max_concurrency = 10
+
+# Request timeout in seconds
+timeout = 20
+
+# Retry failed requests
+retry = 3
+
+# Verbose output
+verbose = true
+
+# Don't show progress
+no_progress = true
+
+# Accept 200 and 404 status codes
+accept = [200, 404]
+
+# Exclude private/internal domains
+# exclude_private = true
+
+# Skip mailto: and tel: links
+skip_missing = true
+
+# Enforce HTTPS (will downgrade http to https if supported)
+enforce_https = false

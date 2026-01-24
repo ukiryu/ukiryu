@@ -1,0 +1,20 @@
+---
+layout: default
+title: Reference
+nav_order: 8
+has_children: true
+---
+
+= Reference
+
+Complete reference documentation for Ukiryu APIs, schemas, and configuration.
+
+// Overview
+== Overview
+
+This section provides comprehensive reference material:
+
+* link:/reference/tool-profile-schema[Tool Profile Schema] - Complete YAML schema reference
+* link:/reference/configuration-options[Configuration Options] - All ENV, CLI, and API options
+* link:/reference/error-codes[Error Codes] - Error messages and meanings
+* link:/reference/ruby-api[Ruby API Reference] - Complete class and method documentation

@@ -1,0 +1,488 @@
+---
+layout: default
+title: Platform Support
+parent: Features
+nav_order: 3
+---
+
+== Platform Support
+
+Ukiryu provides seamless cross-platform support for macOS, Linux, and Windows with automatic platform detection and adaptation.
+
+// Purpose
+== Purpose
+
+This page documents Ukiryu's platform support, including automatic detection, shell adaptation, and platform-specific behaviors.
+
+// References
+== References
+
+* link:/understanding/platform-detection[Platform Detection Internals]
+* link:/understanding/shell-adaptation[Shell Adaptation Internals]
+* link:/advanced/writing-profiles[Writing Platform-Specific Profiles]
+
+// Concepts
+== Concepts
+
+* **Platform detection**: Automatic identification of macOS, Linux, or Windows
+* **Shell detection**: Automatic identification of bash, zsh, fish, PowerShell, or cmd
+* **Path formatting**: Platform-specific path separators and styles
+* **Executable discovery**: Searching platform-specific locations for tools
+
+// Supported Platforms
+== Supported Platforms
+
+=== macOS
+
+[source]
+----
+Platform: macOS
+Detection: RbConfig::CONFIG['host_os'] =~ /darwin/
+Shells: bash, zsh, fish, sh
+Package Managers: Homebrew, MacPorts, AppImage
+Display: Quartz (native), X11
+----
+
+Features:
+* **Homebrew support**: `/opt/homebrew/bin/*`
+* **MacPorts support**: `/opt/local/bin/*`
+* **Application bundles**: `/Applications/*.app/Contents/MacOS/*`
+* **Headless mode**: Removes DISPLAY, sets GUI prevention variables
+
+=== Linux
+
+[source]
+----
+Platform: Linux
+Detection: RbConfig::CONFIG['host_os'] =~ /linux/
+Shells: bash, zsh, fish, sh
+Package Managers: apt, yum, dnf, zypper, pacman, snap, flatpak
+Display: X11
+----
+
+Features:
+* **System paths**: `/usr/bin/*`, `/usr/local/bin/*`
+* **Snap packages**: `/snap/bin/*`
+* **Flatpak**: `/var/lib/flatpak/exports/bin/*`
+* **AppImages**: `/opt/*AppImage`
+
+=== Windows
+
+[source]
+----
+Platform: Windows
+Detection: RbConfig::CONFIG['host_os'] =~ /mswin|mingw/
+Shells: PowerShell, cmd
+Package Managers: Scoop, Chocolatey
+Display: Windows GUI
+----
+
+Features:
+* **Program Files**: `C:/Program Files/*/` and `C:/Program Files (x86)/*/`
+* **User profiles**: `%USERPROFILE%`, `%LOCALAPPDATA%`
+* **Scoop packages**: `%USERPROFILE%/scoop/apps/*/`
+* **Chocolatey**: `C:/ProgramData/chocolatey/lib/*/`
+
+// Path Handling
+== Path Handling
+
+Ukiryu automatically handles path differences between platforms.
+
+=== Path Separators
+
+[source,ruby]
+----
+# Define paths using Unix-style (forward slashes)
+result = tool.execute(:export, {
+  inputs: ['/path/to/drawing.svg'],
+  output: '/path/to/drawing.png'
+})
+----
+
+**On macOS/Linux**:
+[source]
+----
+/path/to/drawing.svg
+----
+
+**On Windows** (automatically converted):
+[source]
+----
+C:\path\to\drawing.svg
+----
+
+=== Home Directory
+
+[source,ruby]
+----
+# Tilde expansion works on all platforms
+result = tool.execute(:export, {
+  inputs: ['~/drawing.svg'],
+  output: '~/drawing.png'
+})
+----
+
+**On macOS/Linux**:
+[source]
+----
+/home/user/drawing.svg
+----
+
+**On Windows**:
+[source]
+----
+C:\Users\user\drawing.svg
+----
+
+=== Environment Variables
+
+[source,ruby]
+----
+# Environment variables are expanded on all platforms
+ENV['MY_PATH'] = '/path/to/files'
+
+result = tool.execute(:export, {
+  inputs: ['${MY_PATH}/drawing.svg']
+})
+----
+
+// Shell Adaptation
+== Shell Adaptation
+
+Ukiryu automatically adapts to your shell for proper quoting and escaping.
+
+=== Supported Shells
+
+[cols="1,1,2"]
+|===
+|Shell |Platform |Quoting Style
+
+|bash
+|macOS, Linux
+|Single quotes: `'file name.svg'`
+
+|zsh
+|macOS, Linux
+|Single quotes: `'file name.svg'`
+
+|fish
+|macOS, Linux
+|Single quotes: `'file name.svg'`
+
+|PowerShell
+|Windows
+|Single quotes: `'file name.svg'`
+
+|cmd
+|Windows
+|Double quotes: `"file name.svg"`
+|===
+
+=== Quoting Examples
+
+[source,ruby]
+----
+# Same code works on all shells
+result = tool.execute(:export, {
+  inputs: ['My Document.svg'],  # Space in name
+  output: 'output.png'
+})
+----
+
+**Generated commands**:
+
+* bash/zsh/fish: `inkscape 'My Document.svg' --export-filename=output.png`
+* PowerShell: `inkscape 'My Document.svg' --export-filename=output.png`
+* cmd: `inkscape "My Document.svg" --export-filename=output.png`
+
+// Tool Discovery
+== Tool Discovery
+
+Ukiryu searches for tools in platform-specific locations.
+
+=== Search Path Priority
+
+[source]
+----
+1. Custom search paths (from profile)
+2. Platform-specific default paths
+3. System PATH environment variable
+4. Common installation directories
+----
+
+=== Example: Inkscape Search Paths
+
+**macOS**:
+[source,yaml]
+----
+search_paths:
+  macos:
+    - '/Applications/Inkscape.app/Contents/MacOS/inkscape'
+    - '/opt/homebrew/bin/inscape'
+    - '/usr/local/bin/inkscape'
+    - '/opt/local/bin/inkscape'
+    - '/usr/local/opt/inkscape/bin/inkscape'
+----
+
+**Linux**:
+[source,yaml]
+----
+search_paths:
+  linux:
+    - '/usr/bin/inkscape'
+    - '/usr/local/bin/inkscape'
+    - '/snap/bin/inkscape'
+    - '/var/lib/flatpak/exports/bin/org.inkscape.Inkscape'
+    - '/usr/bin/flatpak-spawn'
+    - '/opt/inkscape.AppImage'
+    - '/usr/local/bin/inkscape.AppImage'
+    - '/opt/bin/inkscape'
+----
+
+**Windows**:
+[source,yaml]
+----
+search_paths:
+  windows:
+    - 'C:/Program Files/Inkscape/bin/inkscape.exe'
+    - 'C:/Program Files/Inkscape/inkscape.exe'
+    - 'C:/Program Files (x86)/Inkscape/bin/inkscape.exe'
+    - '%USERPROFILE%/scoop/apps/inkscape/current/inkscape.exe'
+    - '~/scoop/apps/inkscape/current/inkscape.exe'
+    - 'C:/ProgramData/chocolatey/lib/inkscape/tools/inkscape*/bin/inkscape.exe'
+    - '%LOCALAPPDATA%/Inkscape/bin/inkscape.exe'
+    - '~/AppData/Local/Inkscape/bin/inkscape.exe'
+----
+
+// Platform-Specific Features
+== Platform-Specific Features
+
+=== macOS Features
+
+**Application Bundles**:
+[source,yaml]
+----
+search_paths:
+  macos:
+    - '/Applications/Inkscape.app/Contents/MacOS/inkscape'
+    - '/Applications/ImageMagick/ImageMagick'
+----
+
+**Homebrew**:
+[source,yaml]
+----
+search_paths:
+  macos:
+    - '/opt/homebrew/bin/*'      # Apple Silicon
+    - '/usr/local/bin/*'          # Intel
+----
+
+**Headless Mode**:
+* Removes `DISPLAY` environment variable
+* Sets `NSAppleEventsSuppressStartupAlert=true`
+* Sets `NSUIElement=1` (background agent)
+* Sets `GDK_BACKEND=x11` for X11-based tools
+
+=== Linux Features
+
+**Snap Packages**:
+[source,yaml]
+----
+search_paths:
+  linux:
+    - '/snap/bin/*'
+----
+
+**Flatpak**:
+[source,yaml]
+----
+search_paths:
+  linux:
+    - '/var/lib/flatpak/exports/bin/*'
+----
+
+**AppImages**:
+[source,yaml]
+----
+search_paths:
+  linux:
+    - '/opt/*.AppImage'
+    - '/usr/local/bin/*.AppImage'
+----
+
+=== Windows Features
+
+**PowerShell Modules**:
+[source,yaml]
+----
+search_paths:
+  windows:
+    - '~/AppData/Local/Programs/*'  # User-scoped installs
+----
+
+**Scoop**:
+[source,yaml]
+----
+search_paths:
+  windows:
+    - '%USERPROFILE%/scoop/apps/*'
+    - '~/scoop/apps/*'
+----
+
+**Chocolatey**:
+[source,yaml]
+----
+search_paths:
+  windows:
+    - 'C:/ProgramData/chocolatey/lib/*/tools/*'
+----
+
+**PATH Extensions**:
+[source,ruby]
+----
+# PATHEXT is automatically checked
+# Searches for: inkscape.exe, inkscape.bat, inkscape.cmd, etc.
+----
+
+// Cross-Platform Best Practices
+== Cross-Platform Best Practices
+
+=== Use Forward Slashes in Paths
+
+[source,ruby]
+----
+# Good - Works on all platforms
+result = tool.execute(:export, {
+  inputs: ['~/projects/drawings/design.svg'],
+  output: '~/projects/exports/design.png'
+})
+
+# Avoid - Platform-specific
+result = tool.execute(:export, {
+  inputs: ['C:\\projects\\drawings\\design.svg'],  # Windows only
+  output: '~/projects/exports/design.png'  # Better
+})
+----
+
+=== Avoid Platform-Specific Code
+
+[source,ruby]
+----
+# Good - Platform-agnostic
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, params)
+
+# Avoid - Platform-specific
+if RUBY_PLATFORM =~ /darwin/
+  executable = '/Applications/Inkscape.app/Contents/MacOS/inkscape'
+elsif RUBY_PLATFORM =~ /linux/
+  executable = '/usr/bin/inkscape'
+elsif RUBY_PLATFORM =~ /mswin/
+  executable = 'C:/Program Files/Inkscape/inkscape.exe'
+end
+# Let Ukiryu handle this!
+----
+
+=== Test on Multiple Platforms
+
+[source,ruby]
+----
+# Use environment-agnostic paths
+input = File.expand_path('~/drawing.svg')
+output = File.expand_path('~/drawing.png')
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: [input],
+  output: output
+})
+----
+
+=== Handle Platform Differences Gracefully
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:inkscape)
+  result = tool.execute(:export, params)
+
+  # Check for platform-specific warnings
+  if result.stderr.include?('display')
+    warn("Display warning - may need headless mode")
+  end
+rescue Ukiryu::ToolNotFoundError
+  # Platform-specific installation instructions
+  case RbConfig::CONFIG['host_os']
+  when /darwin/
+    puts "Install with: brew install --cask inkscape"
+  when /linux/
+    puts "Install with: sudo apt-get install inkscape"
+  when /mswin|mingw/
+    puts "Download from: https://inkscape.org/release/"
+  end
+end
+----
+
+// Examples
+== Examples
+
+=== Cross-Platform Script
+
+[source,ruby]
+----
+#!/usr/bin/env ruby
+# convert.rb - Works on macOS, Linux, Windows
+
+require 'ukiryu'
+
+input = ARGV[0] || 'drawing.svg'
+output = ARGV[1] || 'drawing.png'
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: [input],
+  output: output,
+  format: :png
+})
+
+if result.success?
+  puts "✓ Converted #{input} -> #{output}"
+  puts "  Duration: #{result.metadata.formatted_duration}"
+else
+  puts "✗ Conversion failed"
+  puts "  Error: #{result.stderr}"
+  exit 1
+end
+----
+
+=== Platform-Specific Search Paths
+
+[source,yaml]
+----
+# tools/mytool/1.0.yaml
+name: mytool
+version: '1.0'
+
+search_paths:
+  macos:
+    - '/Applications/MyTool.app/Contents/MacOS/mytool'
+    - '/opt/homebrew/bin/mytool'
+    - '~/Library/Application Support/MyTool/bin/mytool'
+
+  linux:
+    - '/usr/bin/mytool'
+    - '/usr/local/bin/mytool'
+    - '/opt/mytool/bin/mytool'
+
+  windows:
+    - 'C:/Program Files/MyTool/bin/mytool.exe'
+    - '~/AppData/Local/Programs/MyTool/bin/mytool.exe'
+    - '%LOCALAPPDATA%/MyTool/bin/mytool.exe'
+----
+
+// See Also
+== See Also
+
+* link:/understanding/platform-detection[Platform Detection Internals]
+* link:/understanding/shell-adaptation[Shell Adaptation Internals]
+* link:/advanced/writing-profiles[Writing Platform-Specific Profiles]

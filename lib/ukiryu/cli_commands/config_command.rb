@@ -2,6 +2,7 @@
 
 require_relative 'base_command'
 require_relative '../config'
+require_relative '../register_auto_manager'
 require 'yaml'
 require 'fileutils'
 
@@ -18,7 +19,7 @@ module Ukiryu
       # @param key [String, nil] the config key
       # @param value [String, nil] the config value
       def run(action = 'list', key = nil, value = nil)
-        setup_registry
+        setup_register
 
         case action
         when 'list'
@@ -41,8 +42,11 @@ module Ukiryu
         say 'Current configuration:', :cyan
         say '', :clear
 
+        # Get actual register info for better display
+        register_display = format_register_display
+
         config_data = {
-          'Registry' => config.registry || '(not set)',
+          'Register' => register_display,
           'Timeout' => format_config_value(config.timeout, '(no timeout)'),
           'Debug' => format_config_value(config.debug),
           'Dry run' => format_config_value(config.dry_run),
@@ -51,7 +55,7 @@ module Ukiryu
           'Format' => format_config_value(config.format),
           'Output' => format_config_value(config.output, '(stdout)'),
           'Search paths' => format_config_value(config.search_paths, '(not set)'),
-          'Use color' => format_config_value(config.use_color, '(auto-detect)')
+          'Use color' => format_config_value(config.use_color)
         }
 
         config_data.each do |k, v|
@@ -82,7 +86,7 @@ module Ukiryu
         say '', :clear
         say 'Environment variables:', :cyan
         env_vars = {
-          'UKIRYU_REGISTRY' => ENV['UKIRYU_REGISTRY'],
+          'UKIRYU_REGISTER' => ENV['UKIRYU_REGISTER'],
           'UKIRYU_TIMEOUT' => ENV['UKIRYU_TIMEOUT'],
           'UKIRYU_DEBUG' => ENV['UKIRYU_DEBUG'],
           'UKIRYU_DRY_RUN' => ENV['UKIRYU_DRY_RUN'],
@@ -111,7 +115,7 @@ module Ukiryu
         normalized_key = normalize_key(key)
 
         value = case normalized_key
-                when :registry then config.registry
+                when :register then config.register
                 when :timeout then config.timeout
                 when :debug then config.debug
                 when :dry_run then config.dry_run
@@ -122,7 +126,7 @@ module Ukiryu
                 when :search_paths then config.search_paths
                 when :use_color then config.use_color
                 else
-                  error! "Unknown config key: #{key}\nValid keys: registry, timeout, debug, dry_run, metrics, shell, format, output, search_paths, use_color"
+                  error! "Unknown config key: #{key}\nValid keys: register, timeout, debug, dry_run, metrics, shell, format, output, search_paths, use_color"
                 end
 
         say "#{key}: #{format_config_value(value, '(not set)')}", :white
@@ -206,7 +210,7 @@ module Ukiryu
         when :shell then config.shell = value
         when :format then config.format = value
         when :output then config.output = value
-        when :registry then config.registry = value
+        when :register then config.register = value
         when :search_paths then config.search_paths = value
         when :use_color then config.use_color = value
         end
@@ -219,6 +223,44 @@ module Ukiryu
       # @return [String] formatted value
       def format_config_value(value, default = '(nil)')
         value.nil? ? default : value
+      end
+
+      # Format register display showing actual register being used
+      #
+      # @return [String] formatted register display
+      def format_register_display
+        info = RegisterAutoManager.register_info
+
+        case info[:status]
+        when :ok
+          # Register exists and is valid
+          source_label = format_source_label(info[:source])
+          tools_count = info[:tools_count] ? " (#{info[:tools_count]} tools)" : ''
+          "#{info[:path]} [#{source_label}]#{tools_count}"
+        when :not_cloned, :not_found
+          # Register not cloned yet
+          '~/.ukiryu/register (not found - run: ukiryu register update)'
+        when :invalid
+          # Register exists but is invalid
+          "#{info[:path]} (invalid - run: ukiryu register update --force)"
+        else
+          '(unknown)'
+        end
+      end
+
+      # Format source label for display
+      #
+      # @param source [Symbol] the source symbol
+      # @return [String] formatted source label
+      def format_source_label(source)
+        case source
+        when :env
+          'env'
+        when :user
+          'user'
+        else
+          source.to_s
+        end
       end
 
       # Ensure config directory exists

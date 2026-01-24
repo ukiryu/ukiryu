@@ -9,11 +9,11 @@ module Ukiryu
     # without loading the full profile definition
 
     attr_reader :name, :version, :display_name, :implements, :homepage,
-                :description, :aliases, :tool_name, :registry_path, :default_command
+                :description, :aliases, :tool_name, :register_path, :default_command
 
     def initialize(name:, version:, display_name: nil, implements: nil,
                    homepage: nil, description: nil, aliases: nil,
-                   tool_name: nil, registry_path: nil, default_command: nil)
+                   tool_name: nil, register_path: nil, default_command: nil)
       @name = name
       @version = version
       @display_name = display_name
@@ -22,7 +22,7 @@ module Ukiryu
       @description = description
       @aliases = Array(aliases || [])
       @tool_name = tool_name || name
-      @registry_path = registry_path
+      @register_path = register_path
       @default_command = default_command
     end
 
@@ -62,9 +62,9 @@ module Ukiryu
     #
     # @param hash [Hash] the YAML profile hash
     # @param tool_name [String] the tool name
-    # @param registry_path [String] the registry path
+    # @param register_path [String] the register path
     # @return [ToolMetadata] the metadata object
-    def self.from_hash(hash, tool_name:, registry_path: nil)
+    def self.from_hash(hash, tool_name:, register_path: nil)
       new(
         name: tool_name,
         version: hash['version'],
@@ -75,7 +75,7 @@ module Ukiryu
         aliases: hash['aliases'],
         default_command: hash['default_command'],
         tool_name: tool_name,
-        registry_path: registry_path
+        register_path: register_path
       )
     end
   end

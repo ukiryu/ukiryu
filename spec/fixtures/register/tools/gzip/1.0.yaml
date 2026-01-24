@@ -1,0 +1,48 @@
+# Minimal gzip tool profile for testing
+ukiryu_schema: '1.0'
+name: gzip
+display_name: gzip
+homepage: https://www.gnu.org/software/gzip/
+version: '1.0'
+version_detection:
+  command: --version
+  pattern: 'gzip ([\d.]+)'
+search_paths:
+  macos:
+  - /usr/bin/gzip
+  linux:
+  - /usr/bin/gzip
+  - /bin/gzip
+timeout: 30
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  commands:
+  - name: compress
+    description: Compress files
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+  - name: decompress
+    description: Decompress files
+    flags:
+    - name: decompress
+      cli: -d
+      description: Decompress mode
+      position_constraint: prefix
+      default: true
+    - name: keep
+      cli: -k
+      description: Keep input files
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true

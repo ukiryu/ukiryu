@@ -51,9 +51,27 @@ module Ukiryu
 
       # Get headless environment (disable DISPLAY on Unix)
       #
+      # For macOS, adds additional variables to prevent GUI initialization
+      # that can cause crashes in GUI applications like Inkscape.
+      #
       # @return [Hash] environment variables for headless operation
       def headless_environment
-        { 'DISPLAY' => '' }
+        require_relative '../platform'
+
+        env = {}
+
+        # Completely remove DISPLAY instead of setting to empty string
+        # This ensures full headless mode with no display connection
+        # The executor will exclude this key from the environment entirely
+
+        # Add macOS-specific environment variables to prevent GUI initialization
+        if Platform.detect == :macos
+          env['NSAppleEventsSuppressStartupAlert'] = 'true' # Suppress Apple Events
+          env['NSUIElement'] = '1' # Run as background agent
+          env['GDK_BACKEND'] = 'x11' # Force X11 backend (respects missing DISPLAY)
+        end
+
+        env
       end
     end
   end

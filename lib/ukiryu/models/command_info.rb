@@ -12,7 +12,7 @@ module Ukiryu
     class CommandInfo < Lutaml::Model::Serializable
       attribute :executable, :string
       attribute :executable_name, :string
-      attribute :tool_name, :string  # Name of the tool being executed
+      attribute :tool_name, :string # Name of the tool being executed
       attribute :arguments, Arguments
       attribute :full_command, :string
       attribute :shell, :string

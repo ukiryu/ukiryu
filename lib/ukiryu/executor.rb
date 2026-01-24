@@ -269,6 +269,12 @@ module Ukiryu
 
         # Add shell-specific headless environment
         headless = shell_instance.headless_environment
+
+        # For headless mode, explicitly remove DISPLAY
+        # If user_env explicitly didn't set DISPLAY, respect that (caller wants it removed)
+        # Otherwise, check if headless environment specifies DISPLAY
+        env.delete('DISPLAY') unless headless.key?('DISPLAY')
+
         env.merge!(headless)
 
         env

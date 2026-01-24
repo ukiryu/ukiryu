@@ -28,51 +28,46 @@ module Ukiryu
         require_relative '../shell'
 
         all_shells = Shell.all_valid
-        available_shells = Shell.available_shells
         platform_shells = Shell.valid_for_platform
+        available_shells = platform_shells.select { |shell| Shell.available?(shell) }
+        not_installed_shells = platform_shells.reject { |shell| Shell.available?(shell) }
+        not_supported_shells = all_shells - platform_shells
 
-        say 'Available Shells on This System:', :cyan
+        say 'Available shells', :cyan
+        say ''
+        say '  The following shells are installed and supported on this platform:'
         say ''
 
         if available_shells.empty?
-          say '  No shells detected', :dim
+          say '    No supported shells detected', :dim
         else
           available_shells.each do |shell|
-            status = '✓'
-            say "  #{status} #{shell}", :green
+            say "    • #{shell_name_with_description(shell)}", :green
           end
         end
 
-        say ''
-        say 'All Supported Shells:', :cyan
-        say ''
+        if not_installed_shells.any?
+          say ''
+          say 'Additional supported shells', :cyan
+          say ''
+          say '  These shells are supported but not currently installed:'
+          say ''
 
-        all_shells.each do |shell|
-          is_available = available_shells.include?(shell)
-          is_platform = platform_shells.include?(shell)
+          not_installed_shells.each do |shell|
+            say "    • #{shell_name_with_description(shell)}", :dim
+          end
+        end
 
-          status = if is_available
-                     '✓'
-                   elsif is_platform
-                     '✗'
-                   else
-                     '-'
-                   end
+        if not_supported_shells.any?
+          say ''
+          say 'Not available on this platform', :cyan
+          say ''
+          say '  These shells are not supported on this platform:'
+          say ''
 
-          color = if is_available
-                    :green
-                  else
-                    (is_platform ? :red : :dim)
-                  end
-          note = if !is_platform
-                   ' (not supported on this platform)'
-                 elsif !is_available
-                   ' (supported but not found)'
-                 else
-                   ''
-                 end
-
-          say "  #{status} #{shell}#{note}", color
+          not_supported_shells.each do |shell|
+            say "    • #{shell_name_with_description(shell)}", :dim
+          end
         end
 
         say ''
@@ -84,6 +79,29 @@ module Ukiryu
         return unless config_shell
 
         say "Shell override: #{config_shell} (set via --shell, UKIRYU_SHELL, or config)", :yellow
+      end
+
+      # Get shell name with brief description
+      #
+      # @param shell_sym [Symbol] the shell symbol
+      # @return [String] formatted name with description
+      def shell_name_with_description(shell_sym)
+        case shell_sym
+        when :bash
+          'bash - GNU Bourne Again SHell'
+        when :zsh
+          'zsh - Z shell'
+        when :fish
+          'fish - Friendly interactive shell'
+        when :sh
+          'sh - POSIX shell'
+        when :powershell
+          'powershell - PowerShell command-line shell'
+        when :cmd
+          'cmd - Windows Command Prompt'
+        else
+          shell_sym.to_s
+        end
       end
     end
   end

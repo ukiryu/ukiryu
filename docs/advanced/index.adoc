@@ -1,0 +1,20 @@
+---
+layout: default
+title: Advanced
+nav_order: 7
+has_children: true
+---
+
+= Advanced
+
+Advanced topics for extending and customizing Ukiryu.
+
+// Overview
+== Overview
+
+This section covers advanced usage and extension:
+
+* link:/advanced/writing-profiles[Writing Tool Profiles] - Create custom tool profiles
+* link:/advanced/tool-versions[Tool Version Management] - Multiple versions and compatibility
+* link:/advanced/platform-handling[Platform-Specific Handling] - Advanced platform adaptation
+* link:/advanced/performance[Performance Optimization] - Caching and optimization

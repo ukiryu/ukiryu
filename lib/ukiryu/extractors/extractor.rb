@@ -48,11 +48,12 @@ module Ukiryu
       def extract
         method = @options[:method] || :auto
 
-        if method == :auto
+        case method
+        when :auto
           extract_auto
-        elsif method == :native
+        when :native
           extract_with_native
-        elsif method == :help
+        when :help
           extract_with_help
         else
           {
@@ -105,7 +106,7 @@ module Ukiryu
         else
           {
             success: false,
-            error: "Native extraction failed",
+            error: 'Native extraction failed',
             method: :native,
             yaml: nil
           }
@@ -139,7 +140,7 @@ module Ukiryu
         else
           {
             success: false,
-            error: "Help parsing failed",
+            error: 'Help parsing failed',
             method: :help,
             yaml: nil
           }

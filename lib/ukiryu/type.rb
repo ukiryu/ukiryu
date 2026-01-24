@@ -88,7 +88,10 @@ module Ukiryu
         value = value.to_s
         raise ValidationError, 'String cannot be empty' if value.empty? && !options[:allow_empty]
 
-        raise ValidationError, "String does not match required pattern: #{options[:pattern]}" if options[:pattern] && value !~ options[:pattern]
+        if options[:pattern] && value !~ options[:pattern]
+          raise ValidationError,
+                "String does not match required pattern: #{options[:pattern]}"
+        end
 
         value
       end
@@ -146,7 +149,10 @@ module Ukiryu
         if options[:values]
           # Convert values to symbols for comparison (handle both string and symbol values)
           valid_values = options[:values].map { |v| v.is_a?(String) ? v.to_sym : v }
-          raise ValidationError, "Invalid symbol: #{value.inspect}. Valid values: #{options[:values].inspect}" unless valid_values.include?(value)
+          unless valid_values.include?(value)
+            raise ValidationError,
+                  "Invalid symbol: #{value.inspect}. Valid values: #{options[:values].inspect}"
+          end
         end
 
         value
@@ -214,9 +220,15 @@ module Ukiryu
       def validate_array(value, options)
         array = value.is_a?(Array) ? value : [value]
 
-        raise ValidationError, "Array has #{array.size} elements, minimum is #{options[:min]}" if options[:min] && array.size < options[:min]
+        if options[:min] && array.size < options[:min]
+          raise ValidationError,
+                "Array has #{array.size} elements, minimum is #{options[:min]}"
+        end
 
-        raise ValidationError, "Array has #{array.size} elements, maximum is #{options[:max]}" if options[:max] && array.size > options[:max]
+        if options[:max] && array.size > options[:max]
+          raise ValidationError,
+                "Array has #{array.size} elements, maximum is #{options[:max]}"
+        end
 
         if options[:size]
           if options[:size].is_a?(Integer)
@@ -225,7 +237,10 @@ module Ukiryu
                     "Array has #{array.size} elements, expected #{options[:size]}"
             end
           elsif options[:size].is_a?(Array)
-            raise ValidationError, "Array has #{array.size} elements, expected one of: #{options[:size].inspect}" unless options[:size].include?(array.size)
+            unless options[:size].include?(array.size)
+              raise ValidationError,
+                    "Array has #{array.size} elements, expected one of: #{options[:size].inspect}"
+            end
           end
         end
 

@@ -1,0 +1,36 @@
+---
+layout: default
+title: Getting Started
+nav_order: 2
+has_children: true
+---
+
+= Getting Started
+
+Welcome to Ukiryu! This section will help you install Ukiryu and get started with basic usage.
+
+// Overview
+== Overview
+
+This section covers:
+
+* link:/getting-started/installation[Installation] - How to install Ukiryu
+* link:/getting-started/quick-start[Quick Start] - Basic usage examples
+* link:/getting-started/core-concepts[Core Concepts] - Understanding Ukiryu's architecture
+
+// Prerequisites
+== Prerequisites
+
+* Ruby 2.7 or higher
+* Basic familiarity with command-line tools
+* (Optional) Access to tools like ImageMagick, Inkscape, Ghostscript, etc.
+
+// What You'll Learn
+== What You'll Learn
+
+After completing this section, you will be able to:
+
+* Install and configure Ukiryu
+* Execute basic tool commands
+* Understand how Ukiryu adapts to different platforms
+* Use the Ruby API and CLI effectively

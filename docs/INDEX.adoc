@@ -1,0 +1,261 @@
+---
+layout: default
+title: "Ukiryu: Open Definitions For CLI Tools"
+nav_order: 1
+---
+
+== Ukiryu: Open Definitions For CLI Tools
+
+The "OpenAPI" for Command Line Interfaces.
+
+// Purpose
+== Purpose
+
+Ukiryu is a framework for defining command-line interfaces as declarative APIs.
+
+It makes the following possible:
+
+* Declarative definition of command-line interfaces, options, parameters and
+  typed arguments
+* Harmonized definitions across platforms and shell environments
+* Unified action interface across versioned and variant command interfaces
+* Structured input and output handling, with type safety and validation
+
+
+The Ukiryu framework has the following components:
+
+* **Register**: A collection of tool profiles encoded in YAML, organized by tool
+name and version
+
+* **Schema**: A formal definition of the structure and types used in tool
+profiles
+
+* **Runtime**: A platform-adaptive Ruby library that provides a harmonized API
+interface for CLI commands.
+
+
+== Origin
+
+The name 浮流 "ukiryu" (lit. "Floating Flow") is inspired by 天浮橋
+"ame-no-ukihashi" (lit. "Floating Bridge of Heaven"), the mythical bridge that
+connects heaven and earth.
+
+The ame-no-ukihashi is described in Japanese mythology as the place where the
+God Izanagi and Goddess Izanami stood at creating the Japanese archipelago.
+
+The pronunciation of "ukiryu" ("yoo-kee-rhoo") is the English transliteration of
+the Kanji characters 「浮流」, read in Hiragana as 「うきりゅう」.
+
+In the view that a command line tool is a vessel for performing tasks, Ukiryu
+serves as the flexible flow that guides its path through different environments.
+
+
+== Why Ukiryu?
+
+* **Platform-adaptive**: Commands work seamlessly across macOS, Linux, and Windows
+* **Shell-aware**: Proper quoting and escaping for bash, zsh, fish, PowerShell, and cmd
+* **Versioned**: Support multiple tool versions with distinct interfaces
+* **Interface-capable**: Different implementations of the same command interface
+* **Declarative**: Tool behavior defined in YAML profiles, not code
+* **Type-safe**: Parameter validation with automatic type coercion
+
+
+== Quick Start
+
+Use the command-line interface:
+
+[source,bash]
+----
+# List available tools
+ukiryu list
+
+# Show tool information
+ukiryu info inkscape
+
+# Describe a command
+ukiryu describe inkscape export
+
+# Convert SVG to PNG
+ukiryu exec inkscape export inputs=input.svg output=output.png format=png
+----
+
+Or use the Ruby API:
+
+[source,ruby]
+----
+# Install
+gem install ukiryu
+
+# Use in Ruby
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['input.svg'],
+  output: 'output.png',
+  format: :png
+})
+
+puts result.success? ? "Success!" : "Failed: #{result.stderr}"
+----
+
+
+== What Can You Do With Ukiryu?
+
+=== By Role
+
+[source]
+==== Developer
+* Integrate command-line tools into Ruby applications
+* Write cross-platform scripts that work everywhere
+* Build tools with consistent interfaces across platforms
+
+==== QA Engineer
+* Automate testing with tools like ImageMagick, Ghostscript
+* Run tests on CI/CD across different platforms
+* Validate tool outputs programmatically
+
+==== DevOps Engineer
+* Create deployment scripts that work on any platform
+* Manage tool versions and compatibility
+* Debug tool execution issues
+
+==== Tool Maintainer
+* Publish tool profiles for community use
+* Support multiple tool versions simultaneously
+* Handle platform-specific differences declaratively
+
+=== By Task
+
+[source]
+==== Execute Commands
+* Run tools with type-safe parameters
+* Get structured results with success/failure info
+* Handle timeouts and errors gracefully
+
+==== Format Conversion
+* Convert between image formats (ImageMagick, Inkscape)
+* Process PDF/PostScript (Ghostscript)
+* Transform data formats (jq, yq)
+
+==== Testing & Validation
+* Compare outputs with diff tools
+* Validate file formats and metadata
+* Test CLI behavior programmatically
+
+==== Platform Adaptation
+* Handle path differences (/ vs \)
+* Manage shell quoting and escaping
+* Adapt to platform-specific tool locations
+
+// How Ukiryu Works
+== How Ukiryu Works
+
+Ukiryu uses a three-layer architecture:
+
+[source]
+----
+┌─────────────────────────────────────────────┐
+│           Ruby API / CLI                    │
+│  Tool.get(:imagemagick).execute(...)        │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│         Register & Profiles                 │
+│  tools/inkscape/1.0.yaml (declarative)     │
+└─────────────────┬───────────────────────────┐
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Platform & Shell Adaptation            │
+│  Bash / Zsh / Fish / PowerShell / Cmd       │
+└─────────────────────────────────────────────┘
+----
+
+* **Register**: Loads tool profiles from YAML files
+* **Profiles**: Define tool behavior, versions, and platform support
+* **Shell Layer**: Handles quoting, escaping, and command formatting
+
+// Learning Paths
+== Learning Paths
+
+=== Beginner
+
+1. link:/getting-started/installation[Installation]
+2. link:/getting-started/quick-start[Quick Start Guide]
+3. link:/getting-started/core-concepts[Core Concepts]
+
+=== Intermediate
+
+1. link:/interfaces/ruby-api[Ruby API]
+2. link:/interfaces/cli[Command Line Interface]
+3. link:/features/configuration[Configuration Layers]
+
+=== Advanced
+
+1. link:/understanding/architecture[Architecture & Internals]
+2. link:/advanced/writing-profiles[Writing Tool Profiles]
+3. link:/advanced/platform-handling[Platform-Specific Handling]
+
+=== Reference
+
+1. link:/reference/tool-profile-schema[Tool Profile Schema]
+2. link:/reference/configuration-options[All Configuration Options]
+3. link:/reference/error-codes[Error Codes & Messages]
+
+// Configuration Methods
+== Configuration Methods
+
+Ukiryu supports three ways to configure tool execution, with clear precedence:
+
+[NOTE]
+Configuration precedence (highest to lowest):
+1. Environment variables
+2. Command-line parameters
+3. Ruby API parameters
+4. Profile defaults
+
+=== Ruby API
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape)
+result = tool.execute(:export, {
+  inputs: ['drawing.svg'],
+  output: 'drawing.png',
+  format: :png,
+  dpi: 300
+})
+----
+
+=== Command Line
+
+[source,bash]
+----
+ukiryu exec inkscape export \
+  inputs=drawing.svg \
+  output=drawing.png \
+  format=png \
+  dpi=300
+----
+
+=== Environment Variables
+
+[source,bash]
+----
+# Set register location
+export UKIRYU_REGISTRY=/path/to/register
+
+# Set default timeout
+export UKIRYU_TIMEOUT=120
+
+# Enable debug output
+export UKIRYU_DEBUG=true
+----
+
+// Next Steps
+== Next Steps
+
+* link:/getting-started/installation[Install Ukiryu] and get started
+* link:/getting-started/quick-start[Try the quick start guide]
+* link:/features/configuration[Explore configuration options]
+* link:/reference/tool-profile-schema[Learn the profile schema]

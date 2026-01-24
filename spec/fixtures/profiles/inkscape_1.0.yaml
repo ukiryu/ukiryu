@@ -1,0 +1,75 @@
+# Minimal valid Inkscape profile for schema validation testing
+ukiryu_schema: '1.0'
+name: inkscape
+display_name: Inkscape Vector Graphics Editor
+homepage: https://inkscape.org/
+"$self": https://www.ukiryu.com/register/1.0/inkscape/1.0
+version: '1.0'
+aliases:
+- ink
+version_detection:
+  command: "--version"
+  pattern: "Inkscape (\\d+\\.\\d+)"
+  modern_threshold: '1.0'
+search_paths:
+  macos:
+  - "/Applications/Inkscape.app/Contents/MacOS/inkscape"
+  linux:
+  - "/usr/bin/inkscape"
+  windows:
+  - "C:/Program Files/Inkscape/bin/inkscape.exe"
+timeout: 90
+profiles:
+- name: modern_unix
+  display_name: Modern Inkscape on Unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  version: ">= 1.0"
+  option_style: double_dash_equals
+  env_var_sets:
+    headless:
+    - name: DISPLAY
+      value: ''
+      platforms:
+      - macos
+      - linux
+      description: Disable display for headless operation
+  commands:
+  - description: Export document to different format
+    usage: inkscape [OPTIONS] input.svg
+    use_env_vars:
+    - headless
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      position: last
+      min: 1
+      description: Input file(s)
+    options:
+    - name: output
+      type: file
+      cli: "--export-filename"
+      description: Output filename
+      required: true
+      assignment_delimiter: equals
+    - name: format
+      type: symbol
+      cli: "--export-type"
+      values:
+      - svg
+      - png
+      - pdf
+      description: Output format
+      assignment_delimiter: equals
+    flags:
+    - name: plain
+      cli: "--export-plain-svg"
+      description: Remove Inkscape-specific attributes
+      default: false
+      assignment_delimiter: none
+    name: export
