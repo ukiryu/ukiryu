@@ -62,8 +62,10 @@ module Ukiryu
         say 'Testing executable...', :cyan
 
         begin
+          # Load the YAML profile to get smoke_tests
+          profile_data = YAML.safe_load(File.read(path), permitted_classes: [Symbol, Date, Time])
+
           # Extract tool name from file path
-          # Expected path format: .../tools/{tool_name}/{version}.yaml
           file_name = File.basename(path, '.yaml')
           tool_dir = File.basename(File.dirname(path))
           tools_dir = File.basename(File.dirname(File.dirname(path)))
@@ -72,7 +74,6 @@ module Ukiryu
           tool_name = if tools_dir == 'tools'
                         tool_dir
                       else
-                        # Fallback: try to extract from filename
                         file_name
                       end
 
@@ -98,7 +99,6 @@ module Ukiryu
             say 'Testing version detection...', :cyan
 
             begin
-              # Detect version
               detected_version = tool.detect_version
 
               if detected_version
@@ -111,30 +111,36 @@ module Ukiryu
             end
           end
 
-          # Test basic command execution if commands are defined
-          if tool.profile.profiles&.any?
-            profile = tool.profile.profiles.first
-            if profile.commands && !profile.commands.empty?
-              say '', :clear
-              say 'Testing command execution (smoke test)...', :cyan
+          # Run smoke tests from profile if defined
+          smoke_tests = profile_data[:smoke_tests] || profile_data['smoke_tests']
+          if smoke_tests && !smoke_tests.empty?
+            say '', :clear
+            say "Running #{smoke_tests.length} smoke test(s)...", :cyan
+            run_smoke_tests(tool, smoke_tests, profile_data)
+          else
+            # Fallback: test basic command execution if commands are defined
+            if tool.profile.profiles&.any?
+              profile = tool.profile.profiles.first
+              if profile.commands && !profile.commands.empty?
+                say '', :clear
+                say 'Testing command execution (smoke test)...', :cyan
 
-              profile.commands.each do |cmd_def|
-                cmd_name = cmd_def.name
-                begin
-                  # Try to execute the command with --help or similar to test availability
-                  test_result = execute_smoke_test(tool, cmd_name)
+                profile.commands.each do |cmd_def|
+                  cmd_name = cmd_def.name
+                  begin
+                    test_result = execute_smoke_test(tool, cmd_name)
 
-                  if test_result[:success]
-                    say "✓ Command '#{cmd_name}' is available", :green
-                  else
-                    say "⚠ Command '#{cmd_name}' test failed: #{test_result[:message]}", :yellow
+                    if test_result[:success]
+                      say "✓ Command '#{cmd_name}' is available", :green
+                    else
+                      say "⚠ Command '#{cmd_name}' test failed: #{test_result[:message]}", :yellow
+                    end
+                  rescue StandardError => e
+                    say "⚠ Command '#{cmd_name}' test error: #{e.message}", :yellow
                   end
-                rescue StandardError => e
-                  say "⚠ Command '#{cmd_name}' test error: #{e.message}", :yellow
-                end
 
-                # Only test the first command as a smoke test
-                break
+                  break
+                end
               end
             end
           end
@@ -145,6 +151,185 @@ module Ukiryu
           say "✗ Executable test failed: #{e.message}", :red
           exit 1 if options[:strict]
         end
+      end
+
+      # Run smoke tests from profile
+      #
+      # @param tool [Ukiryu::Tool] the tool instance
+      # @param smoke_tests [Array<Hash>] smoke test definitions
+      # @param profile_data [Hash] the loaded profile data
+      def run_smoke_tests(tool, smoke_tests, profile_data)
+        smoke_tests.each_with_index do |test, index|
+          test_name = test[:name] || test['name']
+          test_description = test[:description] || test['description'] || test_name
+
+          say '', :clear
+          say "[#{index + 1}/#{smoke_tests.length}] #{test_name}: #{test_description}", :cyan
+
+          # Check platform filter
+          platforms = test[:platforms] || test['platforms']
+          current_platform = current_platform_symbol
+          if platforms && !platforms.include?(current_platform.to_s)
+            say "  ⊘ Skipped (not for this platform: #{current_platform})", :dim
+            next
+          end
+
+          # Check skip_if condition
+          skip_if = test[:skip_if] || test['skip_if']
+          if skip_if && evaluate_condition(skip_if, tool, profile_data)
+            say "  ⊘ Skipped (condition: #{skip_if})", :dim
+            next
+          end
+
+          # Get the command to run
+          test_command = test[:command] || test['command']
+          test_timeout = test[:timeout] || test['timeout'] || tool.profile.timeout || 30
+
+          begin
+            # Execute the test command
+            result = execute_test_command(tool, test_command, test_timeout)
+
+            # Validate the result
+            validation_result = validate_test_result(result, test)
+
+            if validation_result[:passed]
+              say "  ✓ PASSED", :green
+              if options[:verbose] && validation_result[:details]
+                validation_result[:details].each do |detail|
+                  say "    #{detail}", :dim
+                end
+              end
+            else
+              say "  ✗ FAILED", :red
+              validation_result[:errors].each do |error|
+                say "    ✗ #{error}", :red
+              end
+              exit 1 if options[:strict]
+            end
+          rescue StandardError => e
+            say "  ✗ ERROR: #{e.message}", :red
+            exit 1 if options[:strict]
+          end
+        end
+      end
+
+      # Execute a test command
+      #
+      # @param tool [Ukiryu::Tool] the tool instance
+      # @param test_command [String, Array] command to run
+      # @param timeout [Integer] timeout in seconds
+      # @return [Hash] execution result
+      def execute_test_command(tool, test_command, timeout)
+        cmd_array = if test_command.is_a?(Array)
+                       test_command
+                     else
+                       # Parse command string into array (basic parsing)
+                       test_command.shellsplit
+                     end
+
+        # Build full command with tool executable
+        full_command = [tool.executable] + cmd_array
+
+        # Execute using Open3
+        require 'open3'
+        stdout_str, stderr_str, status = Open3.capture3(*full_command)
+
+        {
+          stdout: stdout_str,
+          stderr: stderr_str,
+          exit_code: status.exitstatus,
+          success: status.success?,
+          runtime: nil # TODO: add runtime measurement
+        }
+      end
+
+      # Validate test result against expectations
+      #
+      # @param result [Hash] execution result
+      # @param test [Hash] test definition with expect section
+      # @return [Hash] validation result with :passed, :errors, :details
+      def validate_test_result(result, test)
+        errors = []
+        details = []
+        passed = true
+
+        expect = test[:expect] || test['expect'] || {}
+
+        # Check exit code
+        expected_exit_code = expect[:exit_code] || expect['exit_code'] || 0
+        if result[:exit_code] != expected_exit_code
+          errors << "Exit code mismatch: expected #{expected_exit_code}, got #{result[:exit_code]}"
+          passed = false
+        else
+          details << "Exit code: #{result[:exit_code]} (as expected)"
+        end
+
+        # Check output_match regex
+        output_match = expect[:output_match] || expect['output_match']
+        if output_match
+          regex = Regexp.new(output_match)
+          if result[:stdout] =~ regex
+            details << "Output matches pattern: #{output_match}"
+          else
+            errors << "Output does not match pattern: #{output_match}"
+            passed = false
+          end
+        end
+
+        # Check output_contains
+        output_contains = expect[:output_contains] || expect['output_contains']
+        if output_contains && !output_contains.empty?
+          output_contains.each do |str|
+            if result[:stdout].include?(str)
+              details << "Output contains: #{str}"
+            else
+              errors << "Output missing string: #{str}"
+              passed = false
+            end
+          end
+        end
+
+        # Check stderr_match regex
+        stderr_match = expect[:stderr_match] || expect['stderr_match']
+        if stderr_match
+          regex = Regexp.new(stderr_match)
+          if result[:stderr] =~ regex
+            details << "Stderr matches pattern: #{stderr_match}"
+          else
+            errors << "Stderr does not match pattern: #{stderr_match}"
+            passed = false
+          end
+        end
+
+        { passed: passed, errors: errors, details: details }
+      end
+
+      # Get current platform as symbol
+      #
+      # @return [Symbol] platform symbol
+      def current_platform_symbol
+        case RbConfig::CONFIG['host_os']
+        when /linux/i
+          :linux
+        when /darwin/i
+          :macos
+        when /mswin|mingw|cygwin/i
+          :windows
+        else
+          :unknown
+        end
+      end
+
+      # Evaluate skip condition (basic implementation)
+      #
+      # @param condition [String] condition string
+      # @param tool [Ukiryu::Tool] tool instance
+      # @param profile_data [Hash] profile data
+      # @return [Boolean] true if condition is met
+      def evaluate_condition(condition, tool, profile_data)
+        # Very basic condition evaluation - can be expanded later
+        # For now, just return false to not skip any tests
+        false
       end
 
       # Execute a simple smoke test for a command
