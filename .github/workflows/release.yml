@@ -2,26 +2,70 @@
 # See https://github.com/metanorma/cimas
 name: release
 
-permissions:
-  contents: write
-  packages: write
-
 on:
   workflow_dispatch:
     inputs:
-      next_version:
-        description: |
-          Next release version. Possible values: x.y.z, major, minor, patch (or pre|rc|etc).
-          Also, you can pass 'skip' to skip 'git tag' and do 'gem push' for the current version
+      version_bump:
+        description: 'Type of version bump to apply'
         required: true
-        default: 'skip'
+        type: choice
+        default: skip
+        options:
+          - skip
+          - major
+          - minor
+          - patch
+          - pre
+          - rc
+      custom_version:
+        description: 'Custom version string (overrides version_bump) - e.g. 2.5.0 or 2.5.0-beta.1'
+        required: false
+        type: string
   repository_dispatch:
     types: [ do-release ]
+  push:
+    tags:
+      - v*
 
 jobs:
   release:
-    uses: relaton/support/.github/workflows/release.yml@main
-    with:
-      next_version: ${{ github.event.inputs.next_version }}
-    secrets:
-      rubygems-api-key: ${{ secrets.LUTAML_CI_RUBYGEMS_API_KEY }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+        run: git fetch --tags origin
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          ruby-version: ruby
+
+      - name: Configure Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Bump version and create tag
+        if: |
+          github.event_name == 'workflow_dispatch' &&
+          (
+            github.event.inputs.version_bump != 'skip' ||
+            github.event.inputs.custom_version != ''
+          )
+        run: |
+          gem install gem-release
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            gem bump --version ${{ github.event.inputs.custom_version }} --tag --push
+          else
+            gem bump --version ${{ github.event.inputs.version_bump }} --tag --push
+          fi
+
+      - name: Release to RubyGems
+        uses: rubygems/release-gem@v1
