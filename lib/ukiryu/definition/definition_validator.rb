@@ -219,15 +219,37 @@ module Ukiryu
               puts "DEBUG: After stringify_keys, checking keys..."
               puts "DEBUG: Top-level keys: #{stringified.keys.inspect}"
               puts "DEBUG: Top-level key classes: #{stringified.keys.map(&:class).inspect}"
+
+              # Check options[0] and flags[0] if they exist
               if stringified['profiles'] && stringified['profiles'][0] &&
                  stringified['profiles'][0]['commands'] &&
-                 stringified['profiles'][0]['commands'][0] &&
-                 stringified['profiles'][0]['commands'][0]['options'] &&
-                 stringified['profiles'][0]['commands'][0]['options'][26]
-                opt26 = stringified['profiles'][0]['commands'][0]['options'][26]
-                puts "DEBUG: Option 26 after stringify: #{opt26.inspect}"
-                puts "DEBUG: Option 26 keys: #{opt26.keys.inspect}"
-                puts "DEBUG: Option 26 name: #{opt26['name'].inspect}"
+                 stringified['profiles'][0]['commands'][0]
+                cmd = stringified['profiles'][0]['commands'][0]
+
+                # Check options[0]
+                if cmd['options'] && cmd['options'][0]
+                  opt0 = cmd['options'][0]
+                  puts "DEBUG: Option 0 after stringify: #{opt0.inspect}"
+                  puts "DEBUG: Option 0 keys: #{opt0.keys.inspect}"
+                  puts "DEBUG: Option 0 name: #{opt0['name'].inspect}"
+                  puts "DEBUG: Option 0 name class: #{opt0['name'].class}"
+                end
+
+                # Check flags[0]
+                if cmd['flags'] && cmd['flags'][0]
+                  flg0 = cmd['flags'][0]
+                  puts "DEBUG: Flag 0 after stringify: #{flg0.inspect}"
+                  puts "DEBUG: Flag 0 keys: #{flg0.keys.inspect}"
+                  puts "DEBUG: Flag 0 name: #{flg0['name'].inspect}"
+                  puts "DEBUG: Flag 0 name class: #{flg0['name'].class}"
+                end
+
+                # Also check options[26] for grep
+                if cmd['options'] && cmd['options'][26]
+                  opt26 = cmd['options'][26]
+                  puts "DEBUG: Option 26 after stringify: #{opt26.inspect}"
+                  puts "DEBUG: Option 26 name: #{opt26['name'].inspect}"
+                end
               end
               puts "DEBUG: JSON::Schema version: #{JSON::Schema::VERSION rescue 'unknown'}"
             end
