@@ -221,6 +221,24 @@ module Ukiryu
           warnings = []
 
           begin
+            # Debug: Check data BEFORE stringify_keys
+            if ENV['DEBUG_SCHEMA_VALIDATION']
+              tool_name = definition['name'] || definition[:name] || 'unknown'
+              puts "DEBUG: validate_against_schema for tool: #{tool_name}"
+
+              # Check flags[0] before stringify
+              if definition['profiles'] && definition['profiles'][0] &&
+                 definition['profiles'][0]['commands'] &&
+                 definition['profiles'][0]['commands'][0] &&
+                 definition['profiles'][0]['commands'][0]['flags'] &&
+                 definition['profiles'][0]['commands'][0]['flags'][0]
+                flg0_before = definition['profiles'][0]['commands'][0]['flags'][0]
+                puts "DEBUG: Flag 0 BEFORE stringify: #{flg0_before.inspect}"
+                puts "DEBUG: Flag 0 name BEFORE stringify: #{flg0_before['name'].inspect}"
+                puts "DEBUG: Flag 0 name class BEFORE stringify: #{flg0_before['name'].class}"
+              end
+            end
+
             # Convert symbol keys to strings for JSON Schema validation
             stringified = stringify_keys(definition)
             # Debug: Check if keys are strings after stringify_keys
