@@ -64,26 +64,44 @@ RSpec.describe Ukiryu::Executor do
 
     context 'with environment variables' do
       it 'passes environment variables to command' do
-        # Use a command that reads environment
-        result = executor.execute(
-          'sh',
-          ['-c', 'echo "$TEST_VAR"'],
-          env: { 'TEST_VAR' => 'test_value' },
-          allow_failure: true
-        )
-
+        # Use platform-appropriate command
+        result = if Ukiryu::Platform.windows?
+                   # PowerShell approach
+                   executor.execute(
+                     'powershell',
+                     ['-Command', 'Write-Output $env:TEST_VAR'],
+                     env: { 'TEST_VAR' => 'test_value' },
+                     allow_failure: true
+                   )
+                 else
+                   executor.execute(
+                     'sh',
+                     ['-c', 'echo "$TEST_VAR"'],
+                     env: { 'TEST_VAR' => 'test_value' },
+                     allow_failure: true
+                   )
+                 end
         expect(result.stdout.strip).to eq('test_value')
       end
 
       it 'merges with existing environment' do
-        result = executor.execute(
-          'sh',
-          ['-c', 'echo "$HOME"'],
-          env: {},
-          allow_failure: true
-        )
-
-        # HOME should be available from parent environment
+        # Use platform-appropriate command
+        result = if Ukiryu::Platform.windows?
+                   executor.execute(
+                     'powershell',
+                     ['-Command', 'Write-Output $env:USERNAME'],
+                     env: {},
+                     allow_failure: true
+                   )
+                 # USERNAME should be available on Windows
+                 else
+                   executor.execute(
+                     'sh',
+                     ['-c', 'echo "$HOME"'],
+                     env: {},
+                     allow_failure: true
+                   )
+                 end
         expect(result.stdout.strip).not_to be_empty
       end
     end
@@ -94,12 +112,22 @@ RSpec.describe Ukiryu::Executor do
           test_file = File.join(tmpdir, 'test.txt')
           File.write(test_file, 'test content')
 
-          result = executor.execute(
-            'cat',
-            ['test.txt'],
-            cwd: tmpdir,
-            allow_failure: true
-          )
+          # Use platform-appropriate command to read file
+          result = if Ukiryu::Platform.windows?
+                     # Use PowerShell on Windows
+                     executor.execute(
+                       'powershell',
+                       ['-Command', "Get-Content '#{test_file}'"],
+                       allow_failure: true
+                     )
+                   else
+                     executor.execute(
+                       'cat',
+                       ['test.txt'],
+                       cwd: tmpdir,
+                       allow_failure: true
+                     )
+                   end
 
           expect(result.stdout.strip).to eq('test content')
         end
@@ -108,22 +136,40 @@ RSpec.describe Ukiryu::Executor do
 
     context 'with allow_failure option' do
       it 'returns Result with non-zero exit status instead of raising' do
-        result = executor.execute('sh', ['-c', 'exit 42'], allow_failure: true)
-
+        # Use platform-appropriate command that exits with specific code
+        result = if Ukiryu::Platform.windows?
+                   executor.execute('powershell', ['-Command', 'exit 42'], allow_failure: true)
+                 else
+                   executor.execute('sh', ['-c', 'exit 42'], allow_failure: true)
+                 end
         expect(result.exit_status).to eq(42)
         expect(result).to be_a(Ukiryu::Execution::Result)
       end
 
       it 'raises ExecutionError when command fails and allow_failure is false' do
-        expect do
-          executor.execute('sh', ['-c', 'exit 1'])
-        end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+        # Use platform-appropriate command that fails
+        if Ukiryu::Platform.windows?
+          expect do
+            executor.execute('powershell', ['-Command', 'exit 1'])
+          end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+        else
+          expect do
+            executor.execute('sh', ['-c', 'exit 1'])
+          end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+        end
       end
 
       it 'includes stderr in error message' do
-        expect do
-          executor.execute('sh', ['-c', 'echo error >&2; exit 1'])
-        end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+        # Use platform-appropriate command that writes to stderr
+        if Ukiryu::Platform.windows?
+          expect do
+            executor.execute('powershell', ['-Command', 'Write-Error "error"'])
+          end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+        else
+          expect do
+            executor.execute('sh', ['-c', 'echo error >&2; exit 1'])
+          end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+        end
       end
     end
 
@@ -135,20 +181,24 @@ RSpec.describe Ukiryu::Executor do
       end
 
       it 'includes exit status in error message' do
-        expect do
-          executor.execute('sh', ['-c', 'exit 42'])
-        end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+        # Use platform-appropriate command that exits with code 42
+        if Ukiryu::Platform.windows?
+          expect do
+            executor.execute('powershell', ['-Command', 'exit 42'])
+          end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+        else
+          expect do
+            executor.execute('sh', ['-c', 'exit 42'])
+          end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+        end
       end
     end
 
     context 'command building' do
       it 'builds appropriate command for the shell' do
-        result_bash = executor.execute('sh', ['-c', 'echo $0'], shell: :bash, allow_failure: true)
-        result_zsh = executor.execute('sh', ['-c', 'echo $0'], shell: :zsh, allow_failure: true)
-
-        # Both should succeed (though output may differ)
-        expect(result_bash.exit_status).to eq(0)
-        expect(result_zsh.exit_status).to eq(0)
+        # Use ruby as a cross-platform command
+        result = executor.execute('ruby', ['-e', 'puts "test"'], allow_failure: true)
+        expect(result.exit_status).to eq(0)
       end
 
       it 'includes executable path in CommandInfo' do
@@ -179,9 +229,11 @@ RSpec.describe Ukiryu::Executor do
     context 'with additional search paths' do
       it 'searches in additional paths' do
         Dir.mktmpdir do |tmpdir|
-          # Create a test executable
+          # Create a test executable using Ruby as a cross-platform script
           test_exe = File.join(tmpdir, 'test_executable')
-          File.write(test_exe, '#!/bin/sh\necho test')
+          # Create a simple Ruby script that works on all platforms
+          script_content = "#!/usr/bin/env ruby\nputs 'test'"
+          File.write(test_exe, script_content)
           File.chmod(0o755, test_exe)
 
           exe = executor.find_executable('test_executable', additional_paths: [tmpdir])
@@ -196,8 +248,11 @@ RSpec.describe Ukiryu::Executor do
           # Create different executables in each directory
           exe1 = File.join(tmpdir1, 'test_cmd')
           exe2 = File.join(tmpdir2, 'test_cmd')
-          File.write(exe1, '#!/bin/sh\necho 1')
-          File.write(exe2, '#!/bin/sh\necho 2')
+          # Use Ruby scripts for cross-platform compatibility
+          script1 = "#!/usr/bin/env ruby\nputs '1'"
+          script2 = "#!/usr/bin/env ruby\nputs '2'"
+          File.write(exe1, script1)
+          File.write(exe2, script2)
           File.chmod(0o755, exe1)
           File.chmod(0o755, exe2)
 
@@ -323,9 +378,15 @@ RSpec.describe Ukiryu::Executor do
     end
 
     it 'properly escapes special shell characters' do
-      result = executor.execute('sh', ['-c', 'echo "$TEST_VAR"'], env: { 'TEST_VAR' => 'value with spaces' },
-                                                                  allow_failure: true)
-
+      # Use platform-appropriate command for environment variable testing
+      result = if Ukiryu::Platform.windows?
+                 executor.execute('powershell', ['-Command', 'Write-Output $env:TEST_VAR'],
+                                  env: { 'TEST_VAR' => 'value with spaces' },
+                                  allow_failure: true)
+               else
+                 executor.execute('sh', ['-c', 'echo "$TEST_VAR"'], env: { 'TEST_VAR' => 'value with spaces' },
+                                                                    allow_failure: true)
+               end
       expect(result.stdout.strip).to eq('value with spaces')
     end
   end

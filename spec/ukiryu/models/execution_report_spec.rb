@@ -48,7 +48,13 @@ RSpec.describe Ukiryu::Models::ExecutionReport do
         stage.start!
 
         expect(stage.instance_variable_get(:@start_time)).to be_a(Time)
-        expect(stage.memory_before).to be > 0
+        # Memory detection is Unix-only (uses `ps` command)
+        # On Windows, memory_before will be 0
+        if Ukiryu::Platform.unix?
+          expect(stage.memory_before).to be > 0
+        else
+          expect(stage.memory_before).to eq(0)
+        end
         expect(stage.memory_after).to eq(0)
       end
 
@@ -68,7 +74,13 @@ RSpec.describe Ukiryu::Models::ExecutionReport do
         expect(stage.duration).to be_a(Float)
         expect(stage.duration).to be >= 0
         expect(stage.formatted_duration).to be_a(String)
-        expect(stage.memory_after).to be > 0
+        # Memory detection is Unix-only (uses `ps` command)
+        # On Windows, memory_after will be 0
+        if Ukiryu::Platform.unix?
+          expect(stage.memory_after).to be > 0
+        else
+          expect(stage.memory_after).to eq(0)
+        end
         expect(stage.memory_delta).to be_a(Integer)
       end
 

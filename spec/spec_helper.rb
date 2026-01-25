@@ -28,9 +28,7 @@ RSpec.configure do |config|
     # Set up test schema path if UKIRYU_SCHEMA_PATH is not already set
     unless ENV['UKIRYU_SCHEMA_PATH']
       test_schema = File.expand_path('fixtures/tool.schema.yaml', __dir__)
-      if File.exist?(test_schema)
-        ENV['UKIRYU_SCHEMA_PATH'] = test_schema
-      end
+      ENV['UKIRYU_SCHEMA_PATH'] = test_schema if File.exist?(test_schema)
     end
   end
 

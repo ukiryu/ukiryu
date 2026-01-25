@@ -189,12 +189,20 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
     it 'returns platform-specific paths' do
       expect(paths).to be_an(Array)
-      expect(paths).to include('/usr/share/ukiryu')
-      expect(paths).to include('/usr/local/share/ukiryu')
       expect(paths).to include(File.expand_path('~/.local/share/ukiryu'))
+
+      if Ukiryu::Platform.windows?
+        expect(paths).to include(File.expand_path('C:/Program Files/Ukiryu'))
+        expect(paths).to include(File.expand_path('C:/Program Files (x86)/Ukiryu'))
+      else
+        expect(paths).to include('/usr/share/ukiryu')
+        expect(paths).to include('/usr/local/share/ukiryu')
+      end
     end
 
     it 'includes homebrew path on macOS' do
+      skip 'Skipped on Windows - Homebrew is Unix-only' if Ukiryu::Platform.windows?
+
       allow(Ukiryu::Platform).to receive(:detect).and_return(:macos)
 
       platform_paths = Ukiryu::Tool.bundled_definition_search_paths

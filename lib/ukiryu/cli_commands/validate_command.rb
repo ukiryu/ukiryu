@@ -117,30 +117,28 @@ module Ukiryu
             say '', :clear
             say "Running #{smoke_tests.length} smoke test(s)...", :cyan
             run_smoke_tests(tool, smoke_tests, profile_data)
-          else
+          elsif tool.profile.profiles&.any?
             # Fallback: test basic command execution if commands are defined
-            if tool.profile.profiles&.any?
-              profile = tool.profile.profiles.first
-              if profile.commands && !profile.commands.empty?
-                say '', :clear
-                say 'Testing command execution (smoke test)...', :cyan
+            profile = tool.profile.profiles.first
+            if profile.commands && !profile.commands.empty?
+              say '', :clear
+              say 'Testing command execution (smoke test)...', :cyan
 
-                profile.commands.each do |cmd_def|
-                  cmd_name = cmd_def.name
-                  begin
-                    test_result = execute_smoke_test(tool, cmd_name)
+              profile.commands.each do |cmd_def|
+                cmd_name = cmd_def.name
+                begin
+                  test_result = execute_smoke_test(tool, cmd_name)
 
-                    if test_result[:success]
-                      say "✓ Command '#{cmd_name}' is available", :green
-                    else
-                      say "⚠ Command '#{cmd_name}' test failed: #{test_result[:message]}", :yellow
-                    end
-                  rescue StandardError => e
-                    say "⚠ Command '#{cmd_name}' test error: #{e.message}", :yellow
+                  if test_result[:success]
+                    say "✓ Command '#{cmd_name}' is available", :green
+                  else
+                    say "⚠ Command '#{cmd_name}' test failed: #{test_result[:message]}", :yellow
                   end
-
-                  break
+                rescue StandardError => e
+                  say "⚠ Command '#{cmd_name}' test error: #{e.message}", :yellow
                 end
+
+                break
               end
             end
           end
@@ -219,13 +217,13 @@ module Ukiryu
       # @param test_command [String, Array] command to run
       # @param timeout [Integer] timeout in seconds
       # @return [Hash] execution result
-      def execute_test_command(tool, test_command, timeout)
+      def execute_test_command(tool, test_command, _timeout)
         cmd_array = if test_command.is_a?(Array)
-                       test_command
-                     else
-                       # Parse command string into array (basic parsing)
-                       test_command.shellsplit
-                     end
+                      test_command
+                    else
+                      # Parse command string into array (basic parsing)
+                      test_command.shellsplit
+                    end
 
         # Build full command with tool executable
         full_command = [tool.executable] + cmd_array
@@ -326,7 +324,7 @@ module Ukiryu
       # @param tool [Ukiryu::Tool] tool instance
       # @param profile_data [Hash] profile data
       # @return [Boolean] true if condition is met
-      def evaluate_condition(condition, tool, profile_data)
+      def evaluate_condition(_condition, _tool, _profile_data)
         # Very basic condition evaluation - can be expanded later
         # For now, just return false to not skip any tests
         false

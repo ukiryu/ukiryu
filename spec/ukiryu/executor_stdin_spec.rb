@@ -5,8 +5,24 @@ require 'tempfile'
 
 RSpec.describe Ukiryu::Executor do
   describe '.execute with stdin' do
-    let(:executable) { '/bin/cat' }
-    let(:args) { [] }
+    # Use platform-appropriate executable for stdin tests
+    let(:executable) do
+      if Ukiryu::Platform.windows?
+        # Use ruby as a portable stdin echo on Windows
+        # ruby -e "puts ARGF.read" echoes stdin to stdout
+        'ruby'
+      else
+        # Use cat on Unix-like systems
+        '/bin/cat'
+      end
+    end
+    let(:args) do
+      if Ukiryu::Platform.windows?
+        ['-e', 'puts ARGF.read']
+      else
+        []
+      end
+    end
 
     context 'with string stdin data' do
       it 'passes stdin data to the command' do
@@ -62,7 +78,9 @@ RSpec.describe Ukiryu::Executor do
     end
 
     context 'with commands that close stdin early' do
-      it 'handles Errno::EPIPE gracefully' do
+      it 'handles Errno::EPIPE gracefully', unix: true do
+        skip 'Skipped on Windows - Unix-specific test' if Ukiryu::Platform.windows?
+
         # head command closes stdin after reading 10 lines
         result = described_class.execute('/usr/bin/head', ['-n', '1'],
                                          stdin: "line1\nline2\nline3\n")

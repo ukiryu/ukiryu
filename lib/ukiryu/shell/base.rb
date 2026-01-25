@@ -27,6 +27,24 @@ module Ukiryu
         raise NotImplementedError, "#{self.class} must implement #escape"
       end
 
+      # Check if a string needs quoting
+      # Strings with spaces, special chars, or empty strings need quoting
+      #
+      # @param string [String] the string to check
+      # @return [Boolean] true if quoting is needed
+      def needs_quoting?(string)
+        str = string.to_s
+        # Empty strings need quoting
+        return true if str.empty?
+        # Strings with whitespace need quoting
+        return true if str =~ /\s/
+        # Strings with shell special characters need quoting
+        # Common special chars: $ & * ( ) [ ] { } | ; < > ? ` ~ ! # @ % "
+        return true if str =~ /[\s&*()\[\]{}|;<>?`~!@%"]/
+
+        false
+      end
+
       # Quote an argument for this shell
       #
       # @param string [String] the string to quote

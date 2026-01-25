@@ -56,12 +56,22 @@ module Ukiryu
       end
 
       # Join executable and arguments into a command line
+      # Uses smart quoting: only quote arguments that need it
       #
       # @param executable [String] the executable path
       # @param args [Array<String>] the arguments
       # @return [String] the complete command line
       def join(executable, *args)
-        [executable, *args.map { |a| quote(a) }].join(' ')
+        args_formatted = args.map do |a|
+          if needs_quoting?(a)
+            quote(a)
+          else
+            # For simple strings, pass without quotes
+            # cmd.exe treats them as literal strings
+            escape(a)
+          end
+        end
+        [executable, *args_formatted].join(' ')
       end
 
       # cmd.exe doesn't need DISPLAY variable

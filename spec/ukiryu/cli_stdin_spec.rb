@@ -24,10 +24,10 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
       # On Unix-like systems, run directly through bash with proper escaping
       # Use bash -c with the command as a single argument to avoid escaping issues
       stdout, stderr, status = if stdin_data
-        Open3.capture3('bash', '-c', command, stdin_data: stdin_data)
-      else
-        Open3.capture3('bash', '-c', command)
-      end
+                                 Open3.capture3('bash', '-c', command, stdin_data: stdin_data)
+                               else
+                                 Open3.capture3('bash', '-c', command)
+                               end
     end
     [stdout + stderr, status]
   end
@@ -109,7 +109,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     end
 
     it 'shows error when file does not exist' do
-      output, status = run_cli_command("bundle exec ./exe/ukiryu exec jq process stdin=@/nonexistent/file.json filter=\".\" 2>&1")
+      output, status = run_cli_command('bundle exec ./exe/ukiryu exec jq process stdin=@/nonexistent/file.json filter="." 2>&1')
 
       expect(output).to include('File not found')
       expect(status.success?).to be false
@@ -226,7 +226,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
       # Test with a command that produces stderr - use syntax error in jq
-      output, status = run_ukiryu_exec('exec jq process --stdin --raw filter=".foo[bar"', '{}')
+      output, = run_ukiryu_exec('exec jq process --stdin --raw filter=".foo[bar"', '{}')
 
       # jq should produce an error in the output
       expect(output).not_to be_empty
