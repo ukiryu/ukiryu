@@ -31,10 +31,14 @@ module Ukiryu
         schema = load_schema(options[:schema_path])
         return ['Failed to load schema'] unless schema
 
+        # Convert symbol keys to strings for JSON Schema validation
+        # JSON Schema validators expect string keys, but YAML.safe_load produces symbol keys
+        stringified_profile = stringify_keys(profile)
+
         # Validate against JSON schema
         begin
           # JSON Schema library expects the data to be a hash
-          validation_errors = JSON::Validator.fully_validate(schema, profile, strict: options[:strict] || false)
+          validation_errors = JSON::Validator.fully_validate(schema, stringified_profile, strict: options[:strict] || false)
 
           # Convert errors to readable format
           validation_errors.each do |error|
@@ -89,6 +93,29 @@ module Ukiryu
       # @return [String] the formatted error
       def format_schema_error(error)
         error
+      end
+
+      # Convert symbol keys to strings for JSON Schema validation
+      #
+      # JSON Schema validators expect string keys in the data structure,
+      # but YAML.safe_load produces symbol keys. This method recursively
+      # converts all symbol keys to strings while preserving values.
+      #
+      # @param hash [Hash] the hash with symbol keys
+      # @return [Hash] hash with string keys
+      def stringify_keys(hash)
+        return hash unless hash.is_a?(Hash)
+
+        hash.transform_keys(&:to_s).transform_values do |v|
+          case v
+          when Hash
+            stringify_keys(v)
+          when Array
+            v.map { |item| item.is_a?(Hash) ? stringify_keys(item) : item }
+          else
+            v
+          end
+        end
       end
     end
   end
