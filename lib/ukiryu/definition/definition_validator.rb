@@ -214,6 +214,23 @@ module Ukiryu
           begin
             # Convert symbol keys to strings for JSON Schema validation
             stringified = stringify_keys(definition)
+            # Debug: Check if keys are strings after stringify_keys
+            if ENV['DEBUG_SCHEMA_VALIDATION']
+              puts "DEBUG: After stringify_keys, checking keys..."
+              puts "DEBUG: Top-level keys: #{stringified.keys.inspect}"
+              puts "DEBUG: Top-level key classes: #{stringified.keys.map(&:class).inspect}"
+              if stringified['profiles'] && stringified['profiles'][0] &&
+                 stringified['profiles'][0]['commands'] &&
+                 stringified['profiles'][0]['commands'][0] &&
+                 stringified['profiles'][0]['commands'][0]['options'] &&
+                 stringified['profiles'][0]['commands'][0]['options'][26]
+                opt26 = stringified['profiles'][0]['commands'][0]['options'][26]
+                puts "DEBUG: Option 26 after stringify: #{opt26.inspect}"
+                puts "DEBUG: Option 26 keys: #{opt26.keys.inspect}"
+                puts "DEBUG: Option 26 name: #{opt26['name'].inspect}"
+              end
+              puts "DEBUG: JSON::Schema version: #{JSON::Schema::VERSION rescue 'unknown'}"
+            end
             validation = JSON::Validator.fully_validate(schema, stringified, errors_as_objects: true)
 
             validation.each do |error|
