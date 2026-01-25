@@ -468,7 +468,7 @@ Ukiryu supports three complementary configuration methods with clear precedence:
 [source,bash]
 ----
 # Global configuration
-export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_REGISTER=/path/to/register
 export UKIRYU_TIMEOUT=180
 export UKIRYU_DEBUG=true
 
@@ -606,7 +606,7 @@ jobs:
 
       - name: Convert SVG to PNG
         env:
-          UKIRYU_REGISTRY: ./register
+          UKIRYU_REGISTER: ./register
         run: |
           ukiryu exec inkscape export \
             inputs=drawing.svg \

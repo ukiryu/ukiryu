@@ -111,7 +111,7 @@ Set environment variables to override all other configuration:
 [source,ruby]
 ----
 # Set before loading Ukiryu
-ENV['UKIRYU_REGISTRY'] = '/path/to/register'
+ENV['UKIRYU_REGISTER'] = '/path/to/register'
 ENV['UKIRYU_TIMEOUT'] = '180'
 ENV['UKIRYU_DEBUG'] = 'true'
 

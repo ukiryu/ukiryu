@@ -71,7 +71,7 @@ ukiryu exec inkscape export \
 [source,bash]
 ----
 # Set default register
-export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_REGISTER=/path/to/register
 
 # Set default timeout for all commands
 export UKIRYU_TIMEOUT=120

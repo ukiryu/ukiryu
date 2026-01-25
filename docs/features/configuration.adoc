@@ -67,17 +67,17 @@ Environment variables provide global configuration that affects all Ukiryu opera
 [source,bash]
 ----
 # Unix/Linux/macOS - Set in shell or .bashrc/.zshrc
-export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_REGISTER=/path/to/register
 export UKIRYU_TIMEOUT=180
 export UKIRYU_DEBUG=true
 
 # Windows Command Prompt
-set UKIRYU_REGISTRY=C:\path\to\register
+set UKIRYU_REGISTER=C:\path\to\register
 set UKIRYU_TIMEOUT=180
 set UKIRYU_DEBUG=true
 
 # Windows PowerShell
-$env:UKIRYU_REGISTRY="C:\path\to\register"
+$env:UKIRYU_REGISTER="C:\path\to\register"
 $env:UKIRYU_TIMEOUT="180"
 $env:UKIRYU_DEBUG="true"
 ----
@@ -88,7 +88,7 @@ $env:UKIRYU_DEBUG="true"
 |===
 |Variable |Type |Description
 
-|`UKIRYU_REGISTRY`
+|`UKIRYU_REGISTER`
 |Path
 |Location of tool profiles directory
 
@@ -346,7 +346,7 @@ result = tool.execute(:export, params, timeout: 60)
 |Setting |ENV |CLI |Ruby API
 
 |Register location
-|✓ `UKIRYU_REGISTRY`
+|✓ `UKIRYU_REGISTER`
 |✓ `--register PATH`
 |✓ `Register.default_register_path=`
 
@@ -590,7 +590,7 @@ Use environment variables for consistent behavior:
 ----
 # .github/workflows/test.yml
 env:
-  UKIRYU_REGISTRY: ./register
+  UKIRYU_REGISTER: ./register
   UKIRYU_TIMEOUT: 180
   UKIRYU_DEBUG: true
 
@@ -624,10 +624,10 @@ Use CLI parameters for flexibility:
 #!/bin/bash
 # script.sh
 
-REGISTRY=${UKIRYU_REGISTRY:-"./register"}
+REGISTER=${UKIRYU_REGISTER:-"./register"}
 TIMEOUT=${UKIRYU_TIMEOUT:-"60"}
 
-ukiryu --register "$REGISTRY" exec inkscape export \
+ukiryu --register "$REGISTER" exec inkscape export \
   inputs=drawing.svg \
   output=drawing.png \
   timeout="$TIMEOUT"

@@ -102,7 +102,7 @@ properties:
   components:
     type: object
     description: |
-      Registry of reusable definitions (v1.2+).
+      Register of reusable definitions (v1.2+).
       Components must be explicitly referenced to have effect.
       Enables sharing common option/argument/flag definitions across commands.
     properties:

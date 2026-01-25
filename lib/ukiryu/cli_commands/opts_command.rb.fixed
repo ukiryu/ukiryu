@@ -12,7 +12,7 @@ module Ukiryu
         # @param tool_name [String] the tool name
         # @param command_name [String, nil] optional command name
       def run(tool_name, command_name = nil)
-          setup_registry
+          setup_register
 
           tool = Tool.get(tool_name)
           tool_commands = tool.commands

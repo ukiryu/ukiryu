@@ -224,7 +224,7 @@ Set environment variables to override all configuration:
 [source,bash]
 ----
 # Set register location
-export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_REGISTER=/path/to/register
 
 # Set default timeout for all commands
 export UKIRYU_TIMEOUT=120
@@ -411,7 +411,7 @@ ukiryu exec inkscape export inputs=drawing.svg output=drawing.png --verbose
 [source,bash]
 ----
 # Specify custom register location
-export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_REGISTER=/path/to/register
 
 ukiryu list
 ----

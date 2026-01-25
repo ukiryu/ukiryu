@@ -16,6 +16,6 @@ gem 'rubocop-rspec'
 # Optional colored output for debug logging
 gem 'paint'
 
-# For optional YAML schema validation in registry
+# For optional YAML schema validation in register
 gem 'bigdecimal'
 gem 'json-schema', '~> 4.0'

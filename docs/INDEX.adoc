@@ -243,7 +243,7 @@ ukiryu exec inkscape export \
 [source,bash]
 ----
 # Set register location
-export UKIRYU_REGISTRY=/path/to/register
+export UKIRYU_REGISTER=/path/to/register
 
 # Set default timeout
 export UKIRYU_TIMEOUT=120

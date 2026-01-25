@@ -11,7 +11,7 @@ module Ukiryu
         #
         # @param tool_name [String] the tool name
       def run(tool_name)
-          setup_registry
+          setup_register
 
           tool = Tool.get(tool_name)
           tool_commands = tool.commands

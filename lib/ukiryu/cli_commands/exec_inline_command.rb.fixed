@@ -18,7 +18,7 @@ module Ukiryu
         # @param command_name [String] the command name
         # @param params [Array<String>] key=value parameter pairs
       def run(tool_name, command_name, *params)
-          setup_registry
+          setup_register
 
           # Parse key=value pairs into arguments hash
           arguments = parse_inline_params(params)

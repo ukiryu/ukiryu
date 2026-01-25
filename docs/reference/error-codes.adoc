@@ -298,7 +298,7 @@ end
   * Check tool name spelling
   * Verify register path is correct
   * List available tools with `ukiryu list`
-  * Check `UKIRYU_REGISTRY` environment variable
+  * Check `UKIRYU_REGISTER` environment variable
 
 [source,ruby]
 ----

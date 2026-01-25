@@ -66,7 +66,7 @@ Ukiryu consists of two separate repositories:
 | **Contributors** | Developers only | Anyone can add tools (no Ruby needed) |
 | **Maintenance** | Code changes for new tools | YAML file changes for new tools |
 | **Validation** | Test framework | Validate YAML against schema |
-| **Discovery** | Gem update | `git pull` on registry |
+| **Discovery** | Gem update | `git pull` on register |
 | **Flexibility** | Coupled | Decoupled - use custom registries |
 
 ---
@@ -95,7 +95,7 @@ end
 Ukiryu turns external CLI commands into Ruby methods:
 
 ```ruby
-# Load tool profiles from registry
+# Load tool profiles from register
 Ukiryu::Register.load_from("ukiryu/register")
 
 # Get the tool
@@ -261,8 +261,8 @@ Ukiryu separates **framework logic** (Ruby) from **tool definitions** (YAML):
 | **Version update** | Requires code + release | Update YAML |
 | **Maintenance** | Developers only | Anyone can edit |
 | **Validation** | Compile-time | Load-time |
-| **Distribution** | Gem releases | Separate registry |
-| **Community** | Pull requests | PRs to registry repo |
+| **Distribution** | Gem releases | Separate register |
+| **Community** | Pull requests | PRs to register repo |
 
 ### YAML Profile Structure
 
@@ -421,15 +421,15 @@ ukiryu-register/
 ├── schemas/
 │   ├── tool-profile.yaml.schema
 │   ├── command-definition.yaml.schema
-│   └── registry.yaml.schema
+│   └── register.yaml.schema
 ├── docs/
 │   ├── inkscape.adoc
 │   ├── ghostscript.adoc
 │   ├── contributing.adoc
-│   └── registry.adoc
+│   └── register.adoc
 ├── lib/
 │   └── ukiryu/
-│       └── registry.rb           # Register helper library
+│       └── register.rb           # Register helper library
 ├── Gemfile                         # json-schema gem
 ├── Rakefile                        # Validation tasks
 └── README.adoc
@@ -442,7 +442,7 @@ ukiryu-register/
 
 **Loading profiles in Ukiryu:**
 ```ruby
-# Load from registry
+# Load from register
 Ukiryu::Register.load_from("/path/to/ukiryu/register")
 
 # Or load from gem-builtin profiles
@@ -463,7 +463,7 @@ inkscape.export(
 
 **Schema validation with `json-schema` gem:**
 ```ruby
-# In registry Rakefile
+# In register Rakefile
 require 'json-schema'
 
 namespace :validate do
@@ -1088,7 +1088,7 @@ properties:
 **Validation with `json-schema` gem:**
 
 ```ruby
-# In registry Rakefile
+# In register Rakefile
 require 'json-schema'
 require 'yaml'
 
@@ -1125,7 +1125,7 @@ end
 ### Usage Examples
 
 ```ruby
-# Load from registry
+# Load from register
 Ukiryu::Register.load_from("~/.ukiryu/register")
 
 # Or load from gem
@@ -1163,7 +1163,7 @@ result = inkscape.query(
 
 ## Core DSL Design (For Custom Tools)
 
-For tools not in the registry, users can still use Ruby DSL:
+For tools not in the register, users can still use Ruby DSL:
 
 ### Tool Declaration
 
@@ -2762,7 +2762,7 @@ Ukiryu succeeds when:
 2. ✅ **Exact profile matching** - No fallbacks (version compatibility OK)
 3. ✅ **Type-safe parameters** - All types validated, shell-escaped automatically
 4. ✅ **Semantic validation** - Platform-specific paths rejected on wrong platforms
-5. ✅ **YAML profile registry** - Tool definitions maintained in YAML, not code
+5. ✅ **YAML profile register** - Tool definitions maintained in YAML, not code
 6. ✅ **Schema validation** - All YAML profiles validated against JSON Schema
 7. ✅ **Profile inheritance** - Avoid duplication with YAML inheritance
 8. ✅ **Vectory replacement** - Full replacement of Vectory wrappers in 70% less code
@@ -2771,7 +2771,7 @@ Ukiryu succeeds when:
 11. ✅ **Zero dependencies** - Ruby stdlib only
 12. ✅ **Argument/option/flag distinction** - Clear DSL concepts
 13. ✅ **PATH-only on Unix** - No hardcoded paths on Unix/macOS
-14. ✅ **Community registry** - Separate registry repo for tool profiles
+14. ✅ **Community register** - Separate register repo for tool profiles
 15. ✅ **Option format variations** - Support all CLI option formats
 16. ✅ **Value separators** - Comma, semicolon, colon, space, pipe, plus
 17. ✅ **Environment variables** - Per-command environment variable support
@@ -2785,13 +2785,13 @@ Ukiryu succeeds when:
 1. **YAML profiles over Ruby DSL**: Tool definitions should be maintained in YAML files, not Ruby code. This allows:
    - Non-developers to add/update tools
    - Faster iteration without gem releases
-   - Community-contributed profile registry
+   - Community-contributed profile register
    - Separation of framework (Ruby) from configuration (YAML)
 
 2. **Hybrid architecture**:
    - **Ruby framework**: Shell detection, escaping, execution, validation
-   - **YAML registry**: Tool definitions, versions, platform profiles
-   - Users can still use Ruby DSL for custom tools not in registry
+   - **YAML register**: Tool definitions, versions, platform profiles
+   - Users can still use Ruby DSL for custom tools not in register
 
 3. **"symbols in shell"**: User correctly pointed out that `:symbol` is a Ruby type, not a shell concept. In the shell, we pass strings. The `:symbol` type is for Ruby-level validation only.
 
@@ -2842,7 +2842,7 @@ Ukiryu succeeds when:
 **Register repo structure:**
 
 ```
-ukiryu-register/                    # Community registry repo
+ukiryu-register/                    # Community register repo
 ├── tools/                         # Tool definitions (dir by command name)
 │   ├── inkscape/
 │   │   ├── 1.0.yaml              # Version-specific profiles
@@ -2865,18 +2865,18 @@ ukiryu-register/                    # Community registry repo
 ├── schemas/                       # YAML Schema files
 │   ├── tool-profile.yaml.schema
 │   ├── command-definition.yaml.schema
-│   └── registry.yaml.schema
+│   └── register.yaml.schema
 ├── docs/                          # AsciiDoc documentation
 │   ├── inkscape.adoc
 │   ├── ghostscript.adoc
 │   ├── imagemagick.adoc
 │   ├── git.adoc
 │   ├── contributing.adoc
-│   ├── registry.adoc
+│   ├── register.adoc
 │   └── README.adoc
 ├── lib/                           # Register helper library
 │   └── ukiryu/
-│       └── registry.rb
+│       └── register.rb
 ├── Gemfile                         # json-schema gem
 ├── Rakefile                        # Validation tasks
 └── README.adoc                     # Register overview
@@ -2889,7 +2889,7 @@ ukiryu/                             # Ruby gem
 ├── lib/
 │   ├── ukiryu.rb
 │   ├── ukiryu/
-│   │   ├── registry.rb            # YAML loader from registry
+│   │   ├── register.rb            # YAML loader from register
 │   │   ├── tool.rb                # Tool from YAML
 │   │   ├── shell.rb               # Shell detection (EXPLICIT)
 │   │   ├── shell/
