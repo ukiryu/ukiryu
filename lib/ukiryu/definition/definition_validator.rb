@@ -73,6 +73,12 @@ module Ukiryu
           errors = []
           warnings = []
 
+          # Debug: Check which tool is being validated
+          if ENV['DEBUG_SCHEMA_VALIDATION']
+            tool_name = definition['name'] || definition[:name] || 'unknown'
+            puts "DEBUG: Validating tool: #{tool_name}"
+          end
+
           # Basic structural validation (always available)
           structural_result = validate_structure(definition)
           errors.concat(structural_result[:errors])
@@ -82,6 +88,9 @@ module Ukiryu
           if schema_validation_available?
             schema = schema_path ? load_schema(schema_path) : find_and_load_schema
             if schema
+              if ENV['DEBUG_SCHEMA_VALIDATION']
+                puts "DEBUG: Schema loaded, proceeding with JSON Schema validation"
+              end
               schema_result = validate_against_schema(definition, schema)
               errors.concat(schema_result[:errors])
               warnings.concat(schema_result[:warnings])
