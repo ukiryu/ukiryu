@@ -16,6 +16,7 @@ module Ukiryu
       class_option :schema, type: :string, desc: 'Path to JSON Schema file'
       class_option :strict, type: :boolean, default: false, desc: 'Treat warnings as errors'
       class_option :executable, type: :boolean, default: false, desc: 'Test executable against actual tool'
+      class_option :all, type: :boolean, default: false, desc: 'Enable all validations (schema + executable + smoke tests)'
       class_option :register, type: :string, desc: 'Path to tool register'
 
       desc 'file PATH', 'Validate a definition file'
@@ -40,6 +41,13 @@ module Ukiryu
       #
       # @param path [String] file path
       def validate_file(path)
+        validate_file_impl(path)
+      end
+
+      # Validate a single file (implementation)
+      #
+      # @param path [String] file path
+      def validate_file_impl(path)
         # First, validate the definition structure
         result = Ukiryu::Definition::DefinitionValidator.validate_file(
           path,
@@ -48,8 +56,8 @@ module Ukiryu
 
         output_result(result, path)
 
-        # If structural validation passed and --executable flag is set, test the executable
-        test_executable(path) if options[:executable] && result.valid?
+        # If structural validation passed and --executable or --all flag is set, test the executable
+        test_executable(path) if (options[:executable] || options[:all]) && result.valid?
 
         exit 1 if result.invalid? || (result.has_warnings? && options[:strict])
       end
