@@ -62,6 +62,9 @@ module Ukiryu
       # @param args [Array<String>] the arguments
       # @return [String] the complete command line
       def join(executable, *args)
+        # Quote executable if it needs quoting (e.g., contains spaces)
+        exe_formatted = needs_quoting?(executable) ? quote(executable) : escape(executable)
+
         args_formatted = args.map do |a|
           if needs_quoting?(a)
             quote(a)
@@ -71,7 +74,7 @@ module Ukiryu
             escape(a)
           end
         end
-        [executable, *args_formatted].join(' ')
+        [exe_formatted, *args_formatted].join(' ')
       end
 
       # cmd.exe doesn't need DISPLAY variable
