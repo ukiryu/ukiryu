@@ -25,11 +25,20 @@ module Ukiryu
 
       # Quote an argument for PowerShell
       # Uses single quotes for literal strings
+      # Uses double quotes for executable paths (works in both cmd.exe and PowerShell)
       #
       # @param string [String] the string to quote
+      # @param for_exe [Boolean] true if quoting for executable path
       # @return [String] the quoted string
-      def quote(string)
-        "'#{escape(string)}'"
+      def quote(string, for_exe: false)
+        if for_exe
+          # For executable paths, use double quotes which work in both cmd.exe and PowerShell
+          # This is needed because Ruby's Open3 uses cmd.exe on Windows, not PowerShell
+          "\"#{string}\""
+        else
+          # For arguments, use single quotes for literal strings
+          "'#{escape(string)}'"
+        end
       end
 
       # Format an environment variable reference
@@ -48,12 +57,9 @@ module Ukiryu
       # @return [String] the complete command line
       def join(executable, *args)
         # Quote executable if it needs quoting (e.g., contains spaces)
-        # PowerShell requires the call operator (&) before quoted executable paths
-        if needs_quoting?(executable)
-          exe_formatted = "& #{quote(executable)}"
-        else
-          exe_formatted = executable
-        end
+        # Use double quotes for executables (works in both cmd.exe and PowerShell)
+        # Ruby's Open3 on Windows uses cmd.exe, not PowerShell
+        exe_formatted = needs_quoting?(executable) ? quote(executable, for_exe: true) : executable
 
         args_formatted = args.map do |a|
           if needs_quoting?(a)
