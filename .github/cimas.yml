@@ -1,8 +1,0 @@
-# Cimas configuration for Ukiryu
-# See https://github.com/metanorma/cimas
-
-# Exclude Windows from auto-generated rake workflow
-# We have a custom Windows workflow that installs required tools
-platforms:
-  exclude:
-    - windows
