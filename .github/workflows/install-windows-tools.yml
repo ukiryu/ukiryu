@@ -57,18 +57,35 @@ jobs:
           echo "PATH=$env:Path" >> $env:GITHUB_ENV
 
       - name: Verify installations
+        shell: pwsh
         run: |
           Write-Host "=== Verifying installations ==="
+          Write-Host ""
           Write-Host "ImageMagick:"
           magick --version
-          Write-Host "Ghostscript:"
-          gs --version
+          Write-Host ""
+          Write-Host "Ghostscript (Windows uses gswin64c/gswin32c):"
+          $gsFound = $false
+          @('gswin64c', 'gswin32c', 'gs') | ForEach-Object {
+            if (Get-Command $_ -ErrorAction SilentlyContinue) {
+              Write-Host "Found: $_"
+              & $_ --version
+              $gsFound = $true
+            }
+          }
+          if (-not $gsFound) {
+            Write-Host "WARNING: Ghostscript executable not found in PATH"
+          }
+          Write-Host ""
           Write-Host "FFmpeg:"
           ffmpeg -version
+          Write-Host ""
           Write-Host "Pandoc:"
           pandoc --version
+          Write-Host ""
           Write-Host "jq:"
           jq --version
+          Write-Host ""
           Write-Host "yq:"
           yq --version
 
