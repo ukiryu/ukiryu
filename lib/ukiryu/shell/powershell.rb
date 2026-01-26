@@ -48,7 +48,12 @@ module Ukiryu
       # @return [String] the complete command line
       def join(executable, *args)
         # Quote executable if it needs quoting (e.g., contains spaces)
-        exe_formatted = needs_quoting?(executable) ? quote(executable) : executable
+        # PowerShell requires the call operator (&) before quoted executable paths
+        if needs_quoting?(executable)
+          exe_formatted = "& #{quote(executable)}"
+        else
+          exe_formatted = executable
+        end
 
         args_formatted = args.map do |a|
           if needs_quoting?(a)
