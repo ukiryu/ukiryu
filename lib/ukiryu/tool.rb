@@ -13,6 +13,7 @@ require_relative 'version_detector'
 require_relative 'logger'
 require_relative 'tool_index'
 require_relative 'models/routing'
+require_relative 'errors'
 
 module Ukiryu
   # Tool wrapper class for external command-line tools
@@ -441,7 +442,17 @@ module Ukiryu
     #
     # @return [String, nil] the tool version
     def version
-      @version || detect_version
+      return @version if @version
+
+      info = detect_version
+      info&.to_s
+    end
+
+    # Get the tool version info (full metadata)
+    #
+    # @return [Models::VersionInfo, nil] the version info or nil
+    def version_info
+      @version_info ||= detect_version
     end
 
     # Get the definition source if loaded from non-register source
@@ -719,14 +730,23 @@ module Ukiryu
 
     # Detect tool version using VersionDetector
     #
-    # @return [String, nil] the detected version or nil if not detected
+    # Supports both legacy format (command/pattern) and new methods array.
+    # The methods array allows fallback hierarchy: try command first,
+    # then man page, etc.
+    #
+    # @return [Models::VersionInfo, nil] the version info or nil if not detected
     public
 
     def detect_version
       vd = @profile.version_detection
       return nil unless vd
 
-      # Only attempt version detection if command is configured
+      # Check for new detection_methods array format
+      if vd.respond_to?(:detection_methods) && vd.detection_methods && !vd.detection_methods.empty?
+        return detect_version_with_detection_methods(vd.detection_methods)
+      end
+
+      # Legacy format: command-based detection
       return nil if vd.command.nil? || vd.command.empty?
 
       # For man page detection, the executable is 'man' and command is the tool name
@@ -743,12 +763,67 @@ module Ukiryu
         command_args = vd.command
       end
 
-      VersionDetector.detect(
+      VersionDetector.detect_info(
         executable: executable,
         command: command_args,
         pattern: vd.pattern || /(\d+\.\d+)/,
         shell: @shell,
         source: source
+      )
+    end
+
+    # Detect version using detection_methods array with fallback hierarchy
+    #
+    # @param detection_methods [Array] array of method definitions from YAML
+    # @return [Models::VersionInfo, nil] version info or nil
+    def detect_version_with_detection_methods(detection_methods)
+      # Convert YAML detection_methods to format expected by VersionDetector
+      detector_methods = detection_methods.map do |m|
+        # Handle both Hash and Lutaml::Model objects
+        type = if m.respond_to?(:type)
+                 m.type
+               elsif m.is_a?(Hash)
+                 m[:type] || m['type']
+               end
+
+        if type == :man_page || type == 'man_page'
+          paths = if m.respond_to?(:paths)
+                    m.paths
+                  elsif m.is_a?(Hash)
+                    m[:paths] || m['paths']
+                  else
+                    {}
+                  end
+
+          {
+            type: :man_page,
+            paths: paths
+          }
+        else
+          command = if m.respond_to?(:command)
+                      m.command
+                    elsif m.is_a?(Hash)
+                      m[:command] || m['command']
+                    end
+
+          pattern = if m.respond_to?(:pattern)
+                      m.pattern
+                    elsif m.is_a?(Hash)
+                      m[:pattern] || m['pattern']
+                    end
+
+          {
+            type: :command,
+            command: command || '--version',
+            pattern: pattern || /(\d+\.\d+)/
+          }
+        end
+      end
+
+      VersionDetector.detect_with_methods(
+        executable: @executable,
+        methods: detector_methods,
+        shell: @shell
       )
     end
 
@@ -773,7 +848,7 @@ module Ukiryu
       end
 
       # If installed version unknown, probe for it
-      installed = detect_version if !installed && mode == :probe
+      installed = detect_version&.to_s if !installed && mode == :probe
 
       # If still unknown, handle based on mode
       unless installed

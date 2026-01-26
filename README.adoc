@@ -83,7 +83,7 @@ Without Ukiryu, CLI tools suffer from:
 === The Ukiryu Solution
 
 [cols="1,1,4"]
-|===|===
+|===
 |Problem |Traditional CLI |Ukiryu Solution
 
 |Argument fragility
@@ -107,18 +107,19 @@ Without Ukiryu, CLI tools suffer from:
 
 |Discovery friction
 |`tool --help` |`ukiryu describe tool command`
+
 |===
 
 === Why "OpenAPI for CLIs"?
 
-OpenAPI revolutionized REST APIs by:
+OpenAPI provides the following benefits for REST APIs by:
 
 1. **Standardizing** - Machine-readable schema definitions
 2. **Documenting** - Auto-generated interactive documentation
 3. **Type-Safe** - Request/response validation
 4. **Versioning** - Multiple API versions coexisting
 
-Ukiryu brings the same revolution to CLI tools:
+Ukiryu provides the same benefits for CLI tools by:
 
 * **Schema**: YAML profiles replace grepping --help
 * **Docs**: `ukiryu describe` replaces man pages
@@ -136,7 +137,8 @@ Ukiryu brings the same revolution to CLI tools:
 // What is Ukiryu?
 == What is Ukiryu?
 
-Ukiryu is a framework that turns CLI tools into well-defined, versioned APIs through declarative YAML profiles.
+Ukiryu is a framework that turns CLI tools into well-defined, versioned APIs
+through declarative YAML profiles.
 
 === Key Concepts
 
@@ -150,32 +152,32 @@ Ukiryu is a framework that turns CLI tools into well-defined, versioned APIs thr
 
 [source]
 ----
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                    │
+┌───────────────────────────────────────────────────────────────────┐
+│                                                                   │
 │  User Code (Ruby / CLI)                                           │
 │  ├─ tool.execute(:inkscape, { inputs: [...] })                    │
 │  └─ ukiryu exec inkscape export inputs=...                        │
-│                                                                    │
+│                                                                   │
 └─────────────────────────────┬─────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────▼─────────────────────────────────────┐
-│  Ukiryu Framework                                                  │
-│  ├─ Register (loads YAML profiles)                                  │
-│  ├─ Tool (selects profile, detects version)                           │
-│  ├─ CommandBuilder (formats arguments for shell)                    │
-│  ├─ Executor (runs commands, captures output)                        │
-│  └─ Shell Layer (platform-specific quoting/escaping)                │
-│                                                                    │
+│  Ukiryu Framework                                                 │
+│  ├─ Register (loads YAML profiles)                                │
+│  ├─ Tool (selects profile, detects version)                       │
+│  ├─ CommandBuilder (formats arguments for shell)                  │
+│  ├─ Executor (runs commands, captures output)                     │
+│  └─ Shell Layer (platform-specific quoting/escaping)              │
+│                                                                   │
 └─────────────────────────────┬─────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────▼─────────────────────────────────────┐
-│  YAML Tool Profiles (Declarative API Definition)                   │
-│  ├─ tools/inkscape/1.0.yaml (Modern Inkscape)                        │
-│  ├─ tools/inkscape/0.92.yaml (Legacy Inkscape)                       │
-│  └─ tools/imagemagick/7.1.yaml (ImageMagick 7.1)                   │
-└──────────────────────────────────────────────────────────────────────┘
+│  YAML Tool Profiles (Declarative API Definition)                  │
+│  ├─ tools/inkscape/1.0.yaml (Modern Inkscape)                     │
+│  ├─ tools/inkscape/0.92.yaml (Legacy Inkscape)                    │
+│  └─ tools/imagemagick/7.1.yaml (ImageMagick 7.1)                  │
+└───────────────────────────────────────────────────────────────────┘
 ----
 
 === Tool Profile Schema

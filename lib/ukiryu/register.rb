@@ -98,7 +98,7 @@ module Ukiryu
         # First try exact name match
         yaml_content = load_tool_yaml(name, options.merge(register_path: register_path))
         if yaml_content
-          hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol])
+          hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
           return ToolMetadata.from_hash(hash, tool_name: name.to_s, register_path: register_path) if hash
         end
 
@@ -162,7 +162,7 @@ module Ukiryu
         yaml_content = load_tool_yaml(name, options)
         return Models::ValidationResult.not_found(name.to_s) unless yaml_content
 
-        profile = YAML.safe_load(yaml_content, permitted_classes: [Symbol])
+        profile = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
         return Models::ValidationResult.invalid(name.to_s, ['Failed to parse YAML']) unless profile
 
         errors = SchemaValidator.validate_profile(profile, options)

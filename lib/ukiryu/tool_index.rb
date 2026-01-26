@@ -160,7 +160,7 @@ module Ukiryu
       # Scan all tool directories for metadata
       Dir.glob(File.join(tools_dir, '*', '*.yaml')).each do |file|
         # Load only the top-level keys (metadata) without full parsing
-        hash = YAML.safe_load(File.read(file), permitted_classes: [Symbol])
+        hash = YAML.safe_load(File.read(file), permitted_classes: [Symbol], aliases: true)
         next unless hash
 
         tool_name = File.basename(File.dirname(file))
@@ -197,7 +197,7 @@ module Ukiryu
       yaml_content = load_yaml_for_tool(tool_name)
       return nil unless yaml_content
 
-      hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol])
+      hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
       return nil unless hash
 
       ToolMetadata.from_hash(hash, tool_name: tool_name.to_s, register_path: register_path)

@@ -45,6 +45,11 @@ module Ukiryu
         cwd = options[:cwd]
         stdin = options[:stdin]
 
+        # Suppress thread warnings from Open3 (cosmetic IOError from stream closure)
+        # Open3's internal threads may raise IOError when streams close early
+        original_setting = Thread.report_on_exception
+        Thread.report_on_exception = false
+
         started_at = Time.now
         begin
           result = if stdin
@@ -55,6 +60,8 @@ module Ukiryu
         rescue Timeout::Error
           Time.now
           raise TimeoutError, "Command timed out after #{timeout} seconds: #{executable}"
+        ensure
+          Thread.report_on_exception = original_setting
         end
         finished_at = Time.now
 

@@ -2,6 +2,7 @@
 
 require_relative 'executor'
 require_relative 'platform'
+require_relative 'models/search_paths'
 
 module Ukiryu
   # Executable locator for finding tool executables
@@ -74,7 +75,7 @@ module Ukiryu
 
       # Normalize search paths to array format
       #
-      # @param search_paths [Array<String>, Models::SearchPaths] the search paths
+      # @param search_paths [Array<String>, Models::SearchPaths, Hash] the search paths
       # @param platform [Symbol] the platform
       # @return [Array<String>] normalized array of paths
       def normalize_search_paths(search_paths, platform)
@@ -82,6 +83,12 @@ module Ukiryu
 
         # If it's a SearchPaths model, get platform-specific paths
         return search_paths.for_platform(platform) || [] if search_paths.is_a?(Models::SearchPaths)
+
+        # If it's a Hash, extract platform-specific paths
+        if search_paths.is_a?(Hash)
+          platform_paths = search_paths[platform] || search_paths[platform.to_s]
+          return platform_paths || [] if platform_paths
+        end
 
         # Already an array
         search_paths

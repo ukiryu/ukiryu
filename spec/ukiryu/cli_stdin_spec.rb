@@ -118,10 +118,20 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
   describe 'stdin=data parameter' do
     it 'passes data directly to command stdin' do
-      # NOTE: Due to shell parsing, this test may be flaky.
-      # The stdin parameter should work, but shell escaping makes it difficult to test reliably.
-      # We'll skip this test for now and rely on the other stdin tests.
-      skip 'Shell parsing makes direct stdin data parameter testing unreliable'
+      skip 'Unix pipe tests require Unix shell' if platform == :windows
+
+      # Use stdin=@filename instead of stdin='data' to avoid shell escaping issues
+      Tempfile.create(['ukiryu-stdin-test'], suffix: '.json') do |file|
+        file.write('{"test": "value"}')
+        file.flush  # Ensure data is written to disk
+
+        output, status = run_ukiryu_exec("exec jq process stdin=@#{file.path} filter=.test --format=json")
+
+        parsed = JSON.parse(output)
+        expect(parsed).not_to be_nil
+        expect(parsed['output']['stdout'].strip).to eq('"value"')
+        expect(status.success?).to be true
+      end
     end
   end
 
@@ -198,13 +208,14 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     end
 
     it 'can process output from curl' do
-      skip 'Requires network access' unless ENV['ENABLE_NETWORK_TESTS']
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
-      # Test with a real API or mock server
-      result, status = run_cli_command('curl -s https://httpbin.org/json | bundle exec ./exe/ukiryu exec jq process --stdin filter=".slideshow.title" --format=json')
+      # Simulate curl output using echo instead of actual network call
+      json_data = '{"slideshow": {"title": "Test Presentation"}}'
+      result, status = run_cli_command("echo '#{json_data}' | bundle exec ./exe/ukiryu exec jq process --stdin filter='.slideshow.title' --format=json")
 
       expect(result).not_to be_empty
+      expect(result).to include('Test Presentation')
       expect(status.success?).to be true
     end
   end

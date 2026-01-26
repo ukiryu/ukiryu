@@ -59,7 +59,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     it 'detects version' do
       skip 'bzip2 not installed' unless tool.available?
 
-      result = `bzip2 --version 2>&1`
+      result = `bzip2 --help 2>&1`
+
       # Handle possible encoding issues
       result = result.encode('UTF-8', invalid: :replace, undef: :replace) if result.respond_to?(:encode)
       expect(result).to match(/Version [\d.]+/)

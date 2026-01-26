@@ -217,7 +217,7 @@ module Ukiryu
       def self.metadata_from_file(yaml_file, source_type)
         # Try to load just the name and version from YAML
         yaml_content = File.read(yaml_file)
-        data = YAML.safe_load(yaml_content, permitted_classes: [Symbol])
+        data = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
 
         return nil unless data.is_a?(Hash)
         return nil unless data['name']

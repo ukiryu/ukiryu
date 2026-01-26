@@ -183,7 +183,7 @@ module Ukiryu
     # @param error [Exception] the error to format
     # @return [String] the formatted error message
     def format_error_message(error)
-      message = error.message.to_s
+      message = error.message.to_s.dup
       return message if error.is_a?(Thor::Error) && !message.empty?
 
       # Add class prefix for non-Thor errors or empty messages
