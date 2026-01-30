@@ -8,11 +8,21 @@ module Ukiryu
   # Provides EXPLICIT shell detection with no fallbacks.
   # If shell cannot be determined, raises a clear error.
   module Shell
+    # Use autoload for lazy loading of shell implementations
+    autoload :Bash, 'ukiryu/shell/bash'
+    autoload :Zsh, 'ukiryu/shell/zsh'
+    autoload :Fish, 'ukiryu/shell/fish'
+    autoload :Sh, 'ukiryu/shell/sh'
+    autoload :Dash, 'ukiryu/shell/dash'
+    autoload :Tcsh, 'ukiryu/shell/tcsh'
+    autoload :PowerShell, 'ukiryu/shell/powershell'
+    autoload :Cmd, 'ukiryu/shell/cmd'
+
     # All supported shell types
-    VALID_SHELLS = %i[bash zsh fish sh powershell cmd].freeze
+    VALID_SHELLS = %i[bash zsh fish sh dash tcsh powershell cmd].freeze
 
     # Platform-specific shell mappings
-    UNIX_SHELLS = %i[bash zsh fish sh].freeze
+    UNIX_SHELLS = %i[bash zsh fish sh dash tcsh].freeze
     WINDOWS_SHELLS = %i[powershell cmd bash].freeze
 
     class << self
@@ -39,6 +49,36 @@ module Ukiryu
       # @return [Array<Symbol>] list of valid shells for current platform
       def valid_for_platform
         Platform.windows? ? WINDOWS_SHELLS.dup : UNIX_SHELLS.dup
+      end
+
+      # Get shell executable path for the given shell name
+      #
+      # @param shell_sym [Symbol] the shell symbol
+      # @return [String] the shell executable path
+      # @raise [ArgumentError] if shell is not valid
+      def executable_path(shell_sym)
+        return nil unless valid?(shell_sym)
+
+        case shell_sym
+        when :bash
+          '/bin/bash'
+        when :zsh
+          '/bin/zsh'
+        when :fish
+          '/usr/bin/fish'
+        when :sh
+          '/bin/sh'
+        when :dash
+          '/bin/dash'
+        when :tcsh
+          '/bin/tcsh'
+        when :powershell
+          'pwsh' # PowerShell Core
+        when :cmd
+          'cmd'
+        else
+          raise ArgumentError, "Unknown shell: #{shell_sym}"
+        end
       end
 
       # Convert string to shell symbol
@@ -70,6 +110,10 @@ module Ukiryu
           shell_available_on_unix?('fish')
         when :sh
           shell_available_on_unix?('sh')
+        when :dash
+          shell_available_on_unix?('dash')
+        when :tcsh
+          shell_available_on_unix?('tcsh')
         when :powershell
           powershell_available?
         when :cmd
@@ -128,22 +172,20 @@ module Ukiryu
       def class_for(name)
         case name
         when :bash
-          require_relative 'shell/bash'
           Bash
         when :zsh
-          require_relative 'shell/zsh'
           Zsh
         when :fish
-          require_relative 'shell/fish'
           Fish
         when :sh
-          require_relative 'shell/sh'
           Sh
+        when :dash
+          Dash
+        when :tcsh
+          Tcsh
         when :powershell
-          require_relative 'shell/powershell'
           PowerShell
         when :cmd
-          require_relative 'shell/cmd'
           Cmd
         else
           raise UnknownShellError, "Unknown shell: #{name}"
@@ -156,14 +198,18 @@ module Ukiryu
       #
       # @return [Symbol] detected shell
       def detect_windows_shell
-        # PowerShell check
-        return :powershell if ENV['PSModulePath']
-
-        # Git Bash / MSYS check
-        return :bash if ENV['MSYSTEM'] || ENV['MINGW_PREFIX']
+        # Git Bash / MSYS check - MUST come before SHELL check
+        # because MSYS2 sets SHELL to Unix shell paths which causes
+        # invalid windows/zsh combinations
+        if ENV['MSYSTEM'] || ENV['MINGW_PREFIX']
+          return :bash
+        end
 
         # WSL check
         return :bash if ENV['WSL_DISTRO']
+
+        # PowerShell check
+        return :powershell if ENV['PSModulePath']
 
         # Default to cmd on Windows
         :cmd
@@ -176,34 +222,87 @@ module Ukiryu
         shell_env = ENV['SHELL']
 
         # Try to determine from SHELL environment variable
-        raise UnknownShellError, unknown_shell_error_msg('SHELL environment variable not set') unless shell_env
-        return :bash if shell_env.end_with?('bash')
-        return :zsh if shell_env.end_with?('zsh')
-        return :fish if shell_env.end_with?('fish')
-        return :sh if shell_env.end_with?('sh')
+        if shell_env
+          return :bash if shell_env.end_with?('bash')
+          return :zsh if shell_env.end_with?('zsh')
+          return :fish if shell_env.end_with?('fish')
+          return :sh if shell_env.end_with?('sh')
+          return :dash if shell_env.end_with?('dash')
+          return :tcsh if shell_env.end_with?('tcsh')
 
-        # Try to determine from executable name
-        shell_name = File.basename(shell_env)
-        case shell_name
-        when 'bash'
-          :bash
-        when 'zsh'
-          :zsh
-        when 'fish'
-          :fish
-        when 'sh'
-          :sh
-        else
-          # Unknown shell in ENV - check if executable
-          unless File.executable?(shell_env)
-            raise UnknownShellError,
-                  unknown_shell_error_msg("Unknown shell in SHELL: #{shell_env}")
+          # Try to determine from executable name
+          shell_name = File.basename(shell_env)
+          case shell_name
+          when 'bash'
+            :bash
+          when 'zsh'
+            :zsh
+          when 'fish'
+            :fish
+          when 'sh'
+            :sh
+          when 'dash'
+            :dash
+          when 'tcsh'
+            :tcsh
+          else
+            # Unknown shell in ENV - check if executable
+            unless File.executable?(shell_env)
+              raise UnknownShellError,
+                    unknown_shell_error_msg("Unknown shell in SHELL: #{shell_env}")
+            end
+
+            # Return as symbol for custom shell
+            shell_name.to_sym
           end
-
-          # Return as symbol for custom shell
-          shell_name.to_sym
-
+        else
+          # SHELL not set - try fallback methods
+          detected = detect_shell_from_shells_file || detect_shell_from_path
+          unless detected
+            raise UnknownShellError, unknown_shell_error_msg(
+              'Unable to detect shell: SHELL not set and no common shells found in PATH'
+            )
+          end
+          detected
         end
+      end
+
+      # Detect shell from /etc/shells file (fallback for minimal containers like Alpine)
+      #
+      # @return [Symbol, nil] detected shell or nil if not found
+      def detect_shell_from_shells_file
+        shells_file = '/etc/shells'
+        return nil unless File.exist?(shells_file)
+
+        # Read available shells from file, filter to supported shells
+        File.readlines(shells_file).each do |line|
+          line = line.strip
+          next if line.empty? || line.start_with?('#')
+
+          return :bash if line.end_with?('bash')
+          return :zsh if line.end_with?('zsh')
+          return :fish if line.end_with?('fish')
+          return :sh if line.end_with?('sh')
+          return :dash if line.end_with?('dash')
+          return :tcsh if line.end_with?('tcsh')
+        end
+
+        nil
+      rescue StandardError
+        # If we can't read /etc/shells, continue to next fallback
+        nil
+      end
+
+      # Detect shell from common shell executables in PATH (last resort)
+      #
+      # @return [Symbol, nil] detected shell or nil if not found
+      def detect_shell_from_path
+        # Check for common shells in order of preference
+        %w[bash zsh fish sh dash tcsh].each do |shell|
+          return shell.to_sym if system("which #{shell} > /dev/null 2>&1")
+        end
+
+        nil
       end
 
       # Generate error message for unknown shell
@@ -217,13 +316,13 @@ module Ukiryu
           Unable to detect shell automatically.
 
           Supported shells:
-            Unix/macOS/Linux: bash, zsh, fish, sh
+            Unix/macOS/Linux: bash, zsh, fish, sh, dash, tcsh
             Windows: powershell, cmd, bash (Git Bash/MSYS)
 
           Please configure explicitly:
 
             Ukiryu.configure do |config|
-              config.default_shell = :bash  # or :zsh, :powershell, :cmd
+              config.default_shell = :bash  # or :zsh, :dash, :tcsh, :powershell, :cmd
             end
 
           Current environment:

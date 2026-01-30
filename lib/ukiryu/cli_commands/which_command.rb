@@ -69,11 +69,11 @@ module Ukiryu
           tool_metadata = Register.load_tool_metadata(tool_name.to_sym)
           next unless tool_metadata
 
-          # Check for interface match
-          interface_match = tool_metadata.implements == identifier.to_sym
+          # Check for interface match using proper comparison (handles string/symbol mismatch)
+          interface_match = tool_metadata.implements?(identifier)
 
           # Check for alias match
-          alias_match = tool_metadata.aliases&.include?(identifier)
+          alias_match = tool_metadata.aliases.include?(identifier)
 
           next unless interface_match || alias_match
 

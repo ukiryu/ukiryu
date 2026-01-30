@@ -53,6 +53,7 @@ module Ukiryu
       # @option options [Symbol] :platform platform to use
       # @option options [Symbol] :shell shell to use
       # @option options [String] :version specific version to use
+      # @option options [Boolean] :skip_version_detection skip version-aware profile selection
       # @return [Tool] the tool instance
       def get(name, options = {})
         # Check cache first
@@ -66,6 +67,53 @@ module Ukiryu
 
         # Create tool instance
         tool = new(profile, options)
+
+        # Version-aware profile selection: if detected version doesn't match profile version
+        # and profile has a modern_threshold, reload with appropriate version profile
+        if !options[:skip_version_detection] && tool.available? && tool.executable
+          detected_version = tool.version
+          profile_version = profile.version
+          version_detection = profile.version_detection
+
+          # Check if we need to reload with a different profile version
+          # Only proceed with version-aware reload if both versions are numeric
+          if detected_version && profile_version && version_detection&.modern_threshold && profile_version.match?(/^\d/) && detected_version.match?(/^\d/)
+            require 'rubygems/version'
+            # Extract version number (handle "6.9.11-60 Q16 x86_64" format)
+            detected_str = detected_version.split(' ')[0]
+            detected = Gem::Version.create(detected_str)
+            threshold = Gem::Version.new(version_detection.modern_threshold)
+            Gem::Version.new(profile_version)
+
+            # If profile version is modern (>= threshold) but detected version is legacy (< threshold)
+            # or vice versa, reload with the appropriate profile
+            modern = profile_is_modern?(profile_version, version_detection)
+            if (modern == true && detected < threshold) ||
+               (modern == false && detected >= threshold)
+              # Determine appropriate version to load
+              # For legacy versions, load the specific detected version (e.g., "6.9")
+              # For modern versions, load the latest
+              if detected >= threshold
+                target_version = 'latest'
+              else
+                # Extract major.minor from detected version (e.g., "6.9" from "6.9.12-98")
+                version_parts = detected_str.split('.')
+                target_version = "#{version_parts[0]}.#{version_parts[1]}"
+              end
+
+              # Reload with correct version
+              options_with_version = options.merge(version: target_version, skip_version_detection: true)
+              profile = load_profile(name, options_with_version)
+              raise ToolNotFoundError, "Tool not found: #{name}" unless profile
+
+              tool = new(profile, options_with_version)
+
+              # Update cache_key to match the new version
+              cache_key = cache_key_for(name, options_with_version)
+            end
+          end
+        end
+
         tools_cache[cache_key] = tool
         tool
       end
@@ -108,19 +156,20 @@ module Ukiryu
             )
           end
           return tool
-        rescue ToolNotFoundError
+        rescue ToolNotFoundError, ProfileNotFoundError
           # Continue to search by interface/alias
         end
 
         # 2. Use ToolIndex for O(1) interface lookup
         index = ToolIndex.instance
-        interface_metadata = index.find_by_interface(identifier.to_sym)
-        if interface_metadata
-          tool_name = interface_metadata.name
-          begin
-            return get(tool_name, options)
-          rescue ToolNotFoundError
-            # Tool indexed but not available, continue
+        interface_tool_names = index.find_all_by_interface(identifier.to_sym)
+        if interface_tool_names.any?
+          interface_tool_names.each do |tool_name|
+            tool = get(tool_name.to_s, options)
+            # Return tool only if it's available (executable found)
+            return tool if tool.available?
+          rescue ToolNotFoundError, ProfileNotFoundError
+            # Tool indexed but not available, continue to next
           end
         end
 
@@ -129,7 +178,7 @@ module Ukiryu
         if alias_tool_name
           begin
             return get(alias_tool_name.to_s, options)
-          rescue ToolNotFoundError
+          rescue ToolNotFoundError, ProfileNotFoundError
             # Alias indexed but tool not available, continue
           end
         end
@@ -143,7 +192,14 @@ module Ukiryu
           next unless tool_def
 
           # Check if tool matches by interface
-          interface_match = tool_def.implements == identifier.to_sym
+          # v2: implements is an array, check if interface is in the array
+          # v1: implements is a string, check for equality
+          implements_value = tool_def.implements
+          interface_match = if implements_value.is_a?(Array)
+                             implements_value.map(&:to_sym).include?(identifier.to_sym)
+                           else
+                             implements_value == identifier.to_s
+                           end
 
           # Check if tool matches by alias
           alias_match = tool_def.aliases&.include?(identifier)
@@ -390,9 +446,9 @@ module Ukiryu
       end
 
       # Load a profile for a tool
-      def load_profile(name, _options)
+      def load_profile(name, options = {})
         require_relative 'tools/generator'
-        Tools::Generator.load_tool_definition(name.to_s)
+        Tools::Generator.load_tool_definition(name.to_s, version: options[:version])
       end
 
       # Load a built-in profile
@@ -486,6 +542,21 @@ module Ukiryu
       !@executable.nil?
     end
 
+    # Get the reason why the tool is not available
+    #
+    # Returns nil if the tool is available, or a string explaining why not.
+    # This helps users understand issues like:
+    # - Tool not installed
+    # - Wrong version installed (e.g., impostor tool)
+    #
+    # @return [String, nil] reason for unavailability, or nil if available
+    def unavailability_reason
+      return nil if available?
+
+      # Executable not found
+      "Tool '#{name}' not found in PATH or configured search paths. Please install the tool."
+    end
+
     # Get the commands defined in the active profile
     #
     # @return [Hash, nil] the commands hash
@@ -501,6 +572,46 @@ module Ukiryu
       @command_profile.command(command_name.to_s)
     end
 
+    # Normalize params to hash
+    #
+    # Converts params to a hash with symbol keys, handling both hash and options objects.
+    #
+    # @param params [Hash, Object] the params to normalize
+    # @return [Hash] normalized hash with symbol keys
+    def normalize_params(params)
+      if params.is_a?(Hash) && params.keys.none? { |k| k.is_a?(Symbol) }
+        # Likely has string keys from CLI, convert to symbols
+        params.transform_keys(&:to_sym)
+      elsif !params.is_a?(Hash)
+        # It's an options object, convert to hash
+        require_relative 'options_builder'
+        Ukiryu::OptionsBuilder.to_hash(params)
+      else
+        params
+      end
+    end
+
+    # Execute command with common configuration
+    #
+    # @param executable [String] the executable to run
+    # @param args [Array] command arguments
+    # @param command_def [Models::CommandDefinition] the command definition
+    # @param params [Hash] command parameters
+    # @param stdin [String, nil] optional stdin input
+    # @return [Executor::Result] the execution result
+    def execute_with_config(executable, args, command_def, params, stdin:)
+      Executor.execute(
+        executable,
+        args,
+        env: build_env_vars(command_def, @command_profile, params),
+        timeout: @profile.timeout || 90,
+        shell: @shell,
+        stdin: stdin,
+        tool_name: @profile.name,
+        command_name: command_def.name
+      )
+    end
+
     # Execute a command defined in the profile
     #
     # @param command_name [Symbol] the command to execute
@@ -511,15 +622,8 @@ module Ukiryu
 
       raise ArgumentError, "Unknown command: #{command_name}" unless command
 
-      # Convert options object to hash if needed
-      if params.is_a?(Hash) && params.keys.none? { |k| k.is_a?(Symbol) }
-        # Likely has string keys from CLI, convert to symbols
-        params = params.transform_keys(&:to_sym)
-      elsif !params.is_a?(Hash)
-        # It's an options object, convert to hash
-        require_relative 'options_builder'
-        params = Ukiryu::OptionsBuilder.to_hash(params)
-      end
+      # Normalize params to hash with symbol keys
+      params = normalize_params(params)
 
       # Extract stdin parameter if present (special parameter, not passed to command)
       stdin = params.delete(:stdin)
@@ -527,17 +631,59 @@ module Ukiryu
       # Build command arguments
       args = build_args(command, params)
 
+      # Determine the executable to use
+      # For tools with subcommands (v7 style for identify/mogrify), use @executable with the subcommand
+      # For tools without subcommands, the behavior depends on the profile version:
+      # - v7 (modern): convert has no subcommand but uses 'magick' executable
+      # - v6 (legacy): each command (convert, identify, mogrify) is a standalone executable
+      command_executable = if command.respond_to?(:has_subcommand?) && command.has_subcommand?
+                             # v7 style: e.g., magick identify -> @executable is 'magick', subcommand is 'identify'
+                             @executable
+                           elsif command.respond_to?(:has_subcommand?) && !command.has_subcommand?
+                             # No subcommand - need to determine if this is v7 or v6 style
+                             # Check if profile has a modern_threshold and profile version is modern
+                             if self.class.profile_is_modern?(@profile.version, @profile.version_detection)
+                               # v7 style: convert command (no subcommand) uses 'magick' executable
+                               @executable
+                             else
+                               # v6 style: each command is a standalone executable
+                               # Check if command-specific executable exists on the filesystem
+                               exe_dir = File.dirname(@executable)
+                               exe_name = command.name
+                               exe_path = File.join(exe_dir, exe_name)
+
+                               # Use command-specific executable if it's in the tool's search_paths
+                               # OR if it exists in the same directory and the profile allows it
+                               # This prevents collisions with system tools while allowing v6 commands
+                               platform_paths = @profile.search_paths&.for_platform(@platform) || []
+                               in_search_paths = platform_paths.any? { |sp| sp.to_s.include?(exe_path) }
+
+                               # Check if profile explicitly allows command-specific executables for this command
+                               # This is determined by checking if the command has standalone_executable: true
+                               # If not specified, only use command-specific executable if in search_paths
+                               allows_standalone = if command.respond_to?(:standalone_executable)
+                                                   command.standalone_executable == true
+                                                 else
+                                                   false
+                                                 end
+
+                               same_dir_as_exec = allows_standalone &&
+                                                     File.executable?(exe_path) &&
+                                                     File.dirname(exe_path) == exe_dir
+
+                               if in_search_paths || same_dir_as_exec
+                                 exe_path
+                               else
+                                 @executable
+                               end
+                             end
+                           else
+                             # Fallback to @executable
+                             @executable
+                           end
+
       # Execute with environment and stdin, passing tool_name and command_name for exit code lookups
-      Executor.execute(
-        @executable,
-        args,
-        env: build_env_vars(command, @command_profile, params),
-        timeout: @profile.timeout || 90,
-        shell: @shell,
-        stdin: stdin,
-        tool_name: @profile.name,
-        command_name: command.name
-      )
+      execute_with_config(command_executable, args, command, params, stdin: stdin)
     end
 
     # Check if a command is available
@@ -644,12 +790,8 @@ module Ukiryu
       action = resolution[:action]
       raise ArgumentError, "Action not found: #{path.inspect}" unless action
 
-      # Convert params to hash if needed
-      params = params.transform_keys(&:to_sym) if params.is_a?(Hash)
-      unless params.is_a?(Hash)
-        require_relative 'options_builder'
-        params = Ukiryu::OptionsBuilder.to_hash(params)
-      end
+      # Normalize params to hash with symbol keys
+      params = normalize_params(params)
 
       # Extract stdin parameter
       stdin = params.delete(:stdin)
@@ -658,16 +800,7 @@ module Ukiryu
       args = build_args(action, params)
 
       # Execute with the routed executable, passing tool_name and command_name for exit code lookups
-      Executor.execute(
-        resolution[:executable],
-        args,
-        env: build_env_vars(action, @command_profile, params),
-        timeout: @profile.timeout || 90,
-        shell: @shell,
-        stdin: stdin,
-        tool_name: @profile.name,
-        command_name: action.name
-      )
+      execute_with_config(resolution[:executable], args, action, params, stdin: stdin)
     end
 
     # Execute a command with root-path notation (for hierarchical tools)
@@ -700,22 +833,51 @@ module Ukiryu
 
     private
 
+    # Check if a profile version is "modern" based on version_detection modern_threshold
+    #
+    # @param profile_version [String] the profile version
+    # @param version_detection [Models::VersionDetection] the version detection config
+    # @return [Boolean, nil] true if profile is modern (>= threshold), false if legacy, nil if can't determine
+    def self.profile_is_modern?(profile_version, version_detection)
+      return nil unless version_detection&.modern_threshold
+
+      require 'rubygems/version'
+
+      # Skip version comparison for non-numeric versions (e.g., "generic")
+      return nil unless profile_version.match?(/^\d/)
+
+      profile_ver = Gem::Version.new(profile_version)
+      threshold = Gem::Version.new(version_detection.modern_threshold)
+
+      profile_ver >= threshold
+    rescue ArgumentError
+      # If version parsing fails, treat as non-versioned (return nil)
+      nil
+    end
+
     # Find the best matching command profile
+    #
+    # Strategy:
+    # 1. If multiple profiles exist, find one matching current platform/shell
+    # 2. If single profile exists, use it (PATH discovery is primary)
+    # 3. If no matching profile found among multiple, raise error
     def find_command_profile
       return nil unless @profile.profiles
+
+      # Single profile: always use as fallback (PATH discovery is primary)
       return @profile.profiles.first if @profile.profiles.one?
 
+      # Multiple profiles: find compatible one
       @profile.profiles.find do |p|
         platforms = p.platforms&.map(&:to_sym) || []
         shells = p.shells&.map(&:to_sym) || []
 
-        # Convert array elements to symbols for comparison
-        # (YAML arrays contain strings, but platform/shell are symbols)
-        platform_match = platforms.empty? || platforms.include?(@platform)
-        shell_match = shells.empty? || shells.include?(@shell)
-
-        platform_match && shell_match
-      end
+        # Match if profile is universal OR compatible with current platform/shell
+        (platforms.empty? || platforms.include?(@platform)) &&
+          (shells.empty? || shells.include?(@shell))
+      end || raise(ProfileNotFoundError,
+                   "No compatible profile for #{@name}. " \
+                   "Current: #{@platform}/#{@shell}")
     end
 
     # Find the executable path using ExecutableLocator
@@ -749,6 +911,16 @@ module Ukiryu
       # Legacy format: command-based detection
       return nil if vd.command.nil? || vd.command.empty?
 
+      # If pattern is empty, skip version detection and use hardcoded version from profile
+      # This is useful for tools like BusyBox applets that don't have their own --version flag
+      if vd.pattern.nil? || (vd.pattern.respond_to?(:empty?) && vd.pattern.empty?)
+        return Models::VersionInfo.new(
+          value: @profile.version,
+          method_used: :profile,
+          available_methods: [:profile]
+        )
+      end
+
       # For man page detection, the executable is 'man' and command is the tool name
       # For command detection, the executable is the tool itself
       source = vd.respond_to?(:source) ? vd.source : 'command'
@@ -768,7 +940,8 @@ module Ukiryu
         command: command_args,
         pattern: vd.pattern || /(\d+\.\d+)/,
         shell: @shell,
-        source: source
+        source: source,
+        timeout: @profile.timeout || 30
       )
     end
 
@@ -786,7 +959,7 @@ module Ukiryu
                  m[:type] || m['type']
                end
 
-        if type == :man_page || type == 'man_page'
+        if [:man_page, 'man_page'].include?(type)
           paths = if m.respond_to?(:paths)
                     m.paths
                   elsif m.is_a?(Hash)
@@ -823,7 +996,8 @@ module Ukiryu
       VersionDetector.detect_with_methods(
         executable: @executable,
         methods: detector_methods,
-        shell: @shell
+        shell: @shell,
+        timeout: @profile.timeout || 30
       )
     end
 

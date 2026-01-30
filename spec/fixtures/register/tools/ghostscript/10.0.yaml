@@ -10,11 +10,20 @@ version_detection:
 search_paths:
   macos:
   - /opt/homebrew/bin/gs
+  - /usr/local/bin/gs
+  - /opt/homebrew/bin
+  - /usr/local/bin
   linux:
   - /usr/bin/gs
+  - /usr/bin
+  windows:
+  - C:/Program Files/gs/gs*/bin/gswin64c.exe
+  - C:/Program Files/gs/gs*/bin/gswin32c.exe
+  - C:/Program Files (x86)/gs/gs*/bin/gswin64c.exe
+  - C:/Program Files (x86)/gs/gs*/bin/gswin32c.exe
 timeout: 90
 profiles:
-- name: default
+- name: unix
   platforms:
   - macos
   - linux
@@ -46,3 +55,11 @@ profiles:
       cli: -dBATCH
     - name: no_pause
       cli: -dNOPAUSE
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  inherits: unix

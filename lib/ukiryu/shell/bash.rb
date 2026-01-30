@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'base'
+require_relative 'unix_base'
 
 module Ukiryu
   module Shell
@@ -8,9 +8,16 @@ module Ukiryu
     #
     # Bash uses single quotes for literal strings and backslash for escaping.
     # Environment variables are referenced with $VAR syntax.
-    class Bash < Base
+    class Bash < UnixBase
       def name
         :bash
+      end
+
+      # Get the bash command name to search for
+      #
+      # @return [String] the bash command name
+      def shell_command
+        'bash'
       end
 
       # Escape a string for Bash
@@ -46,7 +53,7 @@ module Ukiryu
       # @param args [Array<String>] the arguments
       # @return [String] the complete command line
       def join(executable, *args)
-        [executable, *args.map { |a| quote(a) }].join(' ')
+        [quote(executable), *args.map { |a| quote(a) }].join(' ')
       end
 
       # Get headless environment (disable DISPLAY on Unix)

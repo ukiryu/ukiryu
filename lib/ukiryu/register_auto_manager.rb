@@ -86,19 +86,43 @@ module Ukiryu
         git_dir = File.join(path, '.git')
         if Dir.exist?(git_dir)
           begin
+            # Suppress stderr from git commands using GIT_REDIRECT_STDERR
+            # This prevents "fatal: not a git repository" errors from polluting output
+            # Redirect stderr to /dev/null at the git subprocess level
+            null_dev = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/ ? 'NUL' : '/dev/null'
+            old_git_redirect = ENV['GIT_REDIRECT_STDERR']
+            ENV['GIT_REDIRECT_STDERR'] = null_dev
+
             g = Git.open(path)
             info[:branch] = g.current_branch
             log = g.log(1).execute
             info[:commit] = log.first.sha[0..7]
             info[:last_update] = Time.at(log.first.date.to_i)
-          rescue Git::GitExecuteError
+
+            # Restore original GIT_REDIRECT_STDERR
+            if old_git_redirect
+              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+            else
+              ENV.delete('GIT_REDIRECT_STDERR')
+            end
+          rescue Git::GitExecuteError, IOError, Errno::ENOENT
             # Git info not available, but register is valid
+            # Ensure GIT_REDIRECT_STDERR is restored
+            if old_git_redirect
+              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+            else
+              ENV.delete('GIT_REDIRECT_STDERR')
+            end
           end
         end
 
         # Count available tools
         tools_dir = File.join(path, 'tools')
-        info[:tools_count] = Dir.glob(File.join(tools_dir, '*')).select { |d| File.directory?(d) }.count if Dir.exist?(tools_dir)
+        if Dir.exist?(tools_dir)
+          info[:tools_count] = Dir.glob(File.join(tools_dir, '*')).select do |d|
+            File.directory?(d)
+          end.count
+        end
 
         info
       end
@@ -189,10 +213,30 @@ module Ukiryu
 
         begin
           print 'Updating register...' if $stdout.tty?
+          # Suppress stderr from git commands using GIT_REDIRECT_STDERR
+          null_dev = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/ ? 'NUL' : '/dev/null'
+          old_git_redirect = ENV['GIT_REDIRECT_STDERR']
+          ENV['GIT_REDIRECT_STDERR'] = null_dev
+
           g = Git.open(path)
           g.pull
           puts 'done' if $stdout.tty?
+
+          # Restore original GIT_REDIRECT_STDERR
+          if old_git_redirect
+            ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+          else
+            ENV.delete('GIT_REDIRECT_STDERR')
+          end
         rescue Git::GitExecuteError => e
+          # Ensure GIT_REDIRECT_STDERR is restored
+          if defined?(old_git_redirect)
+            if old_git_redirect
+              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+            else
+              ENV.delete('GIT_REDIRECT_STDERR')
+            end
+          end
           raise RegisterError, "Failed to update register: #{e.message}"
         end
       end

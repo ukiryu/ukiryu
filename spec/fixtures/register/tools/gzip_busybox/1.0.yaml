@@ -1,0 +1,33 @@
+# BusyBox gzip tool profile for testing
+ukiryu_schema: '1.0'
+name: gzip_busybox
+display_name: BusyBox gzip
+version: '1.0'
+implements: gzip
+search_paths:
+  linux:
+  - /bin/gzip
+  - /usr/bin/gzip
+timeout: 30
+profiles:
+- name: default
+  platforms:
+  - linux
+  shells:
+  - bash
+  - sh
+  commands:
+    compress:
+      subcommand: ''
+      arguments:
+        - name: inputs
+          type: file
+          variadic: true
+          position: last
+    decompress:
+      subcommand: '-d'
+      arguments:
+        - name: inputs
+          type: file
+          variadic: true
+          position: last

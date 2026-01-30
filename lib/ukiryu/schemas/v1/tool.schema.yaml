@@ -1,0 +1,440 @@
+# Ukiryu Tool Definition Schema v1.0
+#
+# This schema defines the structure of tool definition files.
+# A tool is a CLI command that users can run.
+#
+# Schema version: 2.0
+# Format: YAML (compatible with JSON Schema Draft 7)
+
+$schema: http://json-schema.org/draft-07/schema#
+title: Ukiryu Tool Definition v1.0
+description: Schema for tool definitions that describe CLI commands
+type: object
+required:
+  - ukiryu_schema
+  - name
+  - version
+  - profiles
+additionalProperties: false
+
+properties:
+  # === Root Metadata ===
+
+  ukiryu_schema:
+    type: string
+    enum: ["1.0"]
+    description: Schema version for this tool definition
+
+  name:
+    type: string
+    pattern: '^[a-z][a-z0-9_-]*$'
+    description: Tool identifier (lowercase, alphanumeric with underscores/hyphens)
+    example: "convert"
+
+  display_name:
+    type: string
+    minLength: 1
+    description: Human-readable display name for the tool
+    example: "ImageMagick Convert"
+
+  description:
+    type: string
+    description: Detailed description of what this tool does
+    example: "Convert between image formats"
+
+  version:
+    type: string
+    pattern: '^[0-9]+\.[0-9]+(\.[0-9]+)?$|^generic$'
+    description: Tool version (semantic versioning) or "generic"
+    example: "7.1"
+
+  homepage:
+    type: string
+    format: uri
+    description: URL to the tool homepage
+
+  aliases:
+    type: array
+    items:
+      type: string
+      pattern: '^[a-z][a-z0-9_-]*$'
+    description: Alternative names for this tool
+    example: ["imgconvert", "magick_convert"]
+
+  $self:
+    type: string
+    format: uri
+    description: Self-referential URI for this definition
+
+  # === Interface Declarations ===
+
+  implements:
+    type: array
+    description: Interfaces that this tool implements
+    items:
+      type: string
+      pattern: '^[a-z][a-z0-9_-]*$'
+    example: ["convert", "image_transform"]
+
+  # === Version Detection ===
+
+  version_detection:
+    type: object
+    description: How to detect the installed version of this tool
+    required:
+      - command
+      - pattern
+    additionalProperties: false
+    properties:
+      command:
+        type: string
+        description: Command/flag to get version output
+        example: "-version"
+
+      pattern:
+        type: string
+        description: Regular expression to extract version from output
+        example: 'Version: ImageMagick ([\d.]+)'
+
+      modern_threshold:
+        type: string
+        pattern: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+        description: Version threshold for "modern" vs "legacy"
+        example: "7.0"
+
+  # === Invocation Configuration ===
+
+  invocation:
+    type: object
+    description: How to invoke this tool
+    required:
+      - type
+    additionalProperties: false
+    properties:
+      type:
+        type: string
+        enum: [direct, subcommand]
+        description: Invocation pattern type
+        example: "subcommand"
+
+      multi_call:
+        type: boolean
+        default: false
+        description: Does this executable provide multiple tools?
+
+      symlink_detection:
+        type: boolean
+        default: false
+        description: Should discovery check for symlinks to this executable?
+
+  # === Search Paths ===
+
+  search_paths:
+    type: object
+    description: Platform-specific executable search paths
+    additionalProperties:
+      type: array
+      items:
+        type: string
+    example:
+      macos:
+        - "/opt/homebrew/bin/magick"
+        - "/usr/local/bin/magick"
+      linux:
+        - "/usr/bin/magick"
+        - "/usr/local/bin/magick"
+      windows:
+        - "C:/Program Files/ImageMagick*/magick.exe"
+
+  # === Timeout Configuration ===
+
+  timeout:
+    type: integer
+    minimum: 1
+    description: Default execution timeout in seconds
+    example: 300
+
+  # === Profiles ===
+
+  profiles:
+    type: array
+    minItems: 1
+    description: Platform/shell-specific configurations
+    items:
+      $ref: '#/definitions/profile'
+
+# === Definitions ===
+
+definitions:
+  profile:
+    type: object
+    required:
+      - name
+      - platforms
+      - shells
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        description: Profile identifier
+        example: "unix"
+
+      display_name:
+        type: string
+        description: Human-readable profile name
+        example: "Unix-like systems"
+
+      platforms:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          enum: [macos, linux, windows]
+        description: Platforms this profile applies to
+
+      shells:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          enum: [bash, zsh, fish, sh, powershell, cmd]
+        description: Shells this profile applies to
+
+      version:
+        type: string
+        description: Version constraint for this profile
+        example: ">= 7.0"
+
+      inherits:
+        type: string
+        description: Inherit from another profile
+        example: "default"
+
+      option_style:
+        type: string
+        enum: [double_dash_equals, double_dash_space, single_dash_equals, single_dash_space, slash_colon, slash_space]
+        description: Default option style for commands in this profile
+
+      # Environment variable sets (reusable)
+      env_var_sets:
+        type: object
+        additionalProperties:
+          type: array
+          items:
+            $ref: '#/definitions/env_var'
+
+      # Commands for this profile
+      commands:
+        type: array
+        items:
+          $ref: '#/definitions/command'
+
+      exit_codes:
+        type: object
+        additionalProperties:
+          type: object
+          properties:
+            standard:
+              type: object
+              additionalProperties:
+                type: string
+
+            custom:
+              type: object
+              additionalProperties:
+                type: string
+
+  command:
+    type: object
+    required:
+      - name
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        pattern: '^[a-z][a-z0-9_]*$'
+        description: Command identifier
+
+      implements:
+        type: array
+        items:
+          type: string
+          pattern: '^[a-z][a-z0-9_-]*$'
+        description: Interfaces this command implements
+        example: ["convert"]
+
+      display_name:
+        type: string
+        description: Human-readable command name
+
+      description:
+        type: string
+        description: What this command does
+
+      usage:
+        type: string
+        description: Usage string for documentation
+        example: "convert [options] input_file output_file"
+
+      subcommand:
+        type: string
+        description: Subcommand name (for subcommand invocation type)
+        example: "convert"
+
+      standalone_executable:
+        type: boolean
+        deprecated: true
+        description: DEPRECATED: Use invocation.type instead
+
+      aliases:
+        type: array
+        items:
+          type: string
+        description: Alternative names for this command
+
+      belongs_to:
+        type: string
+        description: Parent command (for nested actions)
+        example: "remote"
+
+      cli_flag:
+        type: string
+        description: CLI flag for this command
+
+      use_env_vars:
+        type: array
+        items:
+          type: string
+        description: Environment variable sets to use
+        example: ["headless"]
+
+      # Arguments, options, flags
+      arguments:
+        type: array
+        items:
+          $ref: '#/definitions/parameter'
+
+      options:
+        type: array
+        items:
+          $ref: '#/definitions/parameter'
+
+      flags:
+        type: array
+        items:
+          $ref: '#/definitions/parameter'
+
+      post_options:
+        type: array
+        items:
+          $ref: '#/definitions/parameter'
+
+      env_vars:
+        type: array
+        items:
+          $ref: '#/definitions/env_var'
+
+      exit_codes:
+        type: object
+        additionalProperties:
+          type: string
+
+  parameter:
+    type: object
+    required:
+      - name
+      - type
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        pattern: '^[a-z][a-z0-9_]*$'
+        description: Parameter name
+
+      type:
+        type: string
+        enum: [file, string, integer, float, boolean, array, hash, symbol, uri, datetime]
+        description: Parameter data type
+
+      display_name:
+        type: string
+        description: Human-readable parameter name
+
+      description:
+        type: string
+        description: What this parameter is for
+
+      cli:
+        type: string
+        description: CLI flag for this parameter
+        example: "-resize"
+
+      required:
+        type: boolean
+        default: false
+
+      variadic:
+        type: boolean
+        default: false
+
+      default:
+        description: Default value
+
+      min:
+        type: integer
+        minimum: 0
+
+      max:
+        type: integer
+        minimum: 0
+
+      position:
+        type: string
+        enum: [first, last, early, late]
+        description: Where this parameter appears in command line
+
+      values:
+        type: array
+        items:
+          type: string
+        description: Allowed values for symbol type
+
+      format:
+        type: string
+        enum: [double_dash_equals, double_dash_space, single_dash_equals, single_dash_space, slash_colon, slash_space]
+        description: How to format this parameter
+
+      assignment_delimiter:
+        type: string
+        enum: [equals, space, colon, none]
+        description: Delimiter between flag and value
+
+      example:
+        description: Example value
+
+  env_var:
+    type: object
+    required:
+      - name
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        description: Environment variable name
+        example: "DISPLAY"
+
+      value:
+        type: string
+        description: Value to set (or empty string to unset)
+        example: ""
+
+      platforms:
+        type: array
+        items:
+          type: string
+          enum: [macos, linux, windows]
+        description: Platforms this env var applies to
+
+      description:
+        type: string
+        description: What this environment variable does

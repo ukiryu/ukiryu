@@ -9,20 +9,18 @@ search_paths:
   macos:
   - /sbin/ping
   - /usr/sbin/ping
-  linux:
-  - /bin/ping
-  - /usr/bin/ping
 timeout: 30
 profiles:
 - name: default
   platforms:
   - macos
-  - linux
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: ping
     description: Ping a host
@@ -35,6 +33,7 @@ profiles:
     - name: count
       type: integer
       cli: -c
+      assignment_delimiter: auto
       description: Number of packets to send
     flags:
     - name: quiet

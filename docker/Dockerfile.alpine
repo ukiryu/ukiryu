@@ -1,0 +1,46 @@
+# Dockerfile for Alpine Linux testing
+# Build: docker build -f docker/Dockerfile.alpine -t ukiryu-test:alpine .
+# Run: docker run --rm ukiryu-test:alpine
+
+FROM ruby:3.4-alpine3.20
+
+# Install all needed shells, build dependencies, and common tools
+RUN apk add --no-cache \
+    build-base \
+    git \
+    bash \
+    zsh \
+    fish \
+    dash \
+    tcsh \
+    powershell \
+    # Common CLI tools for testing
+    bzip2 \
+    gzip \
+    tar \
+    unzip \
+    zip \
+    grep \
+    sed \
+    awk \
+    findutils \
+    wget \
+    curl \
+    jq \
+    yq \
+    ghostscript \
+    imagemagick \
+    ffmpeg \
+    exiftool \
+    pdf2ps
+
+WORKDIR /ukiryu
+
+# Copy all files first
+COPY . .
+
+# Install dependencies
+RUN bundle install
+
+# Run tests by default
+CMD ["bundle", "exec", "rspec"]

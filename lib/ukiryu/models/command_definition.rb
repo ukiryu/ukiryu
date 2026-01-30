@@ -15,6 +15,7 @@ module Ukiryu
     #   cmd = CommandDefinition.new(
     #     name: 'convert',
     #     description: 'Convert image format',
+    #     implements: ['convert'], # v2: command implements interface
     #     options: [OptionDefinition.new(...)],
     #     flags: [FlagDefinition.new(...)]
     #   )
@@ -27,6 +28,7 @@ module Ukiryu
       attribute :cli_flag, :string    # CLI flag for this action (e.g., '-d' for delete)
       attribute :aliases, :string, collection: true, default: []
       attribute :use_env_vars, :string, collection: true, default: []
+      attribute :implements, :string, collection: true, default: [] # v2: interfaces this command implements
 
       # Collections of model objects (lutaml-model handles serialization automatically)
       attribute :options, OptionDefinition, collection: true
@@ -51,6 +53,7 @@ module Ukiryu
         map_element 'belongs_to', to: :belongs_to
         map_element 'cli_flag', to: :cli_flag
         map_element 'aliases', to: :aliases
+        map_element 'implements', to: :implements # v2: implements mapping (no collection: true in yaml)
       end
 
       # Check if this command/action belongs to a parent command

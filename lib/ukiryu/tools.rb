@@ -2,6 +2,8 @@
 
 require_relative 'tools/base'
 require_relative 'tools/generator'
+require_relative 'register'
+require_relative 'platform'
 
 module Ukiryu
   # Tools namespace for tool-specific classes
@@ -88,8 +90,8 @@ module Ukiryu
             profile = YAML.load_file(yaml_path, symbolize_names: true)
 
             # Check if this tool implements the alias and matches current platform
-            # Note: implements field is a string in YAML, convert to symbol for comparison
-            next unless profile[:implements]&.to_sym == alias_name
+            # Note: implements field can be a string or an array in YAML
+            next unless Array(profile[:implements]).map(&:to_sym).include?(alias_name)
 
             # Check platform compatibility
             profiles = profile[:profiles] || []

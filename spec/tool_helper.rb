@@ -25,15 +25,45 @@ module ToolHelper
     tool.version if tool.available?
   end
 
-  # Create a temporary test image using ImageMagick
+  # Create a temporary test image by copying a fixture image
+  # This avoids using ImageMagick's built-in formats which aren't available on all builds
   # @param path [String] the path to create the image at
-  # @param size [String] the image size (e.g., "100x100")
-  # @param color [String] the color name
+  # @param size [String] the image size (e.g., "100x100", "200x150")
+  # @param color [String] the color name (blue or red)
   def create_test_image(path, size: '100x100', color: 'blue')
     require 'open3'
-    cmd = "magick -size #{size} xc:#{color} #{path}"
-    _, stderr, status = Open3.capture3(cmd)
-    raise "Failed to create test image: #{stderr}" unless status.success?
+    require_relative '../lib/ukiryu/platform'
+
+    # Copy fixture image instead of generating with ImageMagick
+    # This works on all platforms including Windows ARM64 with limited ImageMagick builds
+    fixture_dir = File.expand_path('fixtures/images', __dir__)
+    fixture_file = case color.to_sym
+                    when :red
+                      File.join(fixture_dir, 'test_red.png')
+                    else
+                      File.join(fixture_dir, 'test_blue.png')
+                    end
+
+    # If the requested size differs from the fixture (100x100), resize after copying
+    if size != '100x100'
+      # Build resize command based on platform
+      if Ukiryu::Platform.windows?
+        magick_exists = system('where magick.exe >nul 2>&1') if defined?(system)
+        base_cmd = magick_exists ? 'magick' : 'convert'
+      else
+        magick_exists = system('which magick > /dev/null 2>&1') if defined?(system)
+        base_cmd = magick_exists ? 'magick' : 'convert'
+      end
+
+      # Resize the fixture image (this uses core ImageMagick functionality, not built-in formats)
+      # Use ! to force exact dimensions and ignore aspect ratio
+      cmd = "#{base_cmd} #{fixture_file} -resize #{size}! #{path}"
+      _, stderr, status = Open3.capture3(cmd)
+      raise "Failed to resize test image: #{stderr}" unless status.success?
+    else
+      # Just copy the fixture as-is
+      FileUtils.cp(fixture_file, path)
+    end
 
     path
   end
@@ -50,7 +80,13 @@ module ToolHelper
   # @param cmd [String] the command to check
   # @return [Boolean] true if the command exists
   def command_exists?(cmd)
-    system("which #{cmd} > /dev/null 2>&1")
+    require_relative '../lib/ukiryu/platform'
+
+    if Ukiryu::Platform.windows?
+      system("where #{cmd} >nul 2>&1")
+    else
+      system("which #{cmd} > /dev/null 2>&1")
+    end
   end
 
   # Skip test if tool is not available

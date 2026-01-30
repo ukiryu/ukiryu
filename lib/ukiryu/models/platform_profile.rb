@@ -148,7 +148,20 @@ module Ukiryu
       def build_commands_index
         return unless commands
 
-        @commands_index = commands.to_h { |c| [c.name, c] }
+        # Handle both array and single object cases
+        # In some cases (e.g., serialization edge cases), commands might be
+        # a single CommandDefinition instead of an array
+        commands_array = if commands.is_a?(Array)
+                           commands
+                         elsif commands.respond_to?(:each) && commands.class.name.include?('CommandDefinition')
+                           # Single CommandDefinition object - wrap in array
+                           [commands]
+                         else
+                           # Unknown type - try to convert to array
+                           Array(commands).compact
+                         end
+
+        @commands_index = commands_array.to_h { |c| [c.name, c] }
         @commands_index_built = true
       end
     end

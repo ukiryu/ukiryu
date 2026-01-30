@@ -48,12 +48,14 @@ module Ukiryu
         # Load a ToolDefinition model from the register
         #
         # @param tool_name [Symbol] the tool name
+        # @param options [Hash] loading options
+        # @option options [String] :version specific version to load
         # @return [Models::ToolDefinition, nil] the tool definition model
-        def load_tool_definition(tool_name)
+        def load_tool_definition(tool_name, options = {})
           require_relative '../register'
 
           # Load the YAML file content
-          yaml_content = Register.load_tool_yaml(tool_name)
+          yaml_content = Register.load_tool_yaml(tool_name, version: options[:version])
           return nil unless yaml_content
 
           # Use lutaml-model's from_yaml to parse

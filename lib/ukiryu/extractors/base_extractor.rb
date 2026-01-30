@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require_relative '../environment'
+require_relative '../executor'
+
 module Ukiryu
   module Extractors
     # Base class for definition extraction strategies
@@ -39,16 +42,33 @@ module Ukiryu
 
       # Execute a command and capture output
       #
-      # @param command [Array<String>] the command to execute
+      # All command execution goes through the Environment system to ensure
+      # consistent environment variable handling, shell escaping, and timeout
+      # management across the entire codebase.
+      #
+      # @param command [Array<String>] the command to execute (array form)
+      # @param env [Environment, Hash] optional environment overrides
       # @return [Hash] result with :stdout, :stderr, :exit_status keys
-      def execute_command(command)
-        require 'open3'
+      def execute_command(command, env = nil)
+        require_relative '../shell'
 
-        stdout, stderr, status = Open3.capture3(*command)
+        # Build environment using Environment system
+        environment = env.is_a?(Environment) ? env : Environment.from_env
+
+        # Detect shell for internal extractor utilities
+        shell_class = Shell.detect
+
+        # Extract executable and args from command array
+        executable = command.first
+        args = command[1..]
+
+        # Execute through Executor (uses Environment system internally)
+        result = Executor.execute(executable, args, env: environment, shell: shell_class, allow_failure: true)
+
         {
-          stdout: stdout,
-          stderr: stderr,
-          exit_status: status.exitstatus
+          stdout: result.stdout,
+          stderr: result.stderr,
+          exit_status: result.status
         }
       rescue Errno::ENOENT
         # Command not found

@@ -37,7 +37,7 @@ module Ukiryu
 
         # Extract and parse date
         extract_date_from_dd_line(dd_line)
-      rescue Errno::ENOENT, Errno::EACCES => e
+      rescue Errno::ENOENT, Errno::EACCES
         # File not found or inaccessible - silent failure
         nil
       end
@@ -116,7 +116,7 @@ module Ukiryu
       def extract_date_with_regex(date_str)
         # Match "Month DD, YYYY" or "DD Month YYYY" or "YYYY-MM-DD"
         patterns = [
-          /(\w+)\s+(\d+),?\s+(\d{4})/,   # Month DD, YYYY
+          /(\w+)\s+(\d+),?\s+(\d{4})/, # Month DD, YYYY
           /(\d+)\s+(\w+)\s+(\d{4})/,      # DD Month YYYY
           /(\d{4})-(\d{2})-(\d{2})/       # YYYY-MM-DD
         ]
@@ -132,20 +132,18 @@ module Ukiryu
             year, month, day = captures
             return Date.new(year.to_i, month.to_i, day.to_i)
           elsif captures[2]&.length == 4 # Last capture is year
-            month_or_day, day_or_month, year = captures
+            month_or_day, _, year = captures
 
             # Check if first is month name or number
             if month_or_day =~ /^\d+$/
               # DD Month YYYY format
               day, month_name, year = captures
-              month = month_name_to_number(month_name)
-              return Date.new(year.to_i, month, day.to_i) if month
             else
               # Month DD, YYYY format
               month_name, day, year = captures
-              month = month_name_to_number(month_name)
-              return Date.new(year.to_i, month, day.to_i) if month
             end
+            month = month_name_to_number(month_name)
+            return Date.new(year.to_i, month, day.to_i) if month
           end
         end
 

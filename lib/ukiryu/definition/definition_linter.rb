@@ -179,8 +179,8 @@ module Ukiryu
           old_schema_version: {
             rule_id: 'deprecated_old_schema',
             threshold: '1.0',
-            message: 'Using old schema version',
-            suggestion: 'Update to the latest schema version (1.2)'
+            message: 'Schema version should be 1.0',
+            suggestion: 'Use ukiryu_schema: 1.0 (we are in 1.0 development)'
           }
         }.freeze
       end

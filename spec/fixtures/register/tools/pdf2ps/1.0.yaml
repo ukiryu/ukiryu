@@ -12,17 +12,25 @@ search_paths:
   - /opt/homebrew/bin/pdf2ps
   linux:
   - /usr/bin/pdf2ps
+  windows:
+  - C:/Program Files/gs/gs*/bin/pdf2ps.bat
+  - C:/Program Files/gs/gs*/bin/pdf2ps.cmd
+  - C:/Program Files (x86)/gs/gs*/bin/pdf2ps.bat
+  - C:/Program Files (x86)/gs/gs*/bin/pdf2ps.cmd
 timeout: 60
 profiles:
 - name: default
   platforms:
   - macos
   - linux
+  - windows
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: convert
     description: Convert PDF to PostScript

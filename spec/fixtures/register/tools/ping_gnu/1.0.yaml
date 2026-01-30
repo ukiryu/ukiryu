@@ -19,6 +19,8 @@ profiles:
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: ping
     description: Ping a host
@@ -31,6 +33,7 @@ profiles:
     - name: count
       type: integer
       cli: -c
+      assignment_delimiter: auto
       description: Number of packets to send
     flags:
     - name: quiet

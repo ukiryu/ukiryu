@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative '../environment'
+
 module Ukiryu
   module Shell
     # Base class for shell implementations
@@ -12,6 +14,38 @@ module Ukiryu
     # - env_var(name): Format an environment variable reference
     # - join(executable, *args): Join executable and arguments into a command line
     class Base
+      # Get shell capabilities
+      #
+      # Defines what features and environment behaviors this shell supports.
+      # Subclasses should override to customize capabilities.
+      #
+      # @return [Hash{Symbol => Object}] capability flags and values
+      # @option capabilities [Boolean] :supports_display - Shell supports DISPLAY for GUI apps
+      # @option capabilities [Boolean] :supports_ansi_colors - Shell supports ANSI color codes
+      # @option capabilities [Encoding] :encoding - Ruby's Encoding for output
+      def capabilities
+        {
+          supports_display: true,
+          supports_ansi_colors: true,
+          encoding: Encoding::UTF_8
+        }
+      end
+
+      # Check if shell supports a specific capability
+      #
+      # @param capability [Symbol] the capability to check
+      # @return [Boolean] true if the capability is supported
+      def supports?(capability)
+        capabilities.key?(capability) && capabilities[capability]
+      end
+
+      # Get the shell's output encoding
+      #
+      # @return [Encoding] the encoding for shell output
+      def encoding
+        capabilities[:encoding]
+      end
+
       # Identify the shell
       #
       # @return [Symbol] the shell name
@@ -91,6 +125,48 @@ module Ukiryu
       # @return [Hash] environment variables for headless operation
       def headless_environment
         {}
+      end
+
+      # Execute a command using this shell
+      #
+      # This method provides OOP encapsulation of shell-specific command execution.
+      # Each shell subclass implements its own execution strategy.
+      # The Environment object is stored and converted to Hash only at Open3 call site.
+      #
+      # @param executable [String] the executable path
+      # @param args [Array<String>] command arguments
+      # @param env [Environment] environment variables (converted to Hash at Open3 site)
+      # @param timeout [Integer] timeout in seconds
+      # @param cwd [String, nil] working directory (nil for current directory)
+      # @return [Hash] execution result with :status, :stdout, :stderr keys
+      # @raise [Timeout::Error] if command times out
+      def execute_command(executable, args, env, timeout, cwd = nil)
+        raise NotImplementedError, "#{self.class} must implement #execute_command"
+      end
+
+      # Execute a command with stdin input using this shell
+      #
+      # @param executable [String] the executable path
+      # @param args [Array<String>] command arguments
+      # @param env [Environment] environment variables (converted to Hash at Open3 site)
+      # @param timeout [Integer] timeout in seconds
+      # @param cwd [String, nil] working directory (nil for current directory)
+      # @param stdin_data [String, IO] stdin input data
+      # @return [Hash] execution result with :status, :stdout, :stderr keys
+      # @raise [Timeout::Error] if command times out
+      def execute_command_with_stdin(executable, args, env, timeout, cwd, stdin_data)
+        raise NotImplementedError, "#{self.class} must implement #execute_command_with_stdin"
+      end
+
+      # Convert Environment to Hash for Open3
+      #
+      # This is the ONLY place where Environment should be converted to Hash.
+      # All Shell subclasses must use this method before calling Open3.
+      #
+      # @param env [Environment, Hash] the environment (Environment or legacy Hash)
+      # @return [Hash] environment variables for Open3
+      def environment_to_h(env)
+        env.is_a?(Environment) ? env.to_h : env
       end
     end
   end

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Schema Validator for v1.0 YAML files
+# All files must use ukiryu_schema: '1.0'
+
 require 'json'
 begin
   require 'json-schema'
@@ -38,7 +41,8 @@ module Ukiryu
         # Validate against JSON schema
         begin
           # JSON Schema library expects the data to be a hash
-          validation_errors = JSON::Validator.fully_validate(schema, stringified_profile, strict: options[:strict] || false)
+          validation_errors = JSON::Validator.fully_validate(schema, stringified_profile,
+                                                             strict: options[:strict] || false)
 
           # Convert errors to readable format
           validation_errors.each do |error|
