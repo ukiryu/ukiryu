@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'type'
-require_relative 'shell'
-require_relative 'models/env_var_definition'
-
 module Ukiryu
   # CommandBuilder module provides shared command building functionality.
   #
@@ -20,6 +16,12 @@ module Ukiryu
     # @return [Array<String>] the formatted command arguments
     def build_args(command, params)
       args = []
+
+      # Debug logging for Ruby 4.0 CI - log all params
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] params: #{params.inspect}"
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] params.class: #{params.class}"
+      end
 
       # Add subcommand prefix if present (e.g., for ImageMagick "magick convert")
       args << command.subcommand if command.subcommand
@@ -63,6 +65,13 @@ module Ukiryu
       last_arg = arguments.find(&:last?)
       regular_args = arguments.reject(&:last?)
 
+      # Debug logging for Ruby 4.0 CI - log arguments
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] arguments: #{arguments.inspect}"
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] regular_args: #{regular_args.map(&:name_sym).inspect}"
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] last_arg: #{last_arg&.name_sym.inspect}"
+      end
+
       # Add regular positional arguments (in order, excluding "last")
       regular_args.sort_by(&:numeric_position).each do |arg_def|
         param_key = arg_def.name_sym
@@ -71,9 +80,21 @@ module Ukiryu
         value = params[param_key]
         next if value.nil?
 
+        # Debug logging for Ruby 4.0 CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG CommandBuilder#build_args] param_key: #{param_key.inspect}"
+          warn "[UKIRYU DEBUG CommandBuilder#build_args] value.class: #{value.class}"
+          warn "[UKIRYU DEBUG CommandBuilder#build_args] value.inspect: #{value.inspect}"
+          warn "[UKIRYU DEBUG CommandBuilder#build_args] arg_def.variadic: #{arg_def.variadic}"
+        end
+
         if arg_def.variadic
           # Variadic argument - expand array
-          array = Type.validate(value, :array, arg_def)
+          array = Ukiryu::Type.validate(value, :array, arg_def)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE']
+            warn "[UKIRYU DEBUG CommandBuilder#build_args] array.class: #{array.class}"
+            warn "[UKIRYU DEBUG CommandBuilder#build_args] array.inspect: #{array.inspect}"
+          end
           array.each { |v| args << format_arg(v, arg_def) }
         else
           args << format_arg(value, arg_def)
@@ -95,12 +116,19 @@ module Ukiryu
         param_key = last_arg.name_sym
         if params.key?(param_key) && !params[param_key].nil?
           if last_arg.variadic
-            array = Type.validate(params[param_key], :array, last_arg)
+            array = Ukiryu::Type.validate(params[param_key], :array, last_arg)
             array.each { |v| args << format_arg(v, last_arg) }
           else
             args << format_arg(params[param_key], last_arg)
           end
         end
+      end
+
+      # Debug logging for Ruby 4.0 CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] Built args: #{args.inspect}"
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] Args class: #{args.class}"
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] Args size: #{args.size}"
       end
 
       args
@@ -113,12 +141,12 @@ module Ukiryu
     # @return [String] the formatted argument
     def format_arg(value, arg_def)
       # Validate type
-      Type.validate(value, arg_def.type || :string, arg_def)
+      Ukiryu::Type.validate(value, arg_def.type || :string, arg_def)
 
       # Apply platform-specific path formatting
       if arg_def.type == :file
-        shell_class = Shell.class_for(@shell)
-        shell_class.new.format_path(value.to_s)
+        shell = Ukiryu::Shell::InstanceCache.instance_for(@shell)
+        shell.format_path(value.to_s)
       else
         value.to_s
       end
@@ -131,7 +159,7 @@ module Ukiryu
     # @return [String, Array<String>] the formatted option(s)
     def format_option(opt_def, value)
       # Validate type
-      Type.validate(value, opt_def.type || :string, opt_def)
+      Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
 
       # Handle boolean types - just return the CLI flag (no value)
       type_val = opt_def.type
@@ -167,18 +195,26 @@ module Ukiryu
           "#{cli}=#{joined}"
         end
       else
-        case delimiter_sym
-        when :equals
-          "#{cli}=#{value_str}"
-        when :space
-          [cli, value_str] # Return array for space-separated
-        when :colon
-          "#{cli}:#{value_str}"
-        when :none
-          cli
-        else
-          "#{cli}=#{value_str}"
+        result = case delimiter_sym
+                 when :equals
+                   "#{cli}=#{value_str}"
+                 when :space
+                   [cli, value_str] # Return array for space-separated
+                 when :colon
+                   "#{cli}:#{value_str}"
+                 when :none
+                   cli
+                 else
+                   "#{cli}=#{value_str}"
+                 end
+
+        # Debug logging for Ruby 3.4+ CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG format_option] result: #{result.inspect}"
+          warn "[UKIRYU DEBUG format_option] result.class: #{result.class}"
         end
+
+        result
       end
     end
 

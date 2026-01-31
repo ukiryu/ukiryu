@@ -1,0 +1,45 @@
+---
+ukiryu_schema: '1.0'
+name: sort
+version: '1.0'
+display_name: Sort Interface
+actions:
+- name: sort
+  description: Sort text lines
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: output
+        type: file
+      - name: key
+        type: string
+      - name: field_separator
+        type: string
+      flags:
+      - name: numeric_sort
+        type: boolean
+      - name: human_numeric
+        type: boolean
+      - name: month_sort
+        type: boolean
+      - name: version_sort
+        type: boolean
+      - name: random_sort
+        type: boolean
+      - name: reverse
+        type: boolean
+      - name: unique
+        type: boolean
+      - name: check
+        type: boolean
+      - name: ignore_case
+        type: boolean
+      - name: ignore_blanks
+        type: boolean
+      - name: zero_terminated
+        type: boolean
+aliases: []

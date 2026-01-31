@@ -1,48 +1,71 @@
 # frozen_string_literal: true
 
-require_relative 'executor'
-require_relative 'platform'
-require_relative 'models/search_paths'
+require_relative 'models/executable_info'
 
 module Ukiryu
   # Executable locator for finding tool executables
   #
-  # This module provides centralized executable location logic with:
-  # - Custom search paths from tool profiles
-  # - Shell-specific path extensions (Windows PATHEXT)
-  # - Fallback to system PATH
-  # - Proper OOP design (no duplicated code)
+  # Uses OOP discovery strategies:
+  # - AliasDiscovery (via Shell class)
+  # - SystemCommandDiscovery (which/where/command -v)
+  # - PathDiscovery (manual PATH search)
   #
   # @example Finding an executable
   #   path = ExecutableLocator.find(
   #     tool_name: 'imagemagick',
-  #     aliases: ['magick'],
-  #     search_paths: ['/opt/homebrew/bin/magick'],
-  #     platform: :macos
+  #     aliases: ['magick']
   #   )
   module ExecutableLocator
+    INTERNAL_COMMAND_TIMEOUT = 5
+
     class << self
-      # Find an executable by name with search paths
+      # Find an executable by name
       #
       # @param tool_name [String] the primary tool name
       # @param aliases [Array<String>] alternative names to try
-      # @param search_paths [Array<String>, Models::SearchPaths] custom search paths or SearchPaths model
       # @param platform [Symbol] the platform (defaults to Runtime.platform)
       # @return [String, nil] the executable path or nil if not found
-      def find(tool_name:, aliases: [], search_paths: [], platform: nil)
-        platform ||= Runtime.instance.platform
+      def find(tool_name:, aliases: [], platform: nil)
+        result = find_with_info(tool_name: tool_name, aliases: aliases, platform: platform)
+        result&.dig(:path)
+      end
 
-        # Convert SearchPaths model to array if needed
-        paths = normalize_search_paths(search_paths, platform)
+      # Find an executable with full discovery information
+      #
+      # @param tool_name [String] the primary tool name
+      # @param aliases [Array<String>] alternative names to try
+      # @param platform [Symbol] the platform (defaults to Runtime.platform)
+      # @return [Hash, nil] {path: "...", info: ExecutableInfo} or nil if not found
+      def find_with_info(tool_name:, aliases: [], platform: nil)
+        platform ||= Ukiryu::Runtime.instance.platform
+        context = DiscoveryContext.new(platform)
+
+        # Debug logging for Windows CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+          warn "[UKIRYU DEBUG ExecutableLocator] Searching for tool: #{tool_name.inspect}"
+          warn "[UKIRYU DEBUG ExecutableLocator] Aliases: #{aliases.inspect}"
+          warn "[UKIRYU DEBUG ExecutableLocator] Detected shell: #{context.shell_sym.inspect}"
+          warn "[UKIRYU DEBUG ExecutableLocator] Shell class: #{context.shell_class.inspect}"
+        end
 
         # Try primary name first
-        exe = try_find(tool_name, paths)
-        return exe if exe
+        result = DiscoveryStrategy.discover(tool_name, context)
+        if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
+          warn "[UKIRYU DEBUG ExecutableLocator] Found #{tool_name}: #{result[:path]}"
+        end
+        return result if result
 
         # Try aliases
         aliases.each do |alias_name|
-          exe = try_find(alias_name, paths)
-          return exe if exe
+          result = DiscoveryStrategy.discover(alias_name, context)
+          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
+            warn "[UKIRYU DEBUG ExecutableLocator] Found alias #{alias_name}: #{result[:path]}"
+          end
+          return result if result
+        end
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+          warn "[UKIRYU DEBUG ExecutableLocator] NO EXECUTABLE FOUND for #{tool_name} or aliases #{aliases}"
         end
 
         nil
@@ -51,70 +74,270 @@ module Ukiryu
       # Find an executable in the system PATH
       #
       # @param command [String] the command or executable name
-      # @param additional_paths [Array<String>] additional search paths
+      # @param additional_paths [Array<String>] additional search paths (for backward compatibility)
       # @return [String, nil] the full path to the executable, or nil if not found
       def find_in_path(command, additional_paths: [])
-        # Try with PATHEXT extensions (Windows executables)
-        exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
+        PathScanner.find(command, additional_paths: additional_paths)
+      end
+    end
 
-        search_paths = Platform.executable_search_paths
-        search_paths.concat(additional_paths) if additional_paths
-        search_paths.uniq!
+    # Encapsulates the discovery environment details
+    #
+    # @api private
+    class DiscoveryContext
+      attr_reader :platform, :shell_sym, :shell_class
 
-        search_paths.each do |dir|
-          exts.each do |ext|
-            exe = File.join(dir, "#{command}#{ext}")
-            return exe if File.executable?(exe) && !File.directory?(exe)
+      def initialize(platform)
+        @platform = platform
+        @shell_sym = Shell.detect
+        @shell_class = Shell.class_for(@shell_sym)
+      end
+    end
+
+    # OOP Strategy for executable discovery
+    #
+    # Tries multiple discovery strategies in order:
+    # 1. Alias discovery (via Shell class)
+    # 2. System command discovery (which/where/command -v)
+    # 3. Manual PATH search
+    #
+    # @api private
+    module DiscoveryStrategy
+      class << self
+        # Try all discovery strategies
+        #
+        # @param command [String] the command to locate
+        # @param context [DiscoveryContext] discovery environment
+        # @return [Hash, nil] discovery result or nil
+        def discover(command, context)
+          warn "[UKIRYU DEBUG DiscoveryStrategy] Discovering: #{command.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+
+          # Try AliasDiscovery
+          result = AliasDiscovery.discover(command, context)
+          if result
+            warn "[UKIRYU DEBUG DiscoveryStrategy] AliasDiscovery found: #{result[:path]}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            return result
           end
+
+          # Try SystemCommandDiscovery
+          result = SystemCommandDiscovery.discover(command, context)
+          if result
+            warn "[UKIRYU DEBUG DiscoveryStrategy] SystemCommandDiscovery found: #{result[:path]}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            return result
+          end
+
+          # Try PathDiscovery
+          result = PathDiscovery.discover(command, context)
+          if result
+            warn "[UKIRYU DEBUG DiscoveryStrategy] PathDiscovery found: #{result[:path]}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            return result
+          end
+
+          warn "[UKIRYU DEBUG DiscoveryStrategy] NO STRATEGY FOUND: #{command}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+
+          nil
+        end
+      end
+    end
+
+    # Alias-based discovery (delegates to Shell class)
+    #
+    # @api private
+    module AliasDiscovery
+      class << self
+        # Discover executable via shell alias
+        #
+        # @param command [String] the command to locate
+        # @param context [DiscoveryContext] discovery environment
+        # @return [Hash, nil] discovery result or nil
+        def discover(command, context)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            warn "[UKIRYU DEBUG AliasDiscovery] Checking for alias: #{command.inspect} with shell #{context.shell_class}"
+          end
+
+          alias_info = context.shell_class.detect_alias(command)
+          warn "[UKIRYU DEBUG AliasDiscovery] Alias info: #{alias_info.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+          return nil unless alias_info
+
+          alias_target = alias_info[:target]
+          path = PathScanner.find(command) || PathScanner.find(alias_target)
+
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            warn "[UKIRYU DEBUG AliasDiscovery] Alias target: #{alias_target.inspect}, path: #{path.inspect}"
+          end
+
+          DiscoveryResult.build(path, :alias, context, alias_info[:definition]) if path
+        end
+      end
+    end
+
+    # System command discovery (which/where/command -v)
+    #
+    # @api private
+    module SystemCommandDiscovery
+      class << self
+        # Discover executable via system commands
+        #
+        # @param command [String] the command to locate
+        # @param context [DiscoveryContext] discovery environment
+        # @return [Hash, nil] discovery result or nil
+        def discover(command, context)
+          path = SystemCommandExecutor.find(command)
+          DiscoveryResult.build(path, :path, context) if path
+        end
+      end
+    end
+
+    # Manual PATH discovery
+    #
+    # @api private
+    module PathDiscovery
+      class << self
+        # Discover executable via PATH search
+        #
+        # @param command [String] the command to locate
+        # @param context [DiscoveryContext] discovery environment
+        # @return [Hash, nil] discovery result or nil
+        def discover(command, context)
+          path = PathScanner.find(command)
+          DiscoveryResult.build(path, :path, context) if path
+        end
+      end
+    end
+
+    # Build discovery results (DRY helper)
+    #
+    # @api private
+    module DiscoveryResult
+      class << self
+        # Build a discovery result hash
+        #
+        # @param path [String] the executable path
+        # @param source [Symbol] :path or :alias
+        # @param context [DiscoveryContext] discovery environment
+        # @param alias_definition [String, nil] optional alias definition
+        # @return [Hash] {path: "...", info: ExecutableInfo}
+        def build(path, source, context, alias_definition = nil)
+          {
+            path: path,
+            info: Models::ExecutableInfo.new(
+              path: path,
+              source: source,
+              shell: context.shell_sym,
+              alias_definition: alias_definition
+            )
+          }
+        end
+      end
+    end
+
+    # Execute system commands to find executables
+    #
+    # @api private
+    module SystemCommandExecutor
+      class << self
+        # Execute which/where/command -v to find executable
+        #
+        # @param command [String] the command to find
+        # @return [String, nil] executable path or nil
+        def find(command)
+          platform = Runtime.instance.platform
+
+          warn "[UKIRYU DEBUG SystemCommandExecutor] Finding command: #{command.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+
+          result = if platform == :windows
+                     execute('where', ["#{command}.exe"])
+                   else
+                     execute('sh', ['-c', "command -v '#{command}' 2>/dev/null"]) ||
+                       execute('which', [command])
+                   end
+
+          warn "[UKIRYU DEBUG SystemCommandExecutor] Result: #{result.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+
+          result
         end
 
-        nil
-      end
+        private
 
-      private
+        # Execute command and parse stdout
+        #
+        # @param executable [String] command to run
+        # @param args [Array<String>] arguments
+        # @return [String, nil] first line of stdout or nil
+        def execute(executable, args)
+          result = Executor.execute(
+            executable,
+            args,
+            shell: Shell.detect,
+            timeout: INTERNAL_COMMAND_TIMEOUT,
+            allow_failure: true
+          )
+          return nil unless result.success?
 
-      # Normalize search paths to array format
-      #
-      # @param search_paths [Array<String>, Models::SearchPaths, Hash] the search paths
-      # @param platform [Symbol] the platform
-      # @return [Array<String>] normalized array of paths
-      def normalize_search_paths(search_paths, platform)
-        return [] unless search_paths
-
-        # If it's a SearchPaths model, get platform-specific paths
-        return search_paths.for_platform(platform) || [] if search_paths.is_a?(Models::SearchPaths)
-
-        # If it's a Hash, extract platform-specific paths
-        if search_paths.is_a?(Hash)
-          platform_paths = search_paths[platform] || search_paths[platform.to_s]
-          return platform_paths || [] if platform_paths
+          extract_first_line(result.stdout)
         end
 
-        # Already an array
-        search_paths
+        # Extract first non-empty line
+        #
+        # @param stdout [String] command output
+        # @return [String, nil] first line or nil
+        def extract_first_line(stdout)
+          stdout.split("\n").first.to_s.strip.tap { |line| break nil if line.empty? }
+        end
       end
+    end
 
-      # Try to find an executable by name
-      #
-      # @param command [String] the command name
-      # @param search_paths [Array<String>] custom search paths
-      # @return [String, nil] the executable path or nil
-      def try_find(command, search_paths)
-        # Check custom search paths first (both absolute paths and glob patterns)
-        search_paths.each do |path_pattern|
-          # Handle glob patterns
-          if path_pattern.include?('*')
-            Dir.glob(path_pattern).each do |expanded|
-              return expanded if File.executable?(expanded) && !File.directory?(expanded)
+    # Scan PATH for executables (DRY helper)
+    #
+    # @api private
+    module PathScanner
+      class << self
+        # Find executable in PATH
+        #
+        # @param command [String] command to find
+        # @param additional_paths [Array<String>] extra paths to search
+        # @return [String, nil] executable path or nil
+        def find(command, additional_paths: [])
+          path_extensions = PathExtensions.new
+
+          search_paths = Platform.executable_search_paths + additional_paths
+          search_paths.uniq!
+
+          search_paths.each do |dir|
+            path_extensions.each do |ext|
+              exe = File.join(dir, "#{command}#{ext}")
+              return exe if executable?(exe)
             end
-          # Handle absolute paths
-          elsif File.executable?(path_pattern) && !File.directory?(path_pattern)
-            return path_pattern
           end
+
+          nil
         end
 
-        # Fall back to PATH
-        find_in_path(command)
+        # Check if path is an executable (not a directory)
+        #
+        # @param path [String] path to check
+        # @return [Boolean] true if executable and not directory
+        def executable?(path)
+          File.executable?(path) && !File.directory?(path)
+        end
+      end
+    end
+
+    # Handle platform-specific path extensions (.exe, .bat, etc.)
+    #
+    # @api private
+    class PathExtensions
+      include Enumerable
+
+      def initialize
+        @extensions = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
+      end
+
+      # Iterate over extensions
+      #
+      # @yield [String] each extension
+      def each(&block)
+        @extensions.each(&block)
       end
     end
   end

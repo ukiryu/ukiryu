@@ -12,7 +12,9 @@ This page documents all error types raised by Ukiryu, their meanings, and recove
 // Overview
 == Overview
 
-Ukiryu uses Ruby's exception mechanism to report errors. All errors inherit from `Ukiryu::Error`, allowing you to catch all Ukiryu-specific errors with a single rescue clause.
+Ukiryu uses Ruby's exception mechanism to report errors. All errors inherit from `Ukiryu::Errors::Error`, allowing you to catch all Ukiryu-specific errors with a single rescue clause.
+
+All errors are organized under the `Ukiryu::Errors` namespace module for clear separation from other Ukiryu classes.
 
 // Error Hierarchy
 == Error Hierarchy
@@ -20,28 +22,28 @@ Ukiryu uses Ruby's exception mechanism to report errors. All errors inherit from
 .Error inheritance tree
 [source,ruby]
 ----
-Ukiryu::Error                           # Base error class
+Ukiryu::Errors::Error                    # Base error class
 |
-+- Ukiryu::UnknownShellError            # Shell detection failed
-+- Ukiryu::UnsupportedPlatformError    # Platform not supported
-+- Ukiryu::ValidationError              # Type validation failed
-+- Ukiryu::LoadError                    # Legacy load error (use DefinitionError)
-+- Ukiryu::VersionDetectionError        # Version detection failed
++- Ukiryu::Errors::UnknownShellError     # Shell detection failed
++- Ukiryu::Errors::UnsupportedPlatformError  # Platform not supported
++- Ukiryu::Errors::ValidationError       # Type validation failed
++- Ukiryu::Errors::LoadError            # Legacy load error (use DefinitionError)
++- Ukiryu::Errors::VersionDetectionError # Version detection failed
 |
-+- Ukiryu::ProfileNotFoundError         # No compatible profile found
-+- Ukiryu::ProfileLoadError             # Profile loading failed
++- Ukiryu::Errors::ProfileNotFoundError # No compatible profile found
++- Ukiryu::Errors::ProfileLoadError     # Profile loading failed
 |
-+- Ukiryu::DefinitionError              # Definition-related errors
++- Ukiryu::Errors::DefinitionError      # Definition-related errors
 |  |
-|  +- Ukiryu::DefinitionNotFoundError   # Definition file not found
-|  +- Ukiryu::DefinitionLoadError       # Definition parsing failed
-|  +- Ukiryu::DefinitionValidationError # Definition validation failed
+|  +- Ukiryu::Errors::DefinitionNotFoundError   # Definition file not found
+|  +- Ukiryu::Errors::DefinitionLoadError      # Definition parsing failed
+|  +- Ukiryu::Errors::DefinitionValidationError  # Definition validation failed
 |
-+- Ukiryu::ToolNotFoundError            # Tool not in register
-+- Ukiryu::ExecutableNotFoundError      # Tool executable not found
++- Ukiryu::Errors::ToolNotFoundError    # Tool not in register
++- Ukiryu::Errors::ExecutableNotFoundError  # Tool executable not found
 |
-+- Ukiryu::ExecutionError               # Command execution failed
-+- Ukiryu::TimeoutError                 # Command timeout exceeded
++- Ukiryu::Errors::ExecutionError        # Command execution failed
++- Ukiryu::Errors::TimeoutError          # Command timeout exceeded
 ----
 
 // Error Types
@@ -49,7 +51,7 @@ Ukiryu::Error                           # Base error class
 
 === Base Error
 
-==== Ukiryu::Error
+==== Ukiryu::Errors::Error
 
 *Base class for all Ukiryu errors.*
 
@@ -61,14 +63,14 @@ Ukiryu::Error                           # Base error class
 ----
 begin
   # ... Ukiryu operations ...
-rescue Ukiryu::Error => e
+rescue Ukiryu::Errors::Error => e
   puts "Ukiryu error: #{e.message}"
 end
 ----
 
 === Shell and Platform Errors
 
-==== Ukiryu::UnknownShellError
+==== Ukiryu::Errors::UnknownShellError
 
 *Shell detection or specification failed.*
 
@@ -78,7 +80,8 @@ end
   * Specified shell is not supported
   * Shell executable not found
 * **Recovery**:
-  * Specify a supported shell: `bash`, `zsh`, `fish`, `sh`, `powershell`, `cmd`
+  * Specify a supported shell: `bash`, `zsh`, `fish`, `sh`, `dash`, `tcsh`, `powershell`, `cmd`
+  * Use shell platform groups: `unix` (all Unix shells), `windows`, `powershell`
   * Install the shell if missing
   * Check `UKIRYU_SHELL` environment variable
 
@@ -86,14 +89,22 @@ end
 ----
 begin
   tool = Ukiryu::Tool.get(:imagemagick, shell: :unknown_shell)
-rescue Ukiryu::UnknownShellError => e
+rescue Ukiryu::Errors::UnknownShellError => e
   puts "Shell error: #{e.message}"
   # Try with auto-detected shell
   tool = Ukiryu::Tool.get(:imagemagick)
 end
+
+# Valid shells
+valid_shells = [:bash, :zsh, :fish, :sh, :dash, :tcsh, :powershell, :cmd, :unix, :windows]
+
+# Platform groups
+# :unix -> bash, zsh, fish, sh, dash, tcsh
+# :windows -> cmd
+# :powershell -> powershell
 ----
 
-==== Ukiryu::UnsupportedPlatformError
+==== Ukiryu::Errors::UnsupportedPlatformError
 
 *Platform is not supported.*
 
@@ -105,14 +116,14 @@ end
 ----
 begin
   tool = Ukiryu::Tool.get(:imagemagick)
-rescue Ukiryu::UnsupportedPlatformError => e
+rescue Ukiryu::Errors::UnsupportedPlatformError => e
   puts "Platform not supported: #{e.message}"
 end
 ----
 
 === Validation Errors
 
-==== Ukiryu::ValidationError
+==== Ukiryu::Errors::ValidationError
 
 *Type validation failed.*
 
@@ -134,7 +145,7 @@ begin
     format: :unsupported,  # Not in values list
     dpi: -5                 # Outside range 1-10000
   })
-rescue Ukiryu::ValidationError => e
+rescue Ukiryu::Errors::ValidationError => e
   puts "Validation error: #{e.message}"
   # Correct the parameters and retry
   result = tool.execute(:export, {
@@ -146,7 +157,7 @@ end
 
 === Profile Errors
 
-==== Ukiryu::ProfileNotFoundError
+==== Ukiryu::Errors::ProfileNotFoundError
 
 *No compatible profile found for the current platform/shell.*
 
@@ -165,14 +176,14 @@ end
 ----
 begin
   tool = Ukiryu::Tool.get(:imagemagick, platform: :windows)
-rescue Ukiryu::ProfileNotFoundError => e
+rescue Ukiryu::Errors::ProfileNotFoundError => e
   puts "No profile for this platform: #{e.message}"
   # Try without platform constraint
   tool = Ukiryu::Tool.get(:imagemagick)
 end
 ----
 
-==== Ukiryu::ProfileLoadError
+==== Ukiryu::Errors::ProfileLoadError
 
 *Profile loading failed.*
 
@@ -187,7 +198,7 @@ end
 ----
 begin
   tool = Ukiryu::Tool.get(:broken_tool)
-rescue Ukiryu::ProfileLoadError => e
+rescue Ukiryu::Errors::ProfileLoadError => e
   puts "Profile load error: #{e.message}"
   # Check tool definition file
 end
@@ -195,7 +206,7 @@ end
 
 === Definition Errors
 
-==== Ukiryu::DefinitionError
+==== Ukiryu::Errors::DefinitionError
 
 *Base class for definition-related errors.*
 
@@ -203,7 +214,7 @@ end
 * **When raised**: As a fallback for definition-related issues
 * **Recovery**: Check error message and definition file
 
-==== Ukiryu::DefinitionNotFoundError
+==== Ukiryu::Errors::DefinitionNotFoundError
 
 *Definition file not found.*
 
@@ -222,7 +233,7 @@ end
 ----
 begin
   tool = Ukiryu::Tool.load('/nonexistent/tool.yaml')
-rescue Ukiryu::DefinitionNotFoundError => e
+rescue Ukiryu::Errors::DefinitionNotFoundError => e
   puts "Definition not found: #{e.message}"
   # Check file path
   if File.exist?('/path/to/tool.yaml')
@@ -231,7 +242,7 @@ rescue Ukiryu::DefinitionNotFoundError => e
 end
 ----
 
-==== Ukiryu::DefinitionLoadError
+==== Ukiryu::Errors::DefinitionLoadError
 
 *Definition parsing or loading failed.*
 
@@ -250,14 +261,14 @@ end
 ----
 begin
   tool = Ukiryu::Tool.load('/path/to/tool.yaml')
-rescue Ukiryu::DefinitionLoadError => e
+rescue Ukiryu::Errors::DefinitionLoadError => e
   puts "Definition load error: #{e.message}"
   # Validate the definition
   system('ukiryu', 'validate', '--definition', '/path/to/tool.yaml')
 end
 ----
 
-==== Ukiryu::DefinitionValidationError
+==== Ukiryu::Errors::DefinitionValidationError
 
 *Definition validation failed.*
 
@@ -276,7 +287,7 @@ end
 ----
 begin
   tool = Ukiryu::Tool.load('/path/to/invalid.yaml')
-rescue Ukiryu::DefinitionValidationError => e
+rescue Ukiryu::Errors::DefinitionValidationError => e
   puts "Definition validation error: #{e.message}"
   # Validate for detailed errors
   system('ukiryu', 'validate', '--definition', '/path/to/invalid.yaml')
@@ -285,7 +296,7 @@ end
 
 === Tool Errors
 
-==== Ukiryu::ToolNotFoundError
+==== Ukiryu::Errors::ToolNotFoundError
 
 *Tool not found in register.*
 
@@ -304,13 +315,13 @@ end
 ----
 begin
   tool = Ukiryu::Tool.get(:nonexistent_tool)
-rescue Ukiryu::ToolNotFoundError => e
+rescue Ukiryu::Errors::ToolNotFoundError => e
   puts "Tool not found: #{e.message}"
   puts "Available tools: #{Ukiryu::Register.tools.join(', ')}"
 end
 ----
 
-==== Ukiryu::ExecutableNotFoundError
+==== Ukiryu::Errors::ExecutableNotFoundError
 
 *Tool executable not found on system.*
 
@@ -330,7 +341,7 @@ end
 begin
   tool = Ukiryu::Tool.get(:imagemagick)
   result = tool.execute(:convert, params)
-rescue Ukiryu::ExecutableNotFoundError => e
+rescue Ukiryu::Errors::ExecutableNotFoundError => e
   puts "Executable not found: #{e.message}"
   puts "Install ImageMagick or configure search paths"
 end
@@ -338,7 +349,7 @@ end
 
 === Execution Errors
 
-==== Ukiryu::ExecutionError
+==== Ukiryu::Errors::ExecutionError
 
 *Command execution failed.*
 
@@ -357,7 +368,7 @@ end
 begin
   tool = Ukiryu::Tool.get(:inkscape)
   result = tool.execute(:export, params)
-rescue Ukiryu::ExecutionError => e
+rescue Ukiryu::Errors::ExecutionError => e
   puts "Command failed!"
   puts "Exit code: #{e.result.exit_status}"
   puts "Stderr: #{e.result.stderr}"
@@ -365,7 +376,7 @@ rescue Ukiryu::ExecutionError => e
 end
 ----
 
-==== Ukiryu::TimeoutError
+==== Ukiryu::Errors::TimeoutError
 
 *Command execution exceeded timeout.*
 
@@ -384,7 +395,7 @@ end
 begin
   tool = Ukiryu::Tool.get(:ghostscript)
   result = tool.execute(:convert, large_pdf_params, timeout: 30)
-rescue Ukiryu::TimeoutError => e
+rescue Ukiryu::Errors::TimeoutError => e
   puts "Command timed out after #{e.timeout} seconds"
   # Retry with longer timeout
   result = tool.execute(:convert, large_pdf_params, timeout: 300)
@@ -393,7 +404,7 @@ end
 
 === Version Errors
 
-==== Ukiryu::VersionDetectionError
+==== Ukiryu::Errors::VersionDetectionError
 
 *Version detection failed.*
 
@@ -413,7 +424,7 @@ end
 begin
   tool = Ukiryu::Tool.get(:imagemagick)
   version = tool.version
-rescue Ukiryu::VersionDetectionError => e
+rescue Ukiryu::Errors::VersionDetectionError => e
   puts "Version detection failed: #{e.message}"
   # Tool will still work, but version is unknown
   puts "Continuing without version info..."
@@ -422,7 +433,7 @@ end
 
 === Legacy Error
 
-==== Ukiryu::LoadError
+==== Ukiryu::Errors::LoadError
 
 *Legacy load error (deprecated).*
 
@@ -436,14 +447,14 @@ end
 # Legacy code (still works but deprecated)
 begin
   tool = Ukiryu::Tool.load('/path/to/tool.yaml')
-rescue Ukiryu::LoadError => e
+rescue Ukiryu::Errors::LoadError => e
   puts "Load error: #{e.message}"
 end
 
 # Updated code
 begin
   tool = Ukiryu::Tool.load('/path/to/tool.yaml')
-rescue Ukiryu::DefinitionError => e
+rescue Ukiryu::Errors::DefinitionError => e
   puts "Definition error: #{e.message}"
 end
 ----
@@ -458,7 +469,7 @@ end
 begin
   tool = Ukiryu::Tool.get(:imagemagick)
   result = tool.execute(:convert, params)
-rescue Ukiryu::Error => e
+rescue Ukiryu::Errors::Error => e
   # Catch all Ukiryu-specific errors
   logger.error("Ukiryu error: #{e.message}")
   raise
@@ -483,11 +494,11 @@ class ToolExecutor
     begin
       tool.execute(command, params)
 
-    rescue Ukiryu::ExecutableNotFoundError => e
+    rescue Ukiryu::Errors::ExecutableNotFoundError => e
       # Fatal error - don't retry
       raise
 
-    rescue Ukiryu::TimeoutError => e
+    rescue Ukiryu::Errors::TimeoutError => e
       # Retry with longer timeout
       retries += 1
       if retries < max_retries
@@ -498,7 +509,7 @@ class ToolExecutor
         raise
       end
 
-    rescue Ukiryu::ExecutionError => e
+    rescue Ukiryu::Errors::ExecutionError => e
       # Command failed - check if retryable
       if retryable_exit_code?(e.result.exit_status) && retries < max_retries
         retries += 1
@@ -549,7 +560,7 @@ When `ExecutionError` is raised, the result object is accessible:
 ----
 begin
   result = tool.execute(:convert, params)
-rescue Ukiryu::ExecutionError => e
+rescue Ukiryu::Errors::ExecutionError => e
   result = e.result
 
   # Access all result information
@@ -569,7 +580,7 @@ end
 ----
 begin
   result = tool.execute(:convert, params, timeout: 30)
-rescue Ukiryu::TimeoutError => e
+rescue Ukiryu::Errors::TimeoutError => e
   puts "Command timed out after #{e.timeout} seconds"
   puts "Command was: #{e.result.command_info.full_command}"
 end

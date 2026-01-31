@@ -1,0 +1,67 @@
+---
+ukiryu_schema: '1.0'
+name: ping_bsd
+display_name: BSD Ping (macOS/BSD)
+homepage: https://www.openbsd.org/
+version: '1.0'
+aliases:
+- ping
+version_detection:
+  command: ["-c", "1", "localhost"]
+  pattern: "PING"
+search_paths:
+  macos:
+  - "/sbin/ping"
+  - "/usr/sbin/ping"
+  - "/bin/ping"
+  - "/usr/bin/ping"
+  linux:
+  - "/bin/ping"
+  - "/usr/bin/ping"
+  - "/sbin/ping"
+  - "/usr/sbin/ping"
+  freebsd:
+  - "/bin/ping"
+  - "/usr/bin/ping"
+  - "/sbin/ping"
+  - "/usr/sbin/ping"
+  openbsd:
+  - "/bin/ping"
+  - "/usr/bin/ping"
+  - "/sbin/ping"
+  - "/usr/sbin/ping"
+implements: ping
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  - freebsd
+  - openbsd
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: ping
+  commands:
+  - name: ping
+    description: Ping a host
+    arguments:
+    - name: host
+      type: string
+      required: true
+      description: Host to ping
+    options:
+    - name: count
+      type: integer
+      cli: "-c"
+      assignment_delimiter: auto
+      description: Number of packets to send
+    flags:
+    - name: quiet
+      cli: "-q"
+      description: Quiet output

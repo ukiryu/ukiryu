@@ -1,0 +1,16 @@
+---
+ukiryu_schema: '1.0'
+name: ping_bsd
+interface: ping
+implementations:
+- name: default
+  display_name: Ping Bsd
+  detection:
+    executable: ping
+    command: ["-c", "1", "localhost"]
+    pattern: "PING"
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml

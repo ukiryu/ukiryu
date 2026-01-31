@@ -41,7 +41,7 @@ module Ukiryu
         when :array
           validate_array(value, options)
         else
-          raise ValidationError, "Unknown type: #{type_definition[:name]}"
+          raise Ukiryu::Errors::ValidationError, "Unknown type: #{type_definition[:name]}"
         end
       end
 
@@ -75,10 +75,10 @@ module Ukiryu
       # Validate file type
       def validate_file(value, options)
         value = value.to_s
-        raise ValidationError, 'File path cannot be empty' if value.empty?
+        raise Ukiryu::Errors::ValidationError, 'File path cannot be empty' if value.empty?
 
         # Check if file exists (only if require_existing is true)
-        raise ValidationError, "File not found: #{value}" if options[:require_existing] && !File.exist?(value)
+        raise Ukiryu::Errors::ValidationError, "File not found: #{value}" if options[:require_existing] && !File.exist?(value)
 
         value
       end
@@ -86,10 +86,10 @@ module Ukiryu
       # Validate string type
       def validate_string(value, options)
         value = value.to_s
-        raise ValidationError, 'String cannot be empty' if value.empty? && !options[:allow_empty]
+        raise Ukiryu::Errors::ValidationError, 'String cannot be empty' if value.empty? && !options[:allow_empty]
 
         if options[:pattern] && value !~ options[:pattern]
-          raise ValidationError,
+          raise Ukiryu::Errors::ValidationError,
                 "String does not match required pattern: #{options[:pattern]}"
         end
 
@@ -103,21 +103,21 @@ module Ukiryu
         begin
           integer = Integer(value)
         rescue ArgumentError, TypeError
-          raise ValidationError, "Invalid integer: #{value.inspect}"
+          raise Ukiryu::Errors::ValidationError, "Invalid integer: #{value.inspect}"
         end
 
         if options[:range]
           min, max = options[:range]
-          raise ValidationError, "Integer #{integer} out of range [#{min}, #{max}]" if integer < min || integer > max
+          raise Ukiryu::Errors::ValidationError, "Integer #{integer} out of range [#{min}, #{max}]" if integer < min || integer > max
         end
 
         if options[:min] && integer < options[:min]
-          raise ValidationError,
+          raise Ukiryu::Errors::ValidationError,
                 "Integer #{integer} below minimum #{options[:min]}"
         end
 
         if options[:max] && integer > options[:max]
-          raise ValidationError,
+          raise Ukiryu::Errors::ValidationError,
                 "Integer #{integer} above maximum #{options[:max]}"
         end
 
@@ -131,12 +131,12 @@ module Ukiryu
         begin
           float = Float(value)
         rescue ArgumentError, TypeError
-          raise ValidationError, "Invalid float: #{value.inspect}"
+          raise Ukiryu::Errors::ValidationError, "Invalid float: #{value.inspect}"
         end
 
         if options[:range]
           min, max = options[:range]
-          raise ValidationError, "Float #{float} out of range [#{min}, #{max}]" if float < min || float > max
+          raise Ukiryu::Errors::ValidationError, "Float #{float} out of range [#{min}, #{max}]" if float < min || float > max
         end
 
         float
@@ -150,7 +150,7 @@ module Ukiryu
           # Convert values to symbols for comparison (handle both string and symbol values)
           valid_values = options[:values].map { |v| v.is_a?(String) ? v.to_sym : v }
           unless valid_values.include?(value)
-            raise ValidationError,
+            raise Ukiryu::Errors::ValidationError,
                   "Invalid symbol: #{value.inspect}. Valid values: #{options[:values].inspect}"
           end
         end
@@ -169,22 +169,22 @@ module Ukiryu
         when 'false', '0', 'no', 'off', ''
           false
         else
-          raise ValidationError, "Invalid boolean: #{value.inspect}"
+          raise Ukiryu::Errors::ValidationError, "Invalid boolean: #{value.inspect}"
         end
       end
 
       # Validate URI type
       def validate_uri(value, _options)
         value = value.to_s
-        raise ValidationError, 'URI cannot be empty' if value.empty?
+        raise Ukiryu::Errors::ValidationError, 'URI cannot be empty' if value.empty?
 
         begin
           uri = URI.parse(value)
-          raise ValidationError, "Invalid URI: #{value}" unless uri.is_a?(URI::Generic)
+          raise Ukiryu::Errors::ValidationError, "Invalid URI: #{value}" unless uri.is_a?(URI::Generic)
 
           uri.to_s
         rescue URI::InvalidURIError => e
-          raise ValidationError, "Invalid URI: #{value} - #{e.message}"
+          raise Ukiryu::Errors::ValidationError, "Invalid URI: #{value} - #{e.message}"
         end
       end
 
@@ -196,19 +196,19 @@ module Ukiryu
           begin
             Time.parse(value.to_s)
           rescue ArgumentError => e
-            raise ValidationError, "Invalid datetime: #{value.inspect} - #{e.message}"
+            raise Ukiryu::Errors::ValidationError, "Invalid datetime: #{value.inspect} - #{e.message}"
           end
         end
       end
 
       # Validate hash type
       def validate_hash(value, options)
-        raise ValidationError, "Hash expected, got #{value.class}: #{value.inspect}" unless value.is_a?(Hash)
+        raise Ukiryu::Errors::ValidationError, "Hash expected, got #{value.class}: #{value.inspect}" unless value.is_a?(Hash)
 
         if options[:keys]
           unknown_keys = value.keys - options[:keys]
           if unknown_keys.any?
-            raise ValidationError,
+            raise Ukiryu::Errors::ValidationError,
                   "Unknown hash keys: #{unknown_keys.inspect}. Valid keys: #{options[:keys].inspect}"
           end
         end
@@ -218,27 +218,39 @@ module Ukiryu
 
       # Validate array type
       def validate_array(value, options)
+        # Debug logging for Ruby 4.0 CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG Type.validate_array] value.class: #{value.class}"
+          warn "[UKIRYU DEBUG Type.validate_array] value.inspect: #{value.inspect}"
+          warn "[UKIRYU DEBUG Type.validate_array] options: #{options.inspect}"
+        end
+
         array = value.is_a?(Array) ? value : [value]
 
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG Type.validate_array] after conversion, array.class: #{array.class}"
+          warn "[UKIRYU DEBUG Type.validate_array] after conversion, array.inspect: #{array.inspect}"
+        end
+
         if options[:min] && array.size < options[:min]
-          raise ValidationError,
+          raise Ukiryu::Errors::ValidationError,
                 "Array has #{array.size} elements, minimum is #{options[:min]}"
         end
 
         if options[:max] && array.size > options[:max]
-          raise ValidationError,
+          raise Ukiryu::Errors::ValidationError,
                 "Array has #{array.size} elements, maximum is #{options[:max]}"
         end
 
         if options[:size]
           if options[:size].is_a?(Integer)
             if array.size != options[:size]
-              raise ValidationError,
+              raise Ukiryu::Errors::ValidationError,
                     "Array has #{array.size} elements, expected #{options[:size]}"
             end
           elsif options[:size].is_a?(Array)
             unless options[:size].include?(array.size)
-              raise ValidationError,
+              raise Ukiryu::Errors::ValidationError,
                     "Array has #{array.size} elements, expected one of: #{options[:size].inspect}"
             end
           end
@@ -246,6 +258,8 @@ module Ukiryu
 
         # Validate element type if specified
         array = array.map { |v| validate(v, options[:of], options) } if options[:of]
+
+        warn "[UKIRYU DEBUG Type.validate_array] returning array.inspect: #{array.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
         array
       end

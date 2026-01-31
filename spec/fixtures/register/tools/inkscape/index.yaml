@@ -1,0 +1,16 @@
+---
+ukiryu_schema: '1.0'
+name: inkscape
+interface: inkscape
+implementations:
+- name: default
+  display_name: Inkscape
+  detection:
+    pattern: inkscape ([\d.]+)
+  version_scheme: semantic
+  versions:
+  - equals: '0.92'
+    file: 0.92.yaml
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml

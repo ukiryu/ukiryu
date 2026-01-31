@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../source'
-
 module Ukiryu
   module Definition
     module Sources
@@ -75,7 +73,7 @@ module Ukiryu
           end
 
           if content.empty?
-            raise DefinitionLoadError,
+            raise Ukiryu::Errors::DefinitionLoadError,
                   'Definition content cannot be empty'
           end
 

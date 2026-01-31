@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-require_relative 'arguments'
-
 module Ukiryu
   module Models
     # Command execution information
@@ -17,17 +14,10 @@ module Ukiryu
       attribute :full_command, :string
       attribute :shell, :string
 
-      yaml do
-        map_element 'executable', to: :executable
-        map_element 'executable_name', to: :executable_name
-        map_element 'tool_name', to: :tool_name
-        map_element 'arguments', to: :arguments
-        map_element 'full_command', to: :full_command
-        map_element 'shell', to: :shell
-      end
-
-      json do
+      key_value do
         map 'executable', to: :executable
+        map 'executable_name', to: :executable_name
+        map 'tool_name', to: :tool_name
         map 'arguments', to: :arguments
         map 'full_command', to: :full_command
         map 'shell', to: :shell

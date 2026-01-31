@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../config'
-require_relative '../register'
-
 module Ukiryu
   module CliCommands
     # Base class for CLI commands
@@ -39,7 +36,7 @@ module Ukiryu
         register_path = custom_path || config.register || default_register_path
         return unless register_path && Dir.exist?(register_path)
 
-        Register.default_register_path = register_path
+        Ukiryu::Register.default_register_path = register_path
       end
 
       # Apply CLI options to the Config instance
@@ -86,8 +83,7 @@ module Ukiryu
       # @return [String, nil] the default register path from RegisterAutoManager
       def default_register_path
         # Use RegisterAutoManager to find or create the register
-        require_relative '../register_auto_manager'
-        RegisterAutoManager.register_path
+        Ukiryu::RegisterAutoManager.register_path
       rescue StandardError
         nil
       end

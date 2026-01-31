@@ -54,20 +54,20 @@ RSpec.describe Ukiryu::CliCommands::SystemCommand do
       expect(shells).to all(be_a(Symbol))
     end
 
-    it 'provides all valid shell types' do
+    it 'provides all valid shell types (platform groups + individual shells)' do
       shells = Ukiryu::Shell.all_valid
 
-      expect(shells).to include(:bash, :zsh, :fish, :sh, :powershell, :cmd)
+      expect(shells).to include(:unix, :windows, :powershell, :bash, :zsh, :fish, :sh)
     end
 
-    it 'provides platform-specific shells' do
+    it 'provides platform-specific shell groups' do
       shells = Ukiryu::Shell.valid_for_platform
 
       expect(shells).to be_an(Array)
       if Ukiryu::Platform.windows?
-        expect(shells).to include(:powershell, :cmd)
+        expect(shells).to include(:windows, :powershell, :unix)
       else
-        expect(shells).to include(:bash, :zsh, :fish, :sh)
+        expect(shells).to include(:unix, :powershell)
       end
     end
   end

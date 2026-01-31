@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-require_relative 'argument'
-
 module Ukiryu
   module Models
     # Structured command arguments
@@ -11,16 +8,10 @@ module Ukiryu
     # Each argument has a name, value, and type.
     class Arguments < Lutaml::Model::Serializable
       attribute :options, Argument, collection: true, initialize_empty: true
-      attribute :flags, :string, collection: true, default: []
+      attribute :flags, :string, collection: true, initialize_empty: true
       attribute :positional, Argument, collection: true, initialize_empty: true
 
-      yaml do
-        map_element 'options', to: :options
-        map_element 'flags', to: :flags
-        map_element 'positional', to: :positional
-      end
-
-      json do
+      key_value do
         map 'options', to: :options
         map 'flags', to: :flags
         map 'positional', to: :positional

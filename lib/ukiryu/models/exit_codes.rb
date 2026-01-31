@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Exit code definitions for tool commands
@@ -17,9 +15,9 @@ module Ukiryu
       attribute :standard, :hash, default: {}
       attribute :custom, :hash, default: {}
 
-      yaml do
-        map_element 'standard', to: :standard
-        map_element 'custom', to: :custom
+      key_value do
+        map 'standard', to: :standard
+        map 'custom', to: :custom
       end
 
       # Get the meaning of an exit code

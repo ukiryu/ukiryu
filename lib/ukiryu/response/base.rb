@@ -39,8 +39,7 @@ module Ukiryu
         return nil unless tool_name && command_name
 
         # Look up the tool by name
-        require_relative '../tool'
-        tool = Tool.find_by(tool_name.to_sym)
+        tool = Ukiryu::Tool.find_by(tool_name.to_sym)
         return nil unless tool
 
         # Get exit codes from the tool's profile

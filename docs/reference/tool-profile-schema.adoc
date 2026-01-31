@@ -1,0 +1,556 @@
+---
+layout: default
+title: Tool Profile Schema
+parent: Reference
+nav_order: 1
+---
+
+== Tool Profile Schema
+
+Complete reference for the YAML schema used to define CLI tool profiles in Ukiryu.
+
+// Overview
+== Overview
+
+Tool profiles are YAML files that define the complete API surface of a command-line tool. They specify:
+
+* Tool metadata (name, version, homepage)
+* Version detection rules
+* Platform-specific search paths
+* Command definitions with arguments, options, and flags
+* Profile configurations for different platforms, shells, and versions
+
+The schema version is `1.0`, specified via `ukiryu_schema: '1.0'` at the top of each profile.
+
+[NOTE]
+.Schema files are maintained in the https://github.com/ukiryu/schemas[ukiryu/schemas] repository:
+* link:https://github.com/ukiryu/schemas/blob/main/v1/tool.schema.yaml[tool.schema.yaml] - Tool profile schema
+* link:https://github.com/ukiryu/schemas/blob/main/v1/interface.schema.yaml[interface.schema.yaml] - Interface definition schema
+
+// Schema Structure
+== Schema Structure
+
+=== Root Fields
+
+[source,yaml]
+----
+ukiryu_schema: '1.0'      # Required: Schema version
+name: toolname             # Required: Tool identifier
+version: '1.0'             # Required: Tool version (or "generic")
+display_name: Tool Name    # Optional: Human-readable name
+homepage: https://...      # Optional: Project homepage
+description: Tool desc     # Optional: Tool description
+aliases: [alias1, alias2]   # Optional: Alternative names
+implements: [interface]    # Optional: Interface(s) this tool implements
+----
+
+==== ukiryu_schema
+
+The schema version this profile conforms to. Always `'1.0'` for current Ukiryu.
+
+* **Type**: String
+* **Required**: Yes
+* **Valid values**: `'1.0'`
+
+[source,yaml]
+----
+ukiryu_schema: '1.0'
+----
+
+==== name
+
+Tool identifier used in API calls. Must be unique in the register.
+
+* **Type**: String
+* **Required**: Yes
+* **Format**: Lowercase alphanumeric with underscores
+* **Example**: `imagemagick`, `ghostscript`, `inkscape`
+
+[source,yaml]
+----
+name: imagemagick
+----
+
+==== version
+
+Tool version this profile targets. Use `"generic"` for tools with stable interfaces.
+
+* **Type**: String
+* **Required**: Yes
+* **Valid values**: Version string (e.g., `'7.1'`) or `'generic'`
+
+[source,yaml]
+----
+# Versioned tool
+version: '7.1'
+
+# Generic tool (stable interface across versions)
+version: generic
+----
+
+==== display_name
+
+Human-readable name for documentation and display.
+
+* **Type**: String
+* **Required**: No
+* **Example**: `'ImageMagick'`, `'Ghostscript'`
+
+[source,yaml]
+----
+display_name: ImageMagick
+----
+
+==== homepage
+
+Project homepage URL.
+
+* **Type**: String (URL)
+* **Required**: No
+
+[source,yaml]
+----
+homepage: https://imagemagick.org
+----
+
+==== description
+
+Tool description for documentation.
+
+* **Type**: String
+* **Required**: No
+
+[source,yaml]
+----
+description: Image conversion and processing tool
+----
+
+==== aliases
+
+Alternative names for the tool.
+
+* **Type**: Array of strings
+* **Required**: No
+
+[source,yaml]
+----
+aliases: [magick, convert]
+----
+
+==== implements
+
+Interface contract(s) this tool implements. Allows multiple tools to implement the same abstract interface.
+
+* **Type**: Array of strings
+* **Required**: No
+
+[source,yaml]
+----
+# GNU tar implements the "tar" interface
+implements: [tar]
+----
+
+=== Version Detection
+
+Defines how to detect the installed version of the tool.
+
+[source,yaml]
+----
+version_detection:
+  detection_methods:     # Recommended: Multiple methods with fallback
+    - type: command
+      command: --version
+      pattern: 'Version ([\d.]+)'
+    - type: man_page
+      paths:
+        macos: /usr/share/man/man1/tool.1
+        linux: /usr/share/man/man1/tool.1
+    - type: system_tool
+  modern_threshold: '1.0'  # Minimum "modern" version
+----
+
+==== detection_methods (Recommended)
+
+Array of detection methods to try in order. If one fails, the next is attempted.
+
+* **Type**: Array of objects
+* **Required**: No (but recommended)
+* **Valid method types**:
+  * `command` - Run tool and parse output
+  * `man_page` - Parse man page for version
+  * `system_tool` - Mark as OS-provided utility
+
+===== command detection method
+
+[source,yaml]
+----
+detection_methods:
+  - type: command
+    command: --version        # Command to run
+    pattern: 'Version ([\d.]+)' # Regex with capture group
+----
+
+* **type**: Must be `'command'`
+* **command**: Array of arguments or string
+* **pattern**: Regex pattern with one capture group for version number
+
+===== man_page detection method
+
+[source,yaml]
+----
+detection_methods:
+  - type: man_page
+    paths:
+      macos: /usr/share/man/man1/tool.1
+      linux: /usr/share/man/man1/tool.1
+----
+
+* **type**: Must be `'man_page'`
+* **paths**: Platform-specific man page paths
+
+===== system_tool detection method
+
+[source,yaml]
+----
+detection_methods:
+  - type: system_tool
+----
+
+* **type**: Must be `'system_tool'`
+* **Usage**: Marks tool as OS-provided utility when version detection is unreliable
+
+==== modern_threshold
+
+Minimum version considered "modern" for compatibility checks.
+
+* **Type**: String (version)
+* **Required**: No
+* **Default**: None
+
+[source,yaml]
+----
+modern_threshold: '1.0'
+----
+
+=== Search Paths
+
+Platform-specific locations where the executable might be found.
+
+[source,yaml]
+----
+search_paths:
+  macos:
+    - /Applications/Inkscape.app/Contents/MacOS/inkscape
+    - /opt/homebrew/bin/inkscape
+    - /usr/local/bin/inkscape
+  linux:
+    - /usr/bin/inkscape
+    - /usr/local/bin/inkscape
+  windows:
+    - C:/Program Files/Inkscape/bin/inkscape.exe
+    - C:/Program Files (x86)/Inkscape/bin/inkscape.exe
+----
+
+* **Type**: Object with platform keys
+* **Required**: No (but recommended)
+* **Platform keys**: `macos`, `linux`, `windows`
+
+=== Profiles
+
+Array of platform/shell-specific configurations. Each profile defines how the tool behaves on a specific combination of platform and shell.
+
+[source,yaml]
+----
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    option_style: double_dash_space
+    commands:
+      - name: export
+        # ...
+  - name: windows
+    platforms: [windows]
+    shells: [powershell, cmd]
+    inherits: unix
+----
+
+==== Profile Fields
+
+* **name** (required): Profile identifier
+* **platforms** (required): Array of supported platforms
+* **shells** (required): Array of supported shells
+* **option_style** (optional): Default option format style
+* **inherits** (optional): Name of profile to inherit commands from
+* **executable_name** (optional): Override executable name
+
+[source,yaml]
+----
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    option_style: double_dash_space
+    executable_name: magick
+----
+
+=== Option Styles
+
+How options and flags are formatted on the command line.
+
+* **double_dash_equals**: `--output=file.png`
+* **double_dash_space**: `--output file.png`
+* **single_dash_equals**: `-q=85`
+* **single_dash_space**: `-q 85`
+* **slash_colon**: `/format:pdf` (Windows cmd)
+* **slash_space**: `/format pdf` (Windows cmd)
+
+=== Commands
+
+Array of command definitions that the tool supports.
+
+[source,yaml]
+----
+commands:
+  - name: export
+    description: Export document to different format
+    subcommand: export
+    standalone_executable: false
+    arguments:
+      - name: inputs
+        type: file
+        variadic: true
+        position: last
+    options:
+      - name: output
+        type: file
+        cli: --export-filename
+        required: true
+    flags:
+      - name: verbose
+        cli: --verbose
+        default: false
+----
+
+==== Command Fields
+
+* **name** (required): Command identifier
+* **description** (optional): Command description
+* **subcommand** (optional): Subcommand to use (e.g., `magick export`)
+* **standalone_executable** (optional): If true, command is standalone executable
+* **arguments** (optional): Array of argument definitions
+* **options** (optional): Array of option definitions
+* **flags** (optional): Array of flag definitions
+
+=== Arguments
+
+Positional parameters passed to the command.
+
+[source,yaml]
+----
+arguments:
+  - name: inputs
+    type: file
+    variadic: true
+    min: 1
+    position: last
+    required: true
+    description: Input files
+----
+
+==== Argument Fields
+
+* **name** (required): Argument identifier
+* **type** (required): Data type (`file`, `string`, `integer`, `float`, `symbol`, `boolean`, `array`)
+* **variadic** (optional): Accept multiple values
+* **min** (optional): Minimum number of values (for variadic)
+* **position** (optional): Where to place argument (`first`, `last`, or number)
+* **required** (optional): Whether argument is required
+* **description** (optional): Argument description
+
+=== Options
+
+Named parameters with values.
+
+[source,yaml]
+----
+options:
+  - name: format
+    type: string
+    cli: --export-type
+    values: [svg, png, pdf, eps]
+    default: png
+    required: false
+    description: Output format
+  - name: dpi
+    type: integer
+    cli: --export-dpi
+    range: 1..10000
+    default: 96
+    description: Export DPI
+----
+
+==== Option Fields
+
+* **name** (required): Option identifier
+* **type** (required): Data type
+* **cli** (required): CLI flag to use
+* **values** (optional): Array of valid values (for `symbol` type)
+* **range** (optional): Valid range (for `integer` or `float` type)
+* **default** (optional): Default value
+* **required** (optional): Whether option is required
+* **description** (optional): Option description
+* **assignment_delimiter** (optional): How to assign value (`equals`, `space`, `auto`, `none`)
+
+=== Flags
+
+Boolean switches without values.
+
+[source,yaml]
+----
+flags:
+  - name: verbose
+    cli: --verbose
+    short: -v
+    default: false
+    description: Verbose output
+  - name: quiet
+    cli: -q
+    default: false
+    description: Quiet mode
+----
+
+==== Flag Fields
+
+* **name** (required): Flag identifier
+* **cli** (required): CLI flag to use
+* **short** (optional): Short form flag
+* **default** (required): Default value (usually `false`)
+* **description** (optional): Flag description
+* **assignment_delimiter** (optional): Usually `none` for flags
+
+// Complete Example
+== Complete Example
+
+Here's a complete tool profile example:
+
+[source,yaml]
+----
+---
+ukiryu_schema: '1.0'
+
+# Metadata
+name: inkscape
+display_name: Inkscape
+homepage: https://inkscape.org
+version: '1.0'
+description: SVG vector graphics editor
+aliases: [inkscape]
+
+# Version detection
+version_detection:
+  detection_methods:
+    - type: command
+      command: --version
+      pattern: 'Inkscape ([\d.]+)'
+    - type: man_page
+      paths:
+        macos: /usr/share/man/man1/inkscape.1
+        linux: /usr/share/man/man1/inkscape.1
+  modern_threshold: '1.0'
+
+# Search paths
+search_paths:
+  macos:
+    - /Applications/Inkscape.app/Contents/MacOS/inkscape
+    - /opt/homebrew/bin/inkscape
+    - /usr/local/bin/inkscape
+  linux:
+    - /usr/bin/inkscape
+    - /usr/local/bin/inkscape
+  windows:
+    - C:/Program Files/Inkscape/bin/inkscape.exe
+
+# Profiles
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    option_style: double_dash_space
+
+    commands:
+      - name: export
+        description: Export document to different format
+        subcommand: export
+
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+            min: 1
+            position: last
+
+        options:
+          - name: output
+            type: file
+            cli: --export-filename
+            required: true
+
+          - name: format
+            type: symbol
+            cli: --export-type
+            values: [svg, png, pdf, eps, ps]
+            default: svg
+
+          - name: dpi
+            type: integer
+            cli: --export-dpi
+            range: 1..10000
+            default: 96
+
+          - name: width
+            type: integer
+            cli: --export-width
+
+          - name: height
+            type: integer
+            cli: --export-height
+
+        flags:
+          - name: verbose
+            cli: --verbose
+            default: false
+
+  - name: windows
+    platforms: [windows]
+    shells: [powershell, cmd]
+    inherits: unix
+----
+
+// Validation
+== Validation
+
+Validate your tool profiles using the Ukiryu CLI:
+
+[source,bash]
+----
+# Install ukiryu
+gem install ukiryu
+
+# Validate a specific profile
+ukiryu validate --definition tools/mytool/1.0.yaml
+
+# Validate with executable testing
+ukiryu validate --definition tools/mytool/1.0.yaml --executable
+
+# Lint for best practices
+ukiryu lint file tools/mytool/1.0.yaml
+----
+
+// See Also
+== See Also
+
+* link:https://github.com/ukiryu/schemas/blob/main/v1/tool.schema.yaml[tool.schema.yaml] - JSON Schema for validation
+* link:https://github.com/ukiryu/schemas/blob/main/v1/interface.schema.yaml[interface.schema.yaml] - Interface schema
+* link:/advanced/writing-profiles[Writing Tool Profiles] - Guide for creating profiles
+* link:/reference/error-codes[Error Codes] - Validation errors and meanings

@@ -31,8 +31,8 @@ RSpec.describe Ukiryu::CliCommands::RunFileCommand do
               - spec/fixtures/input.png
             output: spec/fixtures/output.jpg
         YAML
-        file.close
-        file.path
+        file.flush # Ensure content is written
+        file.path # Return path without closing
       end
 
       it 'executes the request without errors in dry run mode' do
@@ -55,7 +55,7 @@ RSpec.describe Ukiryu::CliCommands::RunFileCommand do
           invalid: yaml
           missing: fields
         YAML
-        file.close
+        file.flush
         file.path
       end
 
@@ -86,7 +86,7 @@ RSpec.describe Ukiryu::CliCommands::RunFileCommand do
             - yaml
               structure
         YAML
-        file.close
+        file.flush
         file.path
       end
 
@@ -110,7 +110,7 @@ RSpec.describe Ukiryu::CliCommands::RunFileCommand do
             - spec/fixtures/input.png
           output: spec/fixtures/output.jpg
       YAML
-      file.close
+      file.flush
       file.path
     end
 

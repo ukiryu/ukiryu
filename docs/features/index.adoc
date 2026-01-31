@@ -29,3 +29,4 @@ Key features that make Ukiryu suitable for production use:
 * link:/features/platform-support[Platform Support] - Cross-platform compatibility
 * link:/features/type-system[Type System] - Parameter validation and coercion
 * link:/features/error-handling[Error Handling] - Structured error information
+* link:/guides/environment[Environment Management] - Managing environment variables for execution

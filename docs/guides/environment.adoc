@@ -1,0 +1,371 @@
+---
+layout: default
+title: Environment Management
+parent: Guides
+nav_order: 3
+---
+
+= Environment Management
+
+The `Ukiryu::Environment` class provides an immutable, functional-style interface for managing environment variables during command execution.
+
+// Purpose
+== Purpose
+
+This guide covers:
+
+* Creating environments from various sources
+* Manipulating environment variables immutably
+* Using PATH utilities for chroot and venv scenarios
+* Bridging environments with the Executor
+
+// Concepts
+== Concepts
+
+=== Immutability
+
+All write operations on an `Environment` return a **new instance**, preserving the original. This makes environments:
+
+* **Thread-safe**: Each thread works with its own copy
+* **Predictable**: No side effects on the parent environment
+* **Chainable**: Operations can be chained fluently
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# These return NEW instances - original is unchanged
+env2 = env.set('CUSTOM_VAR', 'value')
+env3 = env.delete('UNUSED_VAR')
+env4 = env.merge('VAR1' => 'a', 'VAR2' => 'b')
+----
+
+=== PATH Utilities
+
+The Environment class provides specialized PATH manipulation:
+
+* `prepend_path` - Add directories at the beginning (highest priority)
+* `append_path` - Add directories at the end (lowest priority)
+* `remove_path` - Remove directories using prefix matching
+* `path_contains?` - Check if directory is in PATH
+* `path_array` - Get PATH as an array
+
+// Creation
+== Creating Environments
+
+=== From Current Process
+
+Inherit all environment variables from the current process:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+env = Ukiryu::Environment.from_env
+
+puts env['PATH']
+puts env.key?('HOME')
+----
+
+=== Empty Environment
+
+Create a completely empty environment:
+
+[source,ruby]
+----
+env = Ukiryu::Environment.system
+
+# Empty - no variables inherited
+puts env.keys  # => []
+----
+
+=== From Hash
+
+Create from a hash of key-value pairs:
+
+[source,ruby]
+----
+env = Ukiryu::Environment.new({
+  'PATH' => '/usr/bin:/bin',
+  'HOME' => '/home/user',
+  'CUSTOM_VAR' => 'value'
+})
+
+puts env['HOME']  # => "/home/user"
+----
+
+// Reading
+== Reading Environment Variables
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Get a value
+puts env['PATH']
+
+# Get with symbol (converted to string)
+puts env[:HOME]
+
+# Check if key exists
+env.key?('CUSTOM_VAR')  # => true
+
+# Get all keys
+env.keys  # => ["PATH", "HOME", ...]
+
+# Get as hash (for execution)
+env_hash = env.to_h
+----
+
+// Writing
+== Writing Environment Variables
+
+=== Setting Variables
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Set or update a variable (returns NEW instance)
+new_env = env.set('MY_VAR', 'my_value')
+
+# Chain multiple operations
+env = env.set('VAR1', 'value1')
+        .set('VAR2', 'value2')
+----
+
+=== Deleting Variables
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Delete a variable
+new_env = env.delete('UNUSED_VAR')
+----
+
+=== Merging Environments
+
+[source,ruby]
+----
+env1 = Ukiryu::Environment.new('A' => '1')
+env2 = Ukiryu::Environment.new('B' => '2')
+
+# Merge two environments
+merged = env1.merge(env2)
+
+# Merge with a hash
+merged = env1.merge('C' => '3')
+----
+
+// PATH Utilities
+== PATH Utilities
+
+The PATH utilities are designed for chroot and virtual environment scenarios.
+
+=== Prepending Directories
+
+Add directories to the **beginning** of PATH (highest priority):
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Prepend a single directory
+env = env.prepend_path('/chroot/bin')
+
+# Prepend multiple directories
+env = env.prepend_path(['/chroot/bin', '/chroot/usr/bin'])
+
+# Verify
+env.path_contains?('/chroot/bin')  # => true
+----
+
+=== Appending Directories
+
+Add directories to the **end** of PATH (lowest priority):
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Append a directory
+env = env.append_path('/new/bin')
+----
+
+=== Removing Directories
+
+Remove directories using prefix matching:
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Remove directory (also removes subdirectories)
+env = env.remove_path('/old/bin')
+
+# Example: removes /old/bin, /old/bin/subdir, etc.
+----
+
+=== Checking PATH
+
+[source,ruby]
+----
+env = Ukiryu::Environment.from_env
+
+# Check if directory is in PATH
+env.path_contains?('/usr/bin')  # => true
+
+# Get PATH as array
+paths = env.path_array
+# => ["/usr/bin", "/bin", "/usr/local/bin", ...]
+----
+
+// Use Cases
+== Use Cases
+
+=== Chroot Environment
+
+Run commands in a chrooted filesystem:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Create environment with chroot paths
+chroot_env = Ukiryu::Environment.from_env
+  .prepend_path('/mnt/chroot/usr/bin')
+  .prepend_path('/mnt/chroot/bin')
+  .set('CHROOT', '/mnt/chroot')
+
+# Execute with chroot environment
+result = Ukiryu::Executor.execute(
+  'ls',
+  ['-la', '/'],
+  env: chroot_env
+)
+
+puts result.output.stdout
+puts result.success? ? "Chroot works!" : "Chroot failed"
+----
+
+=== Virtual Environment
+
+Activate a Python virtual environment:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+venv_env = Ukiryu::Environment.from_env
+  .set('VIRTUAL_ENV', '/home/user/.venv')
+  .prepend_path('/home/user/.venv/bin')
+
+# Now npm will use the venv's packages
+result = Ukiryu::Executor.execute(
+  'npm',
+  ['install', 'package'],
+  env: venv_env
+)
+----
+
+=== Docker Container Environment
+
+Simulate running inside a Docker container:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+docker_env = Ukiryu::Environment.from_env
+  .set('DOCKER_CONTAINER', 'my_container')
+  .prepend_path('/usr/local/bin')
+  .delete('UNWANTED_VAR')
+
+result = Ukiryu::Executor.execute(
+  'python',
+  ['script.py'],
+  env: docker_env
+)
+----
+
+=== Clean Environment for Testing
+
+Run commands with a sanitized environment:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Start fresh and add only what you need
+test_env = Ukiryu::Environment.system
+  .set('PATH', '/usr/bin:/bin')
+  .set('HOME', '/tmp/test_home')
+  .set('RACK_ENV', 'test')
+  .set('RAILS_ENV', 'test')
+
+result = Ukiryu::Executor.execute(
+  'ruby',
+  ['test.rb'],
+  env: test_env
+)
+----
+
+// Execution Integration
+== Execution Integration
+
+The Executor accepts an Environment instance:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Create custom environment
+env = Ukiryu::Environment.from_env
+  .prepend_path('/custom/bin')
+  .set('MY_VAR', 'value')
+
+# Execute with custom environment
+result = Ukiryu::Executor.execute(
+  'mycommand',
+  ['arg1', 'arg2'],
+  env: env
+)
+
+# Or use with Tool
+tool = Ukiryu::Tool.get(:npm)
+result = tool.execute(:install, { package: 'lodash' }, env: env)
+----
+
+// Comparison
+== Comparison with ENV
+
+[cols="1,1"]
+|===
+|ENV (Mutable) |Ukiryu::Environment (Immutable)
+
+|`ENV['VAR'] = 'value'`
+|`env.set('VAR', 'value')`
+
+|`ENV.delete('VAR')`
+|`env.delete('VAR')`
+
+|No built-in PATH utilities
+|`env.prepend_path('/path')`
+
+|Side effects on global state
+|No side effects
+
+|Not thread-safe
+|Thread-safe
+
+|Can't chain operations
+|Fluent chainable API
+|===
+
+// See Also
+== See Also
+
+* link:/features/configuration[Configuration Methods] - Environment variables in config
+* link:/reference/ruby-api[Ruby API] - Environment API reference
+* link:/features/platform-support[Platform Support] - Platform-specific environment handling

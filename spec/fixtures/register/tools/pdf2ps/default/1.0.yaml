@@ -1,0 +1,46 @@
+---
+ukiryu_schema: '1.0'
+name: pdf2ps
+display_name: pdf2ps
+homepage: https://www.ghostscript.com/
+version: '1.0'
+aliases: []
+version_detection:
+  command: "-v"
+  pattern: "(\\d+\\.\\d+)"
+search_paths:
+  macos:
+  - "/opt/homebrew/bin/pdf2ps"
+  linux:
+  - "/usr/bin/pdf2ps"
+  windows:
+  - C:/Program Files/gs/gs*/bin/pdf2ps.bat
+  - C:/Program Files/gs/gs*/bin/pdf2ps.cmd
+  - C:/Program Files (x86)/gs/gs*/bin/pdf2ps.bat
+  - C:/Program Files (x86)/gs/gs*/bin/pdf2ps.cmd
+implements: pdf2ps/1.0
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  - windows
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: pdf2ps
+  commands:
+  - name: convert
+    description: Convert PDF to PostScript
+    arguments:
+    - name: input
+      type: file
+      required: true
+    - name: output
+      type: file
+      required: true

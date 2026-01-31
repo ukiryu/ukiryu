@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative '../extractors/extractor'
-
 module Ukiryu
   module CliCommands
     # Extract tool definition from an installed CLI tool
@@ -15,7 +12,7 @@ module Ukiryu
       #
       # @param tool_name [String] the tool name to extract definition from
       def run(tool_name)
-        result = Extractors::Extractor.extract(tool_name, extract_options)
+        result = Ukiryu::Extractors::Extractor.extract(tool_name, extract_options)
 
         if result[:success]
           output_result(result)

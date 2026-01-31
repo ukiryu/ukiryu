@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_extractor'
-
 module Ukiryu
   module Extractors
     # Help parser extraction strategy
@@ -29,6 +27,8 @@ module Ukiryu
       #
       # @return [Boolean] true if --help produces output
       def available?
+        return false if command_not_found?
+
         help_result = execute_command([@tool_name.to_s, '--help'])
         help_result[:exit_status].zero? && !(help_result[:stdout] + help_result[:stderr]).strip.empty?
       end
@@ -50,8 +50,8 @@ module Ukiryu
 
         # Build basic YAML structure
         definition = {
-          'ukiryu_schema' => '1.1',
-          '$self' => "https://www.ukiryu.com/register/1.1/#{name}/#{version || '1.0'}",
+          'ukiryu_schema' => '1.0',
+          '$self' => "https://www.ukiryu.com/register/1.0/#{name}/#{version || '1.0'}",
           'name' => name,
           'version' => version || '1.0',
           'display_name' => name.capitalize,
@@ -176,6 +176,61 @@ module Ukiryu
         else
           'string'
         end
+      end
+
+      # Check if the command was not found
+      #
+      # On Windows, when a command doesn't exist, the shell may return
+      # error messages in stderr rather than raising Errno::ENOENT.
+      # PowerShell specifically doesn't set $LASTEXITCODE for command not found.
+      #
+      # @return [Boolean] true if the command was not found
+      def command_not_found?
+        # Try to execute the command with --help
+        help_result = execute_command([@tool_name.to_s, '--help'])
+
+        # DEBUG: Log what we're seeing (for CI debugging)
+        if ENV['UKIRYU_DEBUG_HELP_PARSER']
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] tool: #{@tool_name}"
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] stdout: #{help_result[:stdout].inspect}"
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] stderr: #{help_result[:stderr].inspect}"
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] exit_status: #{help_result[:exit_status]}"
+        end
+
+        # Command not found patterns to check
+        error_patterns = [
+          # Unix/Linux
+          /command not found/i,
+          /no such file or directory/i,
+          /not found/i,
+          # Windows cmd.exe
+          /is not recognized as an internal or external command/i,
+          /is not recognized as an operable program or batch file/i,
+          # Windows PowerShell
+          # Note: PowerShell error format: "CommandName: The term 'CommandName' is not recognized..."
+          # The error may say "is not recognized as a cmdlet" or "is not recognized as the name of a cmdlet"
+          /is not recognized as (?:a |the )?(?:name of a )?cmdlet/i,
+          /cannot be found/i,
+          /because it does not exist/i,
+          # General
+          /executable not found/i,
+          /bad command or file name/i
+        ]
+
+        combined_output = "#{help_result[:stdout]} #{help_result[:stderr]}"
+
+        # Check if output matches error patterns
+        has_error_pattern = error_patterns.any? { |pattern| combined_output.match?(pattern) }
+
+        if ENV['UKIRYU_DEBUG_HELP_PARSER']
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] combined_output: #{combined_output.inspect}"
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] has_error_pattern: #{has_error_pattern}"
+          warn "[UKIRYU DEBUG HelpParser#command_not_found?] output_empty?: #{combined_output.strip.empty?}"
+        end
+
+        # Command is not found if error pattern matches AND there is output
+        # (On PowerShell, exit_status may be 0 even for command not found)
+        has_error_pattern && !combined_output.strip.empty?
       end
     end
   end

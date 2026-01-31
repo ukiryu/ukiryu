@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Version detection method
@@ -13,11 +11,11 @@ module Ukiryu
       attribute :pattern, :string
       attribute :paths, :hash # Platform-specific paths for man_page
 
-      yaml do
-        map_element 'type', to: :type
-        map_element 'command', to: :command
-        map_element 'pattern', to: :pattern
-        map_element 'paths', to: :paths
+      key_value do
+        map 'type', to: :type
+        map 'command', to: :command
+        map 'pattern', to: :pattern
+        map 'paths', to: :paths
       end
     end
 
@@ -45,18 +43,18 @@ module Ukiryu
     #     ]
     #   )
     class VersionDetection < Lutaml::Model::Serializable
-      attribute :command, :string, collection: true, default: []
+      attribute :command, :string, collection: true, initialize_empty: true
       attribute :pattern, :string
       attribute :modern_threshold, :string
       attribute :source, :string, default: 'command' # 'command' or 'man'
-      attribute :detection_methods, VersionDetectionMethod, collection: true, default: []
+      attribute :detection_methods, VersionDetectionMethod, collection: true, initialize_empty: true
 
-      yaml do
-        map_element 'command', to: :command
-        map_element 'pattern', to: :pattern
-        map_element 'modern_threshold', to: :modern_threshold
-        map_element 'source', to: :source
-        map_element 'detection_methods', to: :detection_methods
+      key_value do
+        map 'command', to: :command
+        map 'pattern', to: :pattern
+        map 'modern_threshold', to: :modern_threshold
+        map 'source', to: :source
+        map 'detection_methods', to: :detection_methods
       end
 
       # Hash-like access for Base.detect_version compatibility

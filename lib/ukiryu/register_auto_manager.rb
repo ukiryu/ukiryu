@@ -2,6 +2,7 @@
 
 require 'git'
 require 'fileutils'
+require 'pathname'
 
 module Ukiryu
   # Manages automatic register cloning and updates
@@ -25,15 +26,38 @@ module Ukiryu
       #
       # Checks in order:
       # 1. Environment variable UKIRYU_REGISTER
-      # 2. User's local clone (~/.ukiryu/register)
+      # 2. Development register (../../register relative to gem lib)
+      # 3. User's local clone (~/.ukiryu/register)
       #
       # @return [String, nil] the register path, or nil if unavailable
       def register_path
+        # Debug logging
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn '[UKIRYU DEBUG RegisterAutoManager] Checking register_path...'
+          warn "[UKIRYU DEBUG RegisterAutoManager] ENV['UKIRYU_REGISTER'] = #{ENV['UKIRYU_REGISTER'].inspect}"
+        end
+
         # 1. Environment variable has highest priority
         env_path = ENV['UKIRYU_REGISTER']
-        return env_path if env_path && Dir.exist?(env_path)
+        if env_path && Dir.exist?(env_path)
+          warn "[UKIRU DEBUG RegisterAutoManager] Using ENV register: #{env_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          return env_path
+        end
 
-        # 2. Use user's local clone, create if needed
+        warn "[UKIRYU DEBUG RegisterAutoManager] ENV path doesn't exist or not set" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
+        # 2. Check development register (../../../register relative to this file)
+        # Use Pathname for reliable path calculation
+        this_file = Pathname.new(__FILE__).realpath
+        dev_path = this_file.parent.parent.parent.parent + 'register'
+        if dev_path.exist?
+          warn "[UKIRYU DEBUG RegisterAutoManager] Using DEV register: #{dev_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          return dev_path.to_s
+        end
+
+        warn "[UKIRYU DEBUG RegisterAutoManager] DEV register doesn't exist" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
+        # 3. Use user's local clone, create if needed
         ensure_user_clone
       end
 
@@ -86,19 +110,43 @@ module Ukiryu
         git_dir = File.join(path, '.git')
         if Dir.exist?(git_dir)
           begin
+            # Suppress stderr from git commands using GIT_REDIRECT_STDERR
+            # This prevents "fatal: not a git repository" errors from polluting output
+            # Redirect stderr to /dev/null at the git subprocess level
+            null_dev = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/ ? 'NUL' : '/dev/null'
+            old_git_redirect = ENV['GIT_REDIRECT_STDERR']
+            ENV['GIT_REDIRECT_STDERR'] = null_dev
+
             g = Git.open(path)
             info[:branch] = g.current_branch
-            log = g.log(1).execute
+            log = g.log(1).to_a
             info[:commit] = log.first.sha[0..7]
             info[:last_update] = Time.at(log.first.date.to_i)
-          rescue Git::GitExecuteError
+
+            # Restore original GIT_REDIRECT_STDERR
+            if old_git_redirect
+              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+            else
+              ENV.delete('GIT_REDIRECT_STDERR')
+            end
+          rescue Git::GitExecuteError, IOError, Errno::ENOENT
             # Git info not available, but register is valid
+            # Ensure GIT_REDIRECT_STDERR is restored
+            if old_git_redirect
+              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+            else
+              ENV.delete('GIT_REDIRECT_STDERR')
+            end
           end
         end
 
         # Count available tools
         tools_dir = File.join(path, 'tools')
-        info[:tools_count] = Dir.glob(File.join(tools_dir, '*')).select { |d| File.directory?(d) }.count if Dir.exist?(tools_dir)
+        if Dir.exist?(tools_dir)
+          info[:tools_count] = Dir.glob(File.join(tools_dir, '*')).select do |d|
+            File.directory?(d)
+          end.count
+        end
 
         info
       end
@@ -189,10 +237,30 @@ module Ukiryu
 
         begin
           print 'Updating register...' if $stdout.tty?
+          # Suppress stderr from git commands using GIT_REDIRECT_STDERR
+          null_dev = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/ ? 'NUL' : '/dev/null'
+          old_git_redirect = ENV['GIT_REDIRECT_STDERR']
+          ENV['GIT_REDIRECT_STDERR'] = null_dev
+
           g = Git.open(path)
           g.pull
           puts 'done' if $stdout.tty?
+
+          # Restore original GIT_REDIRECT_STDERR
+          if old_git_redirect
+            ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+          else
+            ENV.delete('GIT_REDIRECT_STDERR')
+          end
         rescue Git::GitExecuteError => e
+          # Ensure GIT_REDIRECT_STDERR is restored
+          if defined?(old_git_redirect)
+            if old_git_redirect
+              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
+            else
+              ENV.delete('GIT_REDIRECT_STDERR')
+            end
+          end
           raise RegisterError, "Failed to update register: #{e.message}"
         end
       end
@@ -229,6 +297,12 @@ module Ukiryu
         # Check environment variable
         env_path = ENV['UKIRYU_REGISTER']
         return env_path if env_path && Dir.exist?(env_path)
+
+        # Check development register (../../../register relative to this file)
+        # Use Pathname for reliable path calculation
+        this_file = Pathname.new(__FILE__).realpath
+        dev_path = this_file.parent.parent.parent.parent + 'register'
+        return dev_path.to_s if dev_path.exist?
 
         # Check user clone
         expanded = expand_path(DEFAULT_DIR)

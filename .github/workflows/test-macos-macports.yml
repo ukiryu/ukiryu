@@ -1,0 +1,124 @@
+name: macOS Tests (MacPorts) - DISABLED
+
+# Temporarily disabled due to MacPorts infrastructure issues
+# (package signature verification failures on ImageMagick)
+# TODO: Re-enable when MacPorts infrastructure is fixed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:  # Only allow manual trigger
+
+jobs:
+  test-macos-macports:
+    if: false  # Always skip until MacPorts infrastructure is fixed
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-15-intel
+          - macos-15
+          - macos-26
+        macports-version: ['2.12.0']
+        ruby-version: ['3.1', '3.4', '4.0']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # checkout schema repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/schema
+          path: schema
+
+      # checkout register repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/register
+          ref: v1
+          path: register
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Setup MacPorts
+        uses: ukiryu/setup-macports@main
+        id: macports
+        with:
+          macports-version: ${{ matrix.macports-version }}
+          cache: true
+          sources-provider: git
+          # Disable clonefile (fails with permission denied on GHA runners)
+          prefer-copy: true
+          # Disable signature checks for packages that have issues
+          signature-check: 'disabled'
+          install-ports: 'pandoc jq yq ghostscript ffmpeg exiftool inkscape'
+
+      - name: Install ImageMagick (with shared-mime-info workaround)
+        shell: bash
+        run: |
+          echo "Installing shared-mime-info separately first..."
+          sudo /opt/local/bin/port install shared-mime-info || echo "shared-mime-info already installed or failed"
+          echo "Installing ImageMagick..."
+          sudo /opt/local/bin/port install ImageMagick
+
+      - name: Verify installations
+        shell: bash
+        run: |
+          # Add ImageMagick7 bin directory to PATH for verification
+          echo "/opt/local/lib/ImageMagick7/bin" >> $GITHUB_PATH
+
+          echo "=== Verifying installations ==="
+          echo ""
+          echo "MacPorts version:"
+          port version
+          echo ""
+          echo "ImageMagick:"
+          # ImageMagick7 installs to /opt/local/lib/ImageMagick7/bin
+          if command -v /opt/local/lib/ImageMagick7/bin/magick; then
+            echo "Found 'magick' command in ImageMagick7 location:"
+            /opt/local/lib/ImageMagick7/bin/magick --version
+          elif command -v /opt/local/bin/magick; then
+            echo "Found 'magick' command:"
+            /opt/local/bin/magick --version
+          elif command -v /opt/local/bin/convert; then
+            echo "Found 'convert' command:"
+            /opt/local/bin/convert --version
+          else
+            echo "WARNING: Neither 'magick' nor 'convert' command found"
+            ls /opt/local/lib/ImageMagick7/bin/magick /opt/local/bin/magick /opt/local/bin/convert 2>&1 || true
+          fi
+          echo ""
+          echo "Ghostscript:"
+          /opt/local/bin/gs --version
+          echo ""
+          echo "FFmpeg:"
+          /opt/local/bin/ffmpeg --help | head -3
+          echo ""
+          echo "ExifTool:"
+          /opt/local/bin/exiftool -ver
+          echo ""
+          echo "Pandoc:"
+          /opt/local/bin/pandoc --version
+          echo ""
+          echo "jq:"
+          /opt/local/bin/jq --version
+          echo ""
+          echo "yq:"
+          /opt/local/bin/yq --version
+          echo ""
+          echo "Inkscape:"
+          /opt/local/bin/inkscape --version
+
+      - name: Run tests
+        shell: bash
+        run: |
+          # Add ImageMagick7 bin directory to PATH for tests
+          echo "/opt/local/lib/ImageMagick7/bin" >> $GITHUB_PATH
+          bundle exec rake spec

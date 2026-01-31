@@ -19,3 +19,5 @@ gem 'paint'
 # For optional YAML schema validation in register
 gem 'bigdecimal'
 gem 'json-schema', '~> 4.0'
+gem 'oga'
+gem 'openssl', '~> 3.0'

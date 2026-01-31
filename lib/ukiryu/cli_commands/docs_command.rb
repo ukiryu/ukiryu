@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'thor'
-require_relative '../definition/documentation_generator'
 
 module Ukiryu
   module CliCommands

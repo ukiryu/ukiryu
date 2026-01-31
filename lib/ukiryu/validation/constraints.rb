@@ -128,7 +128,7 @@ module Ukiryu
 
         begin
           Type.validate(value, @type, @validation_options)
-        rescue Ukiryu::ValidationError => e
+        rescue Ukiryu::Errors::ValidationError => e
           raise ValidationIssue.new(@attribute_name, :type,
                                     "#{@attribute_name}: #{e.message}")
         end

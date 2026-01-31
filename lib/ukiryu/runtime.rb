@@ -2,10 +2,6 @@
 
 require 'singleton'
 
-require_relative 'platform'
-require_relative 'shell'
-require_relative 'config'
-
 module Ukiryu
   # Runtime singleton for centralized platform and shell detection.
   #
@@ -34,7 +30,7 @@ module Ukiryu
     def platform
       return @platform if @platform_cached
 
-      @platform = Platform.detect
+      @platform = Ukiryu::Platform.detect
       @platform_cached = true
       @platform
     end
@@ -59,7 +55,7 @@ module Ukiryu
       end
 
       # Auto-detect
-      @shell = Shell.detect
+      @shell = Ukiryu::Shell.detect
       @shell_cached = true
       @shell
     end
@@ -106,14 +102,14 @@ module Ukiryu
     #
     # @return [Class] the platform class
     def platform_class
-      Platform.class_for(platform)
+      Ukiryu::Platform.class_for(platform)
     end
 
     # Get the shell class for the current shell
     #
     # @return [Class] the shell class
     def shell_class
-      Shell.class_for(shell)
+      Ukiryu::Shell.class_for(shell)
     end
 
     # Check if running on a specific platform
@@ -173,7 +169,7 @@ module Ukiryu
     #
     # @return [Symbol, nil] the shell override or nil
     def shell_override
-      Config.shell
+      Ukiryu::Config.shell
     end
   end
 end

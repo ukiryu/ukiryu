@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Command output information
@@ -11,12 +9,7 @@ module Ukiryu
       attribute :stdout, :string, default: ''
       attribute :stderr, :string, default: ''
 
-      yaml do
-        map_element 'stdout', to: :stdout
-        map_element 'stderr', to: :stderr
-      end
-
-      json do
+      key_value do
         map 'stdout', to: :stdout
         map 'stderr', to: :stderr
       end

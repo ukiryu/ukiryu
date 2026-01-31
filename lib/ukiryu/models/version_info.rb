@@ -49,8 +49,15 @@ module Ukiryu
         method_used == :man_page
       end
 
+      # Check if version is from profile (hardcoded)
+      #
+      # @return [Boolean] true if from profile
+      def from_profile?
+        method_used == :profile
+      end
+
       # Display format with context
-      # Adds "(man page)" suffix only for display, not stored in data
+      # Adds "(man page)" or "(profile)" suffix only for display, not stored in data
       #
       # @return [String] formatted version string
       def to_s
@@ -59,6 +66,8 @@ module Ukiryu
           value
         when :man_page
           "#{value} (man page)"
+        when :profile
+          value
         else
           value
         end

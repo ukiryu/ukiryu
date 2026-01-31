@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../models/tool_definition'
-require_relative '../cache'
-
 module Ukiryu
   module Tools
     # Generator module for dynamically creating tool-specific classes
@@ -19,7 +16,7 @@ module Ukiryu
         #
         # @return [Cache] the generated classes cache
         def generated_classes_cache
-          @generated_classes_cache ||= Cache.new(max_size: 50, ttl: 3600)
+          @generated_classes_cache ||= Ukiryu::Cache.new(max_size: 50, ttl: 3600)
         end
 
         # Get or generate a tool class
@@ -33,7 +30,7 @@ module Ukiryu
 
           # Load the tool definition as a lutaml-model
           tool_definition = load_tool_definition(tool_name)
-          raise Ukiryu::ToolNotFoundError, "Tool not found: #{tool_name}" unless tool_definition
+          raise Ukiryu::Errors::ToolNotFoundError, "Tool not found: #{tool_name}" unless tool_definition
 
           # Get the compatible platform profile
           platform_profile = tool_definition.compatible_profile
@@ -48,12 +45,12 @@ module Ukiryu
         # Load a ToolDefinition model from the register
         #
         # @param tool_name [Symbol] the tool name
+        # @param options [Hash] loading options
+        # @option options [String] :version specific version to load
         # @return [Models::ToolDefinition, nil] the tool definition model
-        def load_tool_definition(tool_name)
-          require_relative '../register'
-
+        def load_tool_definition(tool_name, options = {})
           # Load the YAML file content
-          yaml_content = Register.load_tool_yaml(tool_name)
+          yaml_content = Ukiryu::Register.load_tool_yaml(tool_name, version: options[:version])
           return nil unless yaml_content
 
           # Use lutaml-model's from_yaml to parse
@@ -136,9 +133,7 @@ module Ukiryu
         #
         # @return [Array<Symbol>] list of tool names
         def available_tools
-          require_relative '../register'
-
-          register_path = Register.default_register_path
+          register_path = Ukiryu::Register.default_register_path
           return [] unless register_path
 
           tools_dir = File.join(register_path, 'tools')

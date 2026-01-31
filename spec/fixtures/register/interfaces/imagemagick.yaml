@@ -1,0 +1,76 @@
+---
+ukiryu_schema: '1.0'
+name: imagemagick
+version: '1.0'
+display_name: Imagemagick Interface
+actions:
+- name: convert
+  description: Convert between image formats and apply transformations
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        variadic: true
+        required:
+      - name: output
+        type: file
+        required:
+      options:
+      - name: resize
+        type: string
+      - name: quality
+        type: integer
+      - name: strip
+        type: boolean
+      - name: flatten
+        type: boolean
+      - name: negate
+        type: boolean
+      - name: flip
+        type: boolean
+      - name: flop
+        type: boolean
+      - name: grayscale
+        type: boolean
+      - name: blur
+        type: string
+      - name: sharpen
+        type: string
+      - name: rotate
+        type: float
+- name: identify
+  description: Describe the format and characteristics of image files
+  signature:
+    inputs:
+      inputs:
+      - name: input
+        type: file
+        required:
+      options:
+      - name: format
+        type: string
+      - name: verbose
+        type: boolean
+      - name: ping
+        type: boolean
+- name: mogrify
+  description: Process image files (overwrites original file)
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        variadic: true
+        required:
+      options:
+      - name: resize
+        type: string
+      - name: quality
+        type: integer
+      - name: strip
+        type: boolean
+aliases:
+- magick
+- convert
+- imagemagick

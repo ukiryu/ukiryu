@@ -1,0 +1,35 @@
+---
+ukiryu_schema: '1.0'
+name: gzip
+version: '1.0'
+display_name: Gzip Compression Interface
+actions:
+- name: compress
+  description: Compress files using gzip compression
+  signature:
+    inputs:
+    - name: files
+      type: array
+      item_type: file
+      variadic: true
+      required: true
+      description: File(s) to compress
+    output:
+      name: file
+      type: file
+      required: false
+      description: Compressed output file
+- name: decompress
+  description: Decompress gzip files
+  signature:
+    inputs:
+    - name: files
+      type: array
+      item_type: file
+      variadic: true
+      required: true
+      description: File(s) to decompress
+aliases:
+- gzip
+- gunzip
+- gzcat

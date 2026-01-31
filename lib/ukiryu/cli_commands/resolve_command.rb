@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative '../definition/discovery'
-require_relative '../definition/version_resolver'
-
 module Ukiryu
   module CliCommands
     # Resolve tool definitions

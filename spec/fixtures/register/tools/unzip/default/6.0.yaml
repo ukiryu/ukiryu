@@ -1,0 +1,189 @@
+---
+ukiryu_schema: '1.0'
+name: unzip
+display_name: unzip (extract zip archives)
+homepage: https://infozip.sourceforge.net/UnZip.html
+version: '6.0'
+aliases:
+- unzip
+version_detection:
+  command: "-v"
+  pattern: UnZip ([\d.]+)
+  modern_threshold: '6.0'
+search_paths:
+  macos:
+  - "/usr/bin/unzip"
+  - "/opt/homebrew/bin/unzip"
+  - "/usr/local/bin/unzip"
+  linux:
+  - "/usr/bin/unzip"
+  - "/usr/local/bin/unzip"
+  windows:
+  - C:/Program Files/Git/usr/bin/unzip.exe
+  - C:/msys64/usr/bin/unzip.exe
+implements: unzip/1.0
+profiles:
+- name: unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - fish
+  - sh
+  option_style: double_dash_equals
+  executable_name: unzip
+  commands:
+  - description: Extract zip archives
+    usage: unzip [options] zipfile [file...]
+    arguments:
+    - name: zipfile
+      type: file
+      required: true
+      position: first
+      description: Zip file to extract
+    - name: files
+      type: string
+      variadic: true
+      position: last
+      description: Files to extract from archive
+    options:
+    - name: list
+      cli: "-l"
+      assignment_delimiter: none
+      description: List archive contents
+    - name: test
+      cli: "-t"
+      assignment_delimiter: none
+      description: Test archive files
+    - name: quiet
+      cli: "-q"
+      assignment_delimiter: none
+      description: Quiet mode
+    - name: verbose
+      cli: "-v"
+      assignment_delimiter: none
+      description: Verbose mode
+    - name: directory
+      cli: "-d"
+      assignment_delimiter: auto
+      description: Extract to directory
+    - name: create_dirs
+      cli: "-D"
+      assignment_delimiter: none
+      description: Create directories as needed
+    - name: overwrite
+      cli: "-o"
+      assignment_delimiter: none
+      description: Overwrite existing files
+    - name: never_overwrite
+      cli: "-n"
+      assignment_delimiter: none
+      description: Never overwrite files
+    - name: auto_overwrite
+      cli: "-B"
+      assignment_delimiter: none
+      description: Auto overwrite for freshen/update
+    - name: junk_paths
+      cli: "-j"
+      assignment_delimiter: none
+      description: Junk paths (don't make directories)
+    - name: restore_perms
+      cli: "-K"
+      assignment_delimiter: none
+      description: Restore permissions
+    - name: lowercase
+      cli: "-L"
+      assignment_delimiter: none
+      description: Lowercase filenames
+    - name: encrypt
+      cli: "-P"
+      assignment_delimiter: none
+      description: Decrypt encrypted files
+    - name: unicode
+      cli: "-U"
+      assignment_delimiter: none
+      description: Unicode escape handling
+    name: extract
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: double_dash_equals
+  executable_name: unzip
+  commands:
+  - description: Extract zip archives
+    usage: unzip [options] zipfile [file...]
+    arguments:
+    - name: zipfile
+      type: file
+      required: true
+      position: first
+      description: Zip file to extract
+    - name: files
+      type: string
+      variadic: true
+      position: last
+      description: Files to extract from archive
+    options:
+    - name: list
+      cli: "-l"
+      assignment_delimiter: none
+      description: List archive contents
+    - name: test
+      cli: "-t"
+      assignment_delimiter: none
+      description: Test archive files
+    - name: quiet
+      cli: "-q"
+      assignment_delimiter: none
+      description: Quiet mode
+    - name: verbose
+      cli: "-v"
+      assignment_delimiter: none
+      description: Verbose mode
+    - name: directory
+      cli: "-d"
+      assignment_delimiter: auto
+      description: Extract to directory
+    - name: create_dirs
+      cli: "-D"
+      assignment_delimiter: none
+      description: Create directories as needed
+    - name: overwrite
+      cli: "-o"
+      assignment_delimiter: none
+      description: Overwrite existing files
+    - name: never_overwrite
+      cli: "-n"
+      assignment_delimiter: none
+      description: Never overwrite files
+    - name: auto_overwrite
+      cli: "-B"
+      assignment_delimiter: none
+      description: Auto overwrite for freshen/update
+    - name: junk_paths
+      cli: "-j"
+      assignment_delimiter: none
+      description: Junk paths (don't make directories)
+    - name: restore_perms
+      cli: "-K"
+      assignment_delimiter: none
+      description: Restore permissions
+    - name: lowercase
+      cli: "-L"
+      assignment_delimiter: none
+      description: Lowercase filenames
+    - name: encrypt
+      cli: "-P"
+      assignment_delimiter: none
+      description: Decrypt encrypted files
+    - name: unicode
+      cli: "-U"
+      assignment_delimiter: none
+      description: Unicode escape handling
+    name: extract

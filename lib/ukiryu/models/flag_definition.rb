@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Flag definition for a command
@@ -21,21 +19,21 @@ module Ukiryu
       attribute :cli_short, :string
       attribute :default, :boolean, default: false
       attribute :description, :string
-      attribute :platforms, :string, collection: true, default: []
+      attribute :platforms, :string, collection: true, initialize_empty: true
       attribute :position_constraint, :string
       attribute :position_after, :string
-      attribute :conflicts_with, :string, collection: true, default: []
+      attribute :conflicts_with, :string, collection: true, initialize_empty: true
 
-      yaml do
-        map_element 'name', to: :name
-        map_element 'cli', to: :cli
-        map_element 'cli_short', to: :cli_short
-        map_element 'default', to: :default
-        map_element 'description', to: :description
-        map_element 'platforms', to: :platforms
-        map_element 'position_constraint', to: :position_constraint
-        map_element 'position_after', to: :position_after
-        map_element 'conflicts_with', to: :conflicts_with
+      key_value do
+        map 'name', to: :name
+        map 'cli', to: :cli
+        map 'cli_short', to: :cli_short
+        map 'default', to: :default
+        map 'description', to: :description
+        map 'platforms', to: :platforms
+        map 'position_constraint', to: :position_constraint
+        map 'position_after', to: :position_after
+        map 'conflicts_with', to: :conflicts_with
       end
 
       # Get the effective default value

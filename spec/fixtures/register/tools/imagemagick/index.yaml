@@ -1,0 +1,18 @@
+---
+ukiryu_schema: '1.0'
+name: imagemagick
+interface: imagemagick
+implementations:
+- name: default
+  display_name: Imagemagick
+  detection:
+    executables: ["magick", "convert"]  # Try magick (IM7) first, then convert (IM6)
+    command: ["-version"]
+    pattern: 'Version: ImageMagick ([\d.]+)'
+  version_scheme: semantic
+  versions:
+  - after: "7.0"
+    file: 7.1.yaml
+  - after: "6.0"
+    file: 6.9.yaml
+  default: 7.1.yaml

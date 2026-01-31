@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'source'
-require_relative 'sources/file'
-require_relative 'sources/string'
-require_relative '../register'
-require_relative '../models/tool_definition'
-
 module Ukiryu
   module Definition
     # Loader for tool definitions from various sources
@@ -36,6 +30,9 @@ module Ukiryu
           # Validate if requested
           validation_mode = options[:validation] || :strict
           validate_profile(profile, validation_mode) if validation_mode != :none
+
+          # Resolve profile inheritance (merges parent commands into child profiles)
+          profile.resolve_inheritance!
 
           # Cache the profile
           profile_cache[cache_key] = profile
@@ -92,10 +89,13 @@ module Ukiryu
         def parse_yaml(yaml_content, source)
           Models::ToolDefinition.from_yaml(yaml_content)
         rescue Psych::SyntaxError => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Invalid YAML in #{source}: #{e.message}"
+        rescue Lutaml::Model::InvalidFormatError => e
+          raise Ukiryu::Errors::DefinitionLoadError,
+                "Invalid YAML format in #{source}: #{e.message}"
         rescue StandardError => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Failed to parse definition from #{source}: #{e.message}"
         end
 
@@ -121,7 +121,7 @@ module Ukiryu
           return if errors.empty?
 
           message = "Profile validation failed:\n  - #{errors.join("\n  - ")}"
-          raise DefinitionValidationError, message if mode == :strict
+          raise Ukiryu::Errors::DefinitionValidationError, message if mode == :strict
 
           warn "[Ukiryu] #{message}"
         end

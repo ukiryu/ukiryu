@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Argument definition for a command
@@ -33,21 +31,21 @@ module Ukiryu
       attribute :format, :string
       attribute :description, :string
 
-      yaml do
-        map_element 'name', to: :name
-        map_element 'type', to: :type
-        map_element 'required', to: :required
-        map_element 'position', to: :position
-        map_element 'variadic', to: :variadic
-        map_element 'min', to: :min
-        map_element 'max', to: :max
-        map_element 'size', to: :size
-        map_element 'of', to: :of
-        map_element 'range', to: :range
-        map_element 'values', to: :values
-        map_element 'separator', to: :separator
-        map_element 'format', to: :format
-        map_element 'description', to: :description
+      key_value do
+        map 'name', to: :name
+        map 'type', to: :type
+        map 'required', to: :required
+        map 'position', to: :position
+        map 'variadic', to: :variadic
+        map 'min', to: :min
+        map 'max', to: :max
+        map 'size', to: :size
+        map 'of', to: :of
+        map 'range', to: :range
+        map 'values', to: :values
+        map 'separator', to: :separator
+        map 'format', to: :format
+        map 'description', to: :description
       end
 
       # Check if this is the last argument

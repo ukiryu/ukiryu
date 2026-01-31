@@ -39,7 +39,7 @@ module Ukiryu
       # - Option dependencies using DependencyConstraint
       #
       # @return [Boolean] true if valid
-      # @raise [Ukiryu::ValidationError] if validation fails
+      # @raise [Ukiryu::Errors::ValidationError] if validation fails
       def validate!
         command_def = self.class.command_def
         return true unless command_def
@@ -54,7 +54,7 @@ module Ukiryu
       def valid?
         validate!
         true
-      rescue Ukiryu::ValidationError
+      rescue Ukiryu::Errors::ValidationError
         false
       end
 
