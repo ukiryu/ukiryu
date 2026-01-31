@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'tempfile'
 require 'open3'
+require 'json'
 
 RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
   let(:cli_class) { Ukiryu::Cli }
@@ -16,24 +17,33 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
   # Helper method to run CLI commands cross-platform
   def run_cli_command(command, stdin_data = nil)
+    # Disable colored output and any terminal formatting in tests
+    env = {
+      'NO_COLOR' => '1',
+      'TERM' => 'dumb',
+      'CLICOLOR' => '0',
+      'CLICOLOR_FORCE' => '0',
+      'FORCE_COLOR' => '0'
+    }
+
     if platform == :windows
       # On Windows, use PowerShell
       powershell_cmd = command.gsub("'", "''").gsub(/"/, '\"')
-      stdout, stderr, status = Open3.capture3("powershell.exe -NoProfile -Command #{powershell_cmd}")
+      stdout, stderr, status = Open3.capture3(env, "powershell.exe -NoProfile -Command #{powershell_cmd}")
     else
       # On Unix-like systems, run directly through bash with proper escaping
       # Use bash -c with the command as a single argument to avoid escaping issues
       stdout, stderr, status = if stdin_data
-                                 Open3.capture3('bash', '-c', command, stdin_data: stdin_data)
+                                 Open3.capture3(env, 'bash', '-c', command, stdin_data: stdin_data)
                                else
-                                 Open3.capture3('bash', '-c', command)
+                                 Open3.capture3(env, 'bash', '-c', command)
                                end
     end
     [stdout + stderr, status]
   end
 
   def run_ukiryu_exec(args, stdin_data = nil)
-    cmd = "bundle exec ./exe/ukiryu #{args}"
+    cmd = "bundle exec ukiryu #{args}"
     output, status = run_cli_command(cmd, stdin_data)
     [output, status]
   end
@@ -100,7 +110,12 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
         file.write('{"file": "content"}')
         file.close
 
-        output, status = run_cli_command("bundle exec ./exe/ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json")
+        # On Windows, we need to redirect stderr separately to avoid mixing with JSON output
+        output, status = if platform == :windows
+                           run_cli_command("bundle exec ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json 2>$null")
+                         else
+                           run_cli_command("bundle exec ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json")
+                         end
 
         parsed = JSON.parse(output)
         expect(parsed['output']['stdout'].strip).to eq('"content"')
@@ -109,7 +124,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     end
 
     it 'shows error when file does not exist' do
-      output, status = run_cli_command('bundle exec ./exe/ukiryu exec jq process stdin=@/nonexistent/file.json filter="." 2>&1')
+      output, status = run_cli_command('bundle exec ukiryu exec jq process stdin=@/nonexistent/file.json filter="." 2>&1')
 
       expect(output).to include('File not found')
       expect(status.success?).to be false
@@ -123,7 +138,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
       # Use stdin=@filename instead of stdin='data' to avoid shell escaping issues
       Tempfile.create(['ukiryu-stdin-test'], suffix: '.json') do |file|
         file.write('{"test": "value"}')
-        file.flush  # Ensure data is written to disk
+        file.flush # Ensure data is written to disk
 
         output, status = run_ukiryu_exec("exec jq process stdin=@#{file.path} filter=.test --format=json")
 
@@ -198,7 +213,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
         file.close
 
         # Use cat instead of echo to avoid escaping issues
-        result, status = run_cli_command("cat #{file.path} | bundle exec ./exe/ukiryu exec jq process --stdin filter='.items' --format=json | head -10")
+        result, status = run_cli_command("cat #{file.path} | bundle exec ukiryu exec jq process --stdin filter='.items' --format=json | head -10")
 
         # The output should be valid JSON, and head should truncate it
         expect(result).not_to be_empty
@@ -212,7 +227,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
       # Simulate curl output using echo instead of actual network call
       json_data = '{"slideshow": {"title": "Test Presentation"}}'
-      result, status = run_cli_command("echo '#{json_data}' | bundle exec ./exe/ukiryu exec jq process --stdin filter='.slideshow.title' --format=json")
+      result, status = run_cli_command("echo '#{json_data}' | bundle exec ukiryu exec jq process --stdin filter='.slideshow.title' --format=json")
 
       expect(result).not_to be_empty
       expect(result).to include('Test Presentation')

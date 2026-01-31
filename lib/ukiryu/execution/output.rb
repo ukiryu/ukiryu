@@ -32,14 +32,14 @@ module Ukiryu
       #
       # @return [Array<String>] stdout split by lines
       def stdout_lines
-        @raw_stdout.split("\n")
+        @raw_stdout.split(/\r?\n/)
       end
 
       # Get stderr lines as an array
       #
       # @return [Array<String>] stderr split by lines
       def stderr_lines
-        @raw_stderr.split("\n")
+        @raw_stderr.split(/\r?\n/)
       end
 
       # Check if stdout contains a pattern

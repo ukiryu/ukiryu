@@ -1,46 +1,61 @@
 # frozen_string_literal: true
 
-require_relative 'ukiryu/version'
-require_relative 'ukiryu/errors'
-
-# Core modules
-require_relative 'ukiryu/platform'
-require_relative 'ukiryu/shell'
-require_relative 'ukiryu/runtime'
-require_relative 'ukiryu/execution_context'
-require_relative 'ukiryu/type'
-require_relative 'ukiryu/executor'
-require_relative 'ukiryu/register'
-require_relative 'ukiryu/tool'
-require_relative 'ukiryu/options_builder'
-require_relative 'ukiryu/schema_validator'
-require_relative 'ukiryu/io'
-
-# Definition loading
-require_relative 'ukiryu/definition'
-
-# Models - OOP representation of YAML profiles
-require_relative 'ukiryu/models'
-
-# New OOP modules
-require_relative 'ukiryu/tools'
-require_relative 'ukiryu/options/base'
-require_relative 'ukiryu/response/base'
-require_relative 'ukiryu/action/base'
-require_relative 'ukiryu/validation'
-
-# Extractors
-require_relative 'ukiryu/extractors/extractor'
-
-# CLI (optional, only load if thor is available)
-begin
-  require 'thor'
-  require_relative 'ukiryu/cli'
-rescue LoadError
-  # Thor not available, CLI will not be available
-end
-
 module Ukiryu
+  # Core modules and classes - lazy load with autoload
+  autoload :VERSION, 'ukiryu/version'
+  autoload :Platform, 'ukiryu/platform'
+  autoload :Shell, 'ukiryu/shell'
+  autoload :Type, 'ukiryu/type'
+  autoload :Executor, 'ukiryu/executor'
+  autoload :Register, 'ukiryu/register'
+  autoload :Tool, 'ukiryu/tool'
+  autoload :OptionsBuilder, 'ukiryu/options_builder'
+  autoload :SchemaValidator, 'ukiryu/schema_validator'
+  autoload :IO, 'ukiryu/io'
+  autoload :Config, 'ukiryu/config'
+  autoload :Environment, 'ukiryu/environment'
+  autoload :Logger, 'ukiryu/logger'
+  autoload :Tools, 'ukiryu/tools'
+  autoload :Validation, 'ukiryu/validation'
+  autoload :Extractors, 'ukiryu/extractors'
+  autoload :Runtime, 'ukiryu/runtime'
+  autoload :ExecutionContext, 'ukiryu/execution_context'
+
+  # Definition and models namespaces
+  autoload :Definition, 'ukiryu/definition'
+  autoload :Models, 'ukiryu/models'
+  autoload :Errors, 'ukiryu/errors'
+  autoload :Debug, 'ukiryu/debug'
+
+  # Base classes for nested modules
+  autoload :OptionsBase, 'ukiryu/options/base'
+  autoload :ResponseBase, 'ukiryu/response/base'
+  autoload :ActionBase, 'ukiryu/action/base'
+
+  # CLI (optional, only load if thor is available)
+  begin
+    require 'thor'
+    autoload :Cli, 'ukiryu/cli'
+  rescue LoadError
+    # Thor not available, CLI will not be available
+  end
+
+  # CliCommands namespace - autoload
+  autoload :CliCommands, 'ukiryu/cli_commands'
+
+  # Internal Tool implementation classes - lazy load with autoload
+  autoload :CommandBuilder, 'ukiryu/command_builder'
+  autoload :Cache, 'ukiryu/cache'
+  autoload :ExecutableLocator, 'ukiryu/executable_locator'
+  autoload :VersionDetector, 'ukiryu/version_detector'
+  autoload :ToolIndex, 'ukiryu/tool_index'
+  autoload :ManPageParser, 'ukiryu/man_page_parser'
+  autoload :RegisterAutoManager, 'ukiryu/register_auto_manager'
+
+  # Model classes - lazy load with autoload (these are directly under Ukiryu namespace)
+  autoload :ToolMetadata, 'ukiryu/models/tool_metadata'
+  autoload :VersionCompatibility, 'ukiryu/models/version_compatibility'
+
   class << self
     # Configure global Ukiryu settings
     def configure

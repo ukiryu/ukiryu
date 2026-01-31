@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-require_relative 'arguments'
-require_relative 'command_info'
-require_relative 'output_info'
-require_relative 'execution_metadata'
-require_relative 'execution_report'
-
 module Ukiryu
   module Models
     # Successful CLI execution response
@@ -23,17 +16,7 @@ module Ukiryu
       attribute :metadata, ExecutionMetadata
       attribute :execution_report, ExecutionReport
 
-      yaml do
-        map_element 'status', to: :status
-        map_element 'exit_code', to: :exit_code
-        map_element 'request', to: :request
-        map_element 'command', to: :command
-        map_element 'output', to: :output
-        map_element 'metadata', to: :metadata
-        map_element 'execution_report', to: :execution_report
-      end
-
-      json do
+      key_value do
         map 'status', to: :status
         map 'exit_code', to: :exit_code
         map 'request', to: :request

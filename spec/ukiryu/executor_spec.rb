@@ -7,15 +7,16 @@ require 'fileutils'
 
 RSpec.describe Ukiryu::Executor do
   let(:executor) { described_class }
+  let(:shell_symbol) { :bash }
 
   describe '.execute' do
     let(:executable) { 'echo' }
     let(:args) { ['test'] }
-    let(:default_options) { {} }
+    let(:default_options) { { shell: shell_symbol } }
 
     context 'with valid command' do
       it 'executes successfully and returns Result' do
-        result = executor.execute(executable, args, default_options)
+        result = executor.execute(executable, args, default_options.merge(timeout: 30))
 
         expect(result).to be_a(Ukiryu::Execution::Result)
         expect(result.executable).to eq(executable)
@@ -23,19 +24,19 @@ RSpec.describe Ukiryu::Executor do
       end
 
       it 'captures stdout' do
-        result = executor.execute(executable, ['hello world'], default_options)
+        result = executor.execute(executable, ['hello world'], default_options.merge(timeout: 30))
 
         expect(result.stdout).to include('hello world')
       end
 
       it 'captures exit status' do
-        result = executor.execute(executable, args, default_options)
+        result = executor.execute(executable, args, default_options.merge(timeout: 30))
 
         expect(result.exit_status).to eq(0)
       end
 
       it 'captures metadata with timing' do
-        result = executor.execute(executable, args, default_options)
+        result = executor.execute(executable, args, default_options.merge(timeout: 30))
 
         expect(result.started_at).to be_a(Time)
         expect(result.finished_at).to be_a(Time)
@@ -47,7 +48,7 @@ RSpec.describe Ukiryu::Executor do
     context 'with timeout option' do
       it 'uses custom timeout when specified' do
         start_time = Time.now
-        result = executor.execute('sleep', ['0.01'], timeout: 5, allow_failure: true)
+        result = executor.execute('sleep', ['0.01'], timeout: 5, allow_failure: true, shell: shell_symbol)
         elapsed = Time.now - start_time
 
         expect(result).to be_a(Ukiryu::Execution::Result)
@@ -57,8 +58,8 @@ RSpec.describe Ukiryu::Executor do
       it 'raises TimeoutError when command exceeds timeout' do
         # Use a command that will definitely timeout
         expect do
-          executor.execute('sleep', ['10'], timeout: 0.01)
-        end.to raise_error(Ukiryu::TimeoutError, /Command timed out after 0\.01 seconds/)
+          executor.execute('sleep', ['10'], timeout: 0.01, shell: shell_symbol)
+        end.to raise_error(Ukiryu::Errors::TimeoutError, /Command timed out after 0\.01 seconds/)
       end
     end
 
@@ -71,14 +72,18 @@ RSpec.describe Ukiryu::Executor do
                      'powershell',
                      ['-Command', 'Write-Output $env:TEST_VAR'],
                      env: { 'TEST_VAR' => 'test_value' },
-                     allow_failure: true
+                     allow_failure: true,
+                     shell: :powershell,
+                     timeout: 30
                    )
                  else
                    executor.execute(
                      'sh',
                      ['-c', 'echo "$TEST_VAR"'],
                      env: { 'TEST_VAR' => 'test_value' },
-                     allow_failure: true
+                     allow_failure: true,
+                     shell: shell_symbol,
+                     timeout: 30
                    )
                  end
         expect(result.stdout.strip).to eq('test_value')
@@ -91,7 +96,9 @@ RSpec.describe Ukiryu::Executor do
                      'powershell',
                      ['-Command', 'Write-Output $env:USERNAME'],
                      env: {},
-                     allow_failure: true
+                     allow_failure: true,
+                     shell: :powershell,
+                     timeout: 30
                    )
                  # USERNAME should be available on Windows
                  else
@@ -99,7 +106,9 @@ RSpec.describe Ukiryu::Executor do
                      'sh',
                      ['-c', 'echo "$HOME"'],
                      env: {},
-                     allow_failure: true
+                     allow_failure: true,
+                     shell: shell_symbol,
+                     timeout: 30
                    )
                  end
         expect(result.stdout.strip).not_to be_empty
@@ -118,14 +127,18 @@ RSpec.describe Ukiryu::Executor do
                      executor.execute(
                        'powershell',
                        ['-Command', "Get-Content '#{test_file}'"],
-                       allow_failure: true
+                       allow_failure: true,
+                       shell: :powershell,
+                       timeout: 30
                      )
                    else
                      executor.execute(
                        'cat',
                        ['test.txt'],
                        cwd: tmpdir,
-                       allow_failure: true
+                       allow_failure: true,
+                       shell: shell_symbol,
+                       timeout: 30
                      )
                    end
 
@@ -138,9 +151,10 @@ RSpec.describe Ukiryu::Executor do
       it 'returns Result with non-zero exit status instead of raising' do
         # Use platform-appropriate command that exits with specific code
         result = if Ukiryu::Platform.windows?
-                   executor.execute('powershell', ['-Command', 'exit 42'], allow_failure: true)
+                   # Windows: PowerShell supports exit codes
+                   executor.execute('powershell', ['-Command', 'exit 42'], allow_failure: true, shell: :powershell, timeout: 30)
                  else
-                   executor.execute('sh', ['-c', 'exit 42'], allow_failure: true)
+                   executor.execute('sh', ['-c', 'exit 42'], allow_failure: true, shell: shell_symbol, timeout: 30)
                  end
         expect(result.exit_status).to eq(42)
         expect(result).to be_a(Ukiryu::Execution::Result)
@@ -150,25 +164,27 @@ RSpec.describe Ukiryu::Executor do
         # Use platform-appropriate command that fails
         if Ukiryu::Platform.windows?
           expect do
-            executor.execute('powershell', ['-Command', 'exit 1'])
-          end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+            executor.execute('cmd', ['/c', 'exit 1'], shell: :cmd, timeout: 30)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Command failed/)
         else
           expect do
-            executor.execute('sh', ['-c', 'exit 1'])
-          end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+            executor.execute('sh', ['-c', 'exit 1'], shell: shell_symbol, timeout: 30)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Command failed/)
         end
       end
 
       it 'includes stderr in error message' do
         # Use platform-appropriate command that writes to stderr
         if Ukiryu::Platform.windows?
+          # Use cmd.exe to write simple error message to stderr
+          # Must explicitly set shell to :cmd to avoid PowerShell formatting
           expect do
-            executor.execute('powershell', ['-Command', 'Write-Error "error"'])
-          end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+            executor.execute('cmd', ['/c', 'echo error 1>&2 && exit 1'], shell: :cmd, timeout: 30)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /STDERR:\s*error/)
         else
           expect do
-            executor.execute('sh', ['-c', 'echo error >&2; exit 1'])
-          end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+            executor.execute('sh', ['-c', 'echo error >&2; exit 1'], shell: shell_symbol, timeout: 30)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /STDERR:\s*error/)
         end
       end
     end
@@ -176,33 +192,39 @@ RSpec.describe Ukiryu::Executor do
     context 'error formatting' do
       it 'includes executable name in error message' do
         expect do
-          executor.execute('false', [])
-        end.to raise_error(Ukiryu::ExecutionError, /Command failed: false/)
+          executor.execute('false', [], shell: shell_symbol, timeout: 30)
+        end.to raise_error(Ukiryu::Errors::ExecutionError, /Command failed: false/)
       end
 
       it 'includes exit status in error message' do
         # Use platform-appropriate command that exits with code 42
         if Ukiryu::Platform.windows?
           expect do
-            executor.execute('powershell', ['-Command', 'exit 42'])
-          end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+            executor.execute('powershell', ['-Command', 'exit 42'], shell: :powershell, timeout: 90)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Exit status: 42/)
         else
           expect do
-            executor.execute('sh', ['-c', 'exit 42'])
-          end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+            executor.execute('sh', ['-c', 'exit 42'], shell: shell_symbol, timeout: 90)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Exit status: 42/)
         end
       end
     end
 
     context 'command building' do
       it 'builds appropriate command for the shell' do
-        # Use ruby as a cross-platform command
-        result = executor.execute('ruby', ['-e', 'puts "test"'], allow_failure: true)
+        # Use echo as a cross-platform command that always works
+        result = if Ukiryu::Platform.windows?
+                   # On Windows with PowerShell, use echo command via PowerShell
+                   executor.execute('powershell', ['-Command', 'echo test'], allow_failure: true, shell: :powershell, timeout: 90)
+                 else
+                   executor.execute('echo', ['test'], allow_failure: true, shell: shell_symbol, timeout: 90)
+                 end
         expect(result.exit_status).to eq(0)
+        expect(result.stdout.strip).to eq('test')
       end
 
       it 'includes executable path in CommandInfo' do
-        result = executor.execute('echo', ['test'], allow_failure: true)
+        result = executor.execute('echo', ['test'], allow_failure: true, shell: shell_symbol, timeout: 90)
 
         expect(result.command_info.executable).to eq('echo')
         expect(result.command_info.full_command).to be_a(String)
@@ -216,7 +238,9 @@ RSpec.describe Ukiryu::Executor do
       it 'finds executables in PATH' do
         # 'ruby' should be available in the test environment
         exe = executor.find_executable('ruby')
-        expect(exe).to end_with('ruby')
+        # Windows uses uppercase extensions like .EXE and backslashes
+        # Match 'ruby' anywhere in the path (handles ruby.exe, ruby.bat, etc.)
+        expect(exe).to match(/ruby/i) if exe
         expect(File.executable?(exe)).to be true
       end
 
@@ -230,14 +254,21 @@ RSpec.describe Ukiryu::Executor do
       it 'searches in additional paths' do
         Dir.mktmpdir do |tmpdir|
           # Create a test executable using Ruby as a cross-platform script
-          test_exe = File.join(tmpdir, 'test_executable')
-          # Create a simple Ruby script that works on all platforms
-          script_content = "#!/usr/bin/env ruby\nputs 'test'"
-          File.write(test_exe, script_content)
-          File.chmod(0o755, test_exe)
+          # On Windows, files need .exe or .bat extension to be executable
+          exe_name = Ukiryu::Platform.windows? ? 'test_executable.bat' : 'test_executable'
+          test_exe = File.join(tmpdir, exe_name)
+          # Create a simple batch/script file
+          if Ukiryu::Platform.windows?
+            File.write(test_exe, "@echo test\r\n@exit /b 0")
+          else
+            script_content = "#!/usr/bin/env ruby\nputs 'test'"
+            File.write(test_exe, script_content)
+            File.chmod(0o755, test_exe)
+          end
 
-          exe = executor.find_executable('test_executable', additional_paths: [tmpdir])
-          expect(exe).to eq(test_exe)
+          exe = executor.find_executable(exe_name.sub(/\.(exe|bat)$/, ''), additional_paths: [tmpdir])
+          # Windows may uppercase the extension, use case-insensitive comparison
+          expect(exe&.downcase).to eq(test_exe.downcase)
         end
       end
 
@@ -246,19 +277,28 @@ RSpec.describe Ukiryu::Executor do
         tmpdir2 = Dir.mktmpdir
         begin
           # Create different executables in each directory
-          exe1 = File.join(tmpdir1, 'test_cmd')
-          exe2 = File.join(tmpdir2, 'test_cmd')
-          # Use Ruby scripts for cross-platform compatibility
-          script1 = "#!/usr/bin/env ruby\nputs '1'"
-          script2 = "#!/usr/bin/env ruby\nputs '2'"
-          File.write(exe1, script1)
-          File.write(exe2, script2)
-          File.chmod(0o755, exe1)
-          File.chmod(0o755, exe2)
+          exe_name1 = Ukiryu::Platform.windows? ? 'test_cmd.bat' : 'test_cmd'
+          exe_name2 = Ukiryu::Platform.windows? ? 'test_cmd.bat' : 'test_cmd'
+          exe1 = File.join(tmpdir1, exe_name1)
+          exe2 = File.join(tmpdir2, exe_name2)
+
+          # Create batch/script files
+          if Ukiryu::Platform.windows?
+            File.write(exe1, "@echo 1\r\n@exit /b 0")
+            File.write(exe2, "@echo 2\r\n@exit /b 0")
+          else
+            script1 = "#!/usr/bin/env ruby\nputs '1'"
+            script2 = "#!/usr/bin/env ruby\nputs '2'"
+            File.write(exe1, script1)
+            File.write(exe2, script2)
+            File.chmod(0o755, exe1)
+            File.chmod(0o755, exe2)
+          end
 
           # The first directory in additional_paths should be found first
-          exe = executor.find_executable('test_cmd', additional_paths: [tmpdir1, tmpdir2])
-          expect(exe).to eq(exe1)
+          exe = executor.find_executable(exe_name1.sub(/\.(exe|bat)$/, ''), additional_paths: [tmpdir1, tmpdir2])
+          # Windows may uppercase the extension, use case-insensitive comparison
+          expect(exe&.downcase).to eq(exe1.downcase)
         ensure
           FileUtils.rm_rf(tmpdir1)
           FileUtils.rm_rf(tmpdir2)
@@ -307,8 +347,11 @@ RSpec.describe Ukiryu::Executor do
 
     it 'merges shell-specific headless environment' do
       env = executor.send(:prepare_environment, {}, bash_class)
-      # Bash adds specific environment variables for headless mode
-      expect(env).to be_a(Hash)
+      # prepare_environment now returns Environment object
+      # The Environment holds shell-specific headless modifications
+      expect(env).to be_a(Ukiryu::Environment)
+      # Environment should be able to convert to hash for Open3
+      expect(env.to_h).to be_a(Hash)
     end
   end
 
@@ -364,7 +407,7 @@ RSpec.describe Ukiryu::Executor do
     it 'handles multiple rapid executions' do
       results = []
       5.times do
-        results << executor.execute('echo', ['test'], allow_failure: true)
+        results << executor.execute('echo', ['test'], allow_failure: true, shell: shell_symbol, timeout: 90)
       end
 
       expect(results.all? { |r| r.is_a?(Ukiryu::Execution::Result) }).to be true
@@ -372,7 +415,7 @@ RSpec.describe Ukiryu::Executor do
     end
 
     it 'handles commands with special characters in arguments' do
-      result = executor.execute('echo', ['hello "quoted" test\'s'], allow_failure: true)
+      result = executor.execute('echo', ['hello "quoted" test\'s'], allow_failure: true, shell: shell_symbol, timeout: 90)
 
       expect(result.stdout.strip).to include('hello')
     end
@@ -382,10 +425,14 @@ RSpec.describe Ukiryu::Executor do
       result = if Ukiryu::Platform.windows?
                  executor.execute('powershell', ['-Command', 'Write-Output $env:TEST_VAR'],
                                   env: { 'TEST_VAR' => 'value with spaces' },
-                                  allow_failure: true)
+                                  allow_failure: true,
+                                  shell: :powershell,
+                                  timeout: 30)
                else
                  executor.execute('sh', ['-c', 'echo "$TEST_VAR"'], env: { 'TEST_VAR' => 'value with spaces' },
-                                                                    allow_failure: true)
+                                                                    allow_failure: true,
+                                                                    shell: shell_symbol,
+                                                                    timeout: 30)
                end
       expect(result.stdout.strip).to eq('value with spaces')
     end

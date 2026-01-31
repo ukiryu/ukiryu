@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Environment variable definition for a command
@@ -16,15 +14,15 @@ module Ukiryu
       attribute :name, :string
       attribute :value, :string
       attribute :from, :string
-      attribute :platforms, :string, collection: true, default: []
+      attribute :platforms, :string, collection: true, initialize_empty: true
       attribute :description, :string
 
-      yaml do
-        map_element 'name', to: :name
-        map_element 'value', to: :value
-        map_element 'from', to: :from
-        map_element 'platforms', to: :platforms
-        map_element 'description', to: :description
+      key_value do
+        map 'name', to: :name
+        map 'value', to: :value
+        map 'from', to: :from
+        map 'platforms', to: :platforms
+        map 'description', to: :description
       end
 
       # Get platforms as symbol array

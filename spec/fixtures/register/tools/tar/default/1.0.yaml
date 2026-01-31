@@ -1,0 +1,67 @@
+---
+ukiryu_schema: '1.0'
+name: tar
+display_name: tar (Tape Archive)
+homepage: https://www.gnu.org/software/tar/
+version: '1.0'
+aliases: []
+version_detection:
+  command: "--version"
+  pattern: tar \(GNU tar\) ([\d.]+)
+search_paths:
+  macos:
+  - "/usr/bin/tar"
+  linux:
+  - "/usr/bin/tar"
+  - "/bin/tar"
+implements: tar/1.0
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  - windows
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: tar
+  commands:
+  - name: create
+    description: Create archive
+    flags:
+    - name: create
+      cli: "-c"
+      description: Create archive
+      position_constraint: prefix
+      default: true
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+    options:
+    - name: file
+      type: file
+      cli: "-f"
+      required: true
+  - name: extract
+    description: Extract archive
+    flags:
+    - name: extract
+      cli: "-x"
+      description: Extract archive
+      position_constraint: prefix
+      default: true
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+    options:
+    - name: file
+      type: file
+      cli: "-f"
+      required: true

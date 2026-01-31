@@ -25,7 +25,7 @@ This page documents Ukiryu's platform support, including automatic detection, sh
 == Concepts
 
 * **Platform detection**: Automatic identification of macOS, Linux, or Windows
-* **Shell detection**: Automatic identification of bash, zsh, fish, PowerShell, or cmd
+* **Shell detection**: Automatic identification of bash, zsh, fish, sh, dash, tcsh, PowerShell, or cmd
 * **Path formatting**: Platform-specific path separators and styles
 * **Executable discovery**: Searching platform-specific locations for tools
 
@@ -38,7 +38,7 @@ This page documents Ukiryu's platform support, including automatic detection, sh
 ----
 Platform: macOS
 Detection: RbConfig::CONFIG['host_os'] =~ /darwin/
-Shells: bash, zsh, fish, sh
+Shells: bash, zsh, fish, sh, dash, tcsh
 Package Managers: Homebrew, MacPorts, AppImage
 Display: Quartz (native), X11
 ----
@@ -55,7 +55,7 @@ Features:
 ----
 Platform: Linux
 Detection: RbConfig::CONFIG['host_os'] =~ /linux/
-Shells: bash, zsh, fish, sh
+Shells: bash, zsh, fish, sh, dash, tcsh
 Package Managers: apt, yum, dnf, zypper, pacman, snap, flatpak
 Display: X11
 ----
@@ -169,14 +169,62 @@ Ukiryu automatically adapts to your shell for proper quoting and escaping.
 |macOS, Linux
 |Single quotes: `'file name.svg'`
 
+|sh
+|macOS, Linux
+|Single quotes: `'file name.svg'`
+
+|dash
+|macOS, Linux
+|Single quotes: `'file name.svg'`
+
+|tcsh
+|macOS, Linux
+|Single quotes: `'file name.svg'`
+
 |PowerShell
-|Windows
+|Windows, macOS, Linux
 |Single quotes: `'file name.svg'`
 
 |cmd
 |Windows
 |Double quotes: `"file name.svg"`
 |===
+
+==== Shell Platform Groups
+
+Ukiryu supports shell platform groups for simplified configuration:
+
+* `:unix` - All Unix-like shells (bash, zsh, fish, sh, dash, tcsh)
+* `:windows` - Windows cmd.exe
+* `:powershell` - PowerShell Core on all platforms
+
+[source,ruby]
+----
+# Use platform group
+tool = Ukiryu::Tool.get(:imagemagick, shell: :unix)
+
+# Or specify individual shell
+tool = Ukiryu::Tool.get(:imagemagick, shell: :bash)
+----
+
+==== Shell Inheritance
+
+Ukiryu's Unix shell implementations share common behavior through inheritance:
+
+[source]
+----
+Shell::Base
+  └── Shell::UnixBase (common Unix shell behavior)
+        ├── Shell::Bash
+        ├── Shell::Zsh
+        ├── Shell::Fish
+        ├── Shell::Sh
+        ├── Shell::Dash
+        └── Shell::Tcsh
+
+Shell::PowerShell (standalone)
+Shell::Cmd (standalone)
+----
 
 === Quoting Examples
 
@@ -191,7 +239,7 @@ result = tool.execute(:export, {
 
 **Generated commands**:
 
-* bash/zsh/fish: `inkscape 'My Document.svg' --export-filename=output.png`
+* bash/zsh/fish/sh/dash/tcsh: `inkscape 'My Document.svg' --export-filename=output.png`
 * PowerShell: `inkscape 'My Document.svg' --export-filename=output.png`
 * cmd: `inkscape "My Document.svg" --export-filename=output.png`
 

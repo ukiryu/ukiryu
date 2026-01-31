@@ -14,10 +14,7 @@ RSpec.describe Ukiryu::Tool do
 
     context 'with string stdin data' do
       it 'passes stdin data to the command' do
-        result = tool.execute(:process, {
-                                stdin: '{"name": "value"}',
-                                filter: '.'
-                              })
+        result = tool.execute(:process, execution_timeout: 90, stdin: '{"name": "value"}', filter: '.')
 
         expect(result.stdout).to include('"name"')
         expect(result.stdout).to include('"value"')
@@ -25,10 +22,7 @@ RSpec.describe Ukiryu::Tool do
       end
 
       it 'extracts and filters JSON from stdin' do
-        result = tool.execute(:process, {
-                                stdin: '{"foo": "bar", "baz": "qux"}',
-                                filter: '.foo'
-                              })
+        result = tool.execute(:process, execution_timeout: 90, stdin: '{"foo": "bar", "baz": "qux"}', filter: '.foo')
 
         expect(result.stdout.strip).to eq('"bar"')
       end
@@ -40,10 +34,7 @@ RSpec.describe Ukiryu::Tool do
           file.write('{"test": "data"}')
           file.rewind
 
-          result = tool.execute(:process, {
-                                  stdin: file.read,
-                                  filter: '.test'
-                                })
+          result = tool.execute(:process, execution_timeout: 90, stdin: file.read, filter: '.test')
 
           expect(result.stdout.strip).to eq('"data"')
         end
@@ -59,10 +50,7 @@ RSpec.describe Ukiryu::Tool do
           writer.close
         end
 
-        result = tool.execute(:process, {
-                                stdin: reader,
-                                filter: '.io'
-                              })
+        result = tool.execute(:process, execution_timeout: 90, stdin: reader, filter: '.io')
 
         thread.join
         reader.close
@@ -74,10 +62,7 @@ RSpec.describe Ukiryu::Tool do
     context 'stdin parameter isolation' do
       it 'does not pass stdin as a command argument' do
         # stdin should be extracted before building args
-        result = tool.execute(:process, {
-                                stdin: '{"test": "value"}',
-                                filter: '.'
-                              })
+        result = tool.execute(:process, execution_timeout: 90, stdin: '{"test": "value"}', filter: '.')
 
         # If stdin was passed as an argument, jq would try to read it as a file
         # and would fail or produce different output

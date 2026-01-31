@@ -632,14 +632,14 @@ ukiryu exec inkscape export timeout=120 inputs=drawing.svg
 // Error Handling
 == Error Handling
 
-Ukiryu provides structured error information.
+Ukiryu provides structured error information under the `Ukiryu::Errors` namespace.
 
 === Error Types
 
-* `ToolNotFoundError` - Tool not in register
-* `ProfileNotFoundError` - No compatible profile for platform/shell
-* `ExecutionError` - Command failed (non-zero exit)
-* `TimeoutError` - Command exceeded timeout
+* `Ukiryu::Errors::ToolNotFoundError` - Tool not in register
+* `Ukiryu::Errors::ProfileNotFoundError` - No compatible profile for platform/shell
+* `Ukiryu::Errors::ExecutionError` - Command failed (non-zero exit)
+* `Ukiryu::Errors::TimeoutError` - Command exceeded timeout
 
 === Error Information
 
@@ -647,7 +647,7 @@ Ukiryu provides structured error information.
 ----
 begin
   result = tool.execute(:export, params)
-rescue Ukiryu::ExecutionError => e
+rescue Ukiryu::Errors::ExecutionError => e
   puts "Command failed!"
   puts "Executable: #{e.result.command_info.executable}"
   puts "Full command: #{e.result.command_info.full_command}"

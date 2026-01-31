@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../runtime'
-require_relative '../command_builder'
-require_relative 'class_generator'
-require_relative 'executable_finder'
-
 module Ukiryu
   # Tools namespace for tool-specific classes
   #
@@ -56,7 +51,7 @@ module Ukiryu
           raise ArgumentError, "Unknown command: #{command_name}" unless command_def
 
           # Generate the options class using ClassGenerator
-          options_class = ClassGenerator.generate_options_class(self, command_name, command_def)
+          options_class = Ukiryu::Tools::ClassGenerator.generate_options_class(self, command_name, command_def)
           @options_classes[command_name] = options_class
           options_class
         end
@@ -83,7 +78,7 @@ module Ukiryu
           raise ArgumentError, "Unknown command: #{command_name}" unless command_def
 
           # Generate the action class using ClassGenerator
-          action_class = ClassGenerator.generate_action_class(self, command_name, command_def)
+          action_class = Ukiryu::Tools::ClassGenerator.generate_action_class(self, command_name, command_def)
           @action_classes[command_name] = action_class
           action_class
         end
@@ -110,7 +105,10 @@ module Ukiryu
         # @return [Boolean] true if the tool can be executed
         def available?
           @available ||= begin
-            executable = ExecutableFinder.find_executable(@tool_definition.name.to_s, @tool_definition)
+            # Check for compatible profile first
+            return false unless platform_profile
+
+            executable = Ukiryu::ExecutableFinder.find_executable(@tool_definition.name.to_s, @tool_definition)
             !executable.nil?
           end
         end
@@ -129,7 +127,7 @@ module Ukiryu
           raise ArgumentError, "Unknown command: #{command_name}" unless command_def
 
           # Generate the response class using ClassGenerator
-          response_class = ClassGenerator.generate_response_class(self, command_name, command_def)
+          response_class = Ukiryu::Tools::ClassGenerator.generate_response_class(self, command_name, command_def)
           @response_classes[command_name] = response_class
           response_class
         end
@@ -220,15 +218,30 @@ module Ukiryu
         self.class.available?
       end
 
+      # Get the reason why the tool is not available
+      #
+      # Returns nil if the tool is available, or a string explaining why not.
+      # This helps users understand issues like:
+      # - Tool not installed
+      # - Wrong version installed (e.g., impostor tool)
+      #
+      # @return [String, nil] reason for unavailability, or nil if available
+      def unavailability_reason
+        return nil if available?
+
+        return executable_not_found_message if executable.nil?
+        return version_mismatch_message if version_mismatch?
+
+        generic_unavailable_message
+      end
+
       # Execute a command with options object
       #
       # @param command_name [Symbol] the command to execute
       # @param options [Object] the options object
+      # @param execution_timeout [Integer] timeout in seconds for command execution (required)
       # @return [Response::Base] the execution response
-      def execute(command_name, options)
-        require_relative '../executor'
-        require_relative '../options_builder'
-
+      def execute(command_name, options, execution_timeout:)
         command_name = command_name.to_sym
         # Get command from platform profile model
         command_def = self.class.platform_profile.command(command_name.to_s)
@@ -246,7 +259,7 @@ module Ukiryu
         args = build_args(command_def, params)
 
         # Find executable using ExecutableFinder
-        executable = ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
 
         # Get shell
         shell_sym = Ukiryu::Runtime.instance.shell
@@ -254,12 +267,12 @@ module Ukiryu
         # Build environment variables (including env var sets)
         env = build_execution_env(command_def, @platform_profile, params)
 
-        # Execute
+        # Execute with explicit timeout
         result = Ukiryu::Executor.execute(
           executable,
           args,
           env: env,
-          timeout: self.class.tool_definition.timeout || 90,
+          timeout: execution_timeout,
           shell: shell_sym
         )
 
@@ -268,6 +281,73 @@ module Ukiryu
       end
 
       private
+
+      # Check if the executable exists
+      #
+      # @return [String, nil] the executable path or nil
+      def find_executable
+        Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+      end
+
+      # Message when executable is not found
+      #
+      # @return [String] the error message
+      def executable_not_found_message
+        "Tool '#{name}' not found in PATH or configured search paths. Please install the tool."
+      end
+
+      # Check if version output doesn't match expected pattern
+      #
+      # @return [Boolean] true if version mismatch detected
+      def version_mismatch?
+        vd = self.class.tool_definition.version_detection
+        return false unless vd && !vd.command.nil? && !vd.command.empty?
+
+        version_output = run_version_command
+        return false unless version_output
+
+        pattern = vd.pattern.is_a?(String) ? Regexp.new(vd.pattern) : vd.pattern
+        !version_output.match(pattern)
+      end
+
+      # Run the version detection command
+      #
+      # @return [String, nil] the version output or nil
+      def run_version_command
+        vd = self.class.tool_definition.version_detection
+        cmd = vd.command
+        executable = find_executable
+        return nil unless executable
+
+        shell_sym = Ukiryu::Runtime.instance.shell
+        # Internal operation: use hardcoded timeout
+        result = Ukiryu::Executor.execute(executable, [cmd], shell: shell_sym, timeout: 30, allow_failure: true)
+
+        result.success? ? (result.stdout + result.stderr) : nil
+      end
+
+      # Message when version doesn't match (impostor tool)
+      #
+      # @return [String] the error message
+      def version_mismatch_message
+        executable = find_executable
+        "Tool '#{name}' executable found (#{executable}) but version doesn't match expected format. " \
+        "You may have a similarly-named tool installed that is not the real '#{name}'."
+      end
+
+      # Generic unavailable message
+      #
+      # @return [String] the error message
+      def generic_unavailable_message
+        "Tool '#{name}' found but could not be initialized."
+      end
+
+      # Memoize executable lookup
+      #
+      # @return [String, nil] the executable path
+      def executable
+        @executable ||= find_executable
+      end
 
       # Build command arguments from parameters
       #
@@ -324,8 +404,6 @@ module Ukiryu
       # @param result [Executor::Result] the execution result
       # @return [Response::Base] the response object
       def build_response(command_name, result)
-        require_relative '../response/base'
-
         # Get the response class for this command
         response_class = self.class.response_class_for(command_name)
 
@@ -341,18 +419,22 @@ module Ukiryu
         return nil unless vd
 
         # Only attempt version detection if command is configured
-        return nil if vd.command.nil? || vd.command.empty?
+        # command: nil means no version detection configured
+        # command: [] means run with no arguments (for tools like ffmpeg that output version on bare run)
+        return nil if vd.command.nil?
 
         cmd = vd.command
 
-        executable = ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
         return nil unless executable
 
-        require_relative '../executor'
         shell_sym = Ukiryu::Runtime.instance.shell
 
-        result = Ukiryu::Executor.execute(executable, [cmd], shell: shell_sym)
-        return nil unless result.success?
+        # If command is an empty array, run executable with no arguments
+        # Otherwise wrap command in array if it's a string
+        args = cmd.is_a?(Array) ? cmd : [cmd]
+        # Use allow_failure: true because some tools (like ffmpeg) return non-zero exit code when run bare
+        result = Ukiryu::Executor.execute(executable, args, shell: shell_sym, allow_failure: true)
 
         # Convert pattern string to regex if needed
         pattern = if vd.pattern.is_a?(String)
@@ -360,7 +442,10 @@ module Ukiryu
                   else
                     vd.pattern || /(\d+\.\d+)/
                   end
-        match = result.stdout.match(pattern) || result.stderr.match(pattern)
+        # Scrub stdout/stderr to handle invalid UTF-8 byte sequences
+        stdout_scrubbed = result.stdout.scrub('')
+        stderr_scrubbed = result.stderr.scrub('')
+        match = stdout_scrubbed.match(pattern) || stderr_scrubbed.match(pattern)
         match[1] if match
       end
     end

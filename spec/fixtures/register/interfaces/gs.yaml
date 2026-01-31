@@ -1,0 +1,45 @@
+---
+ukiryu_schema: '1.0'
+name: ghostscript
+version: '1.0'
+display_name: Ghostscript Interface
+actions:
+- name: convert
+  description: Convert PostScript or PDF to other formats
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: device
+        type: string
+      - name: output
+        type: file
+      - name: resolution
+        type: string
+      - name: first_page
+        type: integer
+      - name: last_page
+        type: integer
+      - name: pdf_settings
+        type: string
+      - name: quality
+        type: integer
+      - name: text_alpha
+        type: integer
+      - name: graphics_alpha
+        type: integer
+      flags:
+      - name: quiet
+        type: boolean
+      - name: batch
+        type: boolean
+      - name: no_pause
+        type: boolean
+      - name: no_screen
+        type: boolean
+aliases:
+- gs
+- ghostscript

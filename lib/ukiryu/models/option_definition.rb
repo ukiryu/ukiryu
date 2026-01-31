@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Option definition for a command
@@ -30,20 +28,20 @@ module Ukiryu
       # Type of array elements
       attribute :of, :string
       attribute :description, :string
-      attribute :platforms, :string, collection: true, default: []
+      attribute :platforms, :string, collection: true, initialize_empty: true
 
-      yaml do
-        map_element 'name', to: :name
-        map_element 'cli', to: :cli
-        map_element 'type', to: :type
-        map_element 'assignment_delimiter', to: :assignment_delimiter
-        map_element 'separator', to: :separator
-        map_element 'default', to: :default
-        map_element 'range', to: :range
-        map_element 'values', to: :values
-        map_element 'of', to: :of
-        map_element 'description', to: :description
-        map_element 'platforms', to: :platforms
+      key_value do
+        map 'name', to: :name
+        map 'cli', to: :cli
+        map 'type', to: :type
+        map 'assignment_delimiter', to: :assignment_delimiter
+        map 'separator', to: :separator
+        map 'default', to: :default
+        map 'range', to: :range
+        map 'values', to: :values
+        map 'of', to: :of
+        map 'description', to: :description
+        map 'platforms', to: :platforms
       end
 
       # Check if option applies to a platform

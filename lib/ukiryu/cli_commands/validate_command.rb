@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require 'thor'
-require_relative '../definition/definition_validator'
-require_relative '../tool'
 
 module Ukiryu
   module CliCommands
@@ -16,7 +14,8 @@ module Ukiryu
       class_option :schema, type: :string, desc: 'Path to JSON Schema file'
       class_option :strict, type: :boolean, default: false, desc: 'Treat warnings as errors'
       class_option :executable, type: :boolean, default: false, desc: 'Test executable against actual tool'
-      class_option :all, type: :boolean, default: false, desc: 'Enable all validations (schema + executable + smoke tests)'
+      class_option :all, type: :boolean, default: false,
+                         desc: 'Enable all validations (schema + executable + smoke tests)'
       class_option :register, type: :string, desc: 'Path to tool register'
 
       desc 'file PATH', 'Validate a definition file'
@@ -28,6 +27,7 @@ module Ukiryu
       option :register, type: :string, desc: 'Register path'
       def all
         validate_all
+        test_all_executables if options[:all] || options[:executable]
       end
 
       desc 'string YAML', 'Validate a YAML string'
@@ -97,7 +97,7 @@ module Ukiryu
             say "✓ Tool found at: #{tool.executable}", :green
           else
             say '✗ Tool not found', :red
-            say "  Searched in: #{tool.search_paths.join(', ')}", :dim
+            say '  Searched in: system PATH', :dim
             exit 1
           end
 
@@ -150,13 +150,102 @@ module Ukiryu
               end
             end
           end
-        rescue Ukiryu::ToolNotFoundError => e
+        rescue Ukiryu::Errors::ToolNotFoundError => e
           say "✗ Tool not found: #{e.message}", :red
           exit 1
         rescue StandardError => e
           say "✗ Executable test failed: #{e.message}", :red
           exit 1 if options[:strict]
         end
+      end
+
+      # Test all executables in the register
+      #
+      # This method runs executable validation against all tool definitions
+      def test_all_executables
+        register_path = Ukiryu::RegisterAutoManager.register_path
+        return say_error("Register not found: #{register_path}") unless Dir.exist?(register_path)
+
+        tools_dir = File.join(register_path, 'tools')
+        return say_error("Tools directory not found: #{tools_dir}") unless Dir.exist?(tools_dir)
+
+        yaml_files = Dir.glob(File.join(tools_dir, '*', '*.yaml')).sort
+
+        # Skip index.yaml files - they are metadata files that list implementations
+        yaml_files = yaml_files.reject { |f| File.basename(f) == 'index.yaml' }
+
+        say '', :clear
+        say "Testing #{yaml_files.length} tool executable(s)...", :cyan
+
+        passed = 0
+        failed = 0
+        skipped = 0
+
+        yaml_files.each do |file|
+          relative_path = file.sub("#{tools_dir}/", '')
+
+          # Get relative path for display
+          begin
+            # Load the YAML profile to check if we should test it
+            YAML.safe_load(File.read(file), permitted_classes: [Symbol, Date, Time])
+
+            # Extract tool name from file path
+            file_name = File.basename(file, '.yaml')
+            tool_dir = File.basename(File.dirname(file))
+            tools_dir_name = File.basename(File.dirname(File.dirname(file)))
+
+            # The tool name is the directory name under tools/
+            tool_name = if tools_dir_name == 'tools'
+                          tool_dir
+                        else
+                          file_name
+                        end
+
+            # Don't hardcode register path - use options or let Tool.find handle it
+            tool_options = {}
+            tool_options[:register_path] = options[:register] if options[:register]
+
+            # Load the tool (Tool.get will find the right register path)
+            tool = Ukiryu::Tool.get(tool_name, **tool_options)
+
+            # Test if the tool is available
+            if tool.available?
+              # Test version detection if defined
+              if tool.profile.version_detection
+                begin
+                  detected_version = tool.detect_version
+                  say "  #{relative_path.ljust(35)} ✓ (v#{detected_version})", :green
+                  passed += 1
+                rescue StandardError => e
+                  say "  #{relative_path.ljust(35)} ⚠ Version detection failed: #{e.message}", :yellow
+                  skipped += 1
+                end
+              else
+                say "  #{relative_path.ljust(35)} ✓ (no version detection)", :green
+                passed += 1
+              end
+            else
+              say "  #{relative_path.ljust(35)} ⊘ (not installed)", :dim
+              skipped += 1
+            end
+          rescue Ukiryu::Errors::ToolNotFoundError
+            say "  #{relative_path.ljust(35)} ✗ (tool not found)", :yellow
+            skipped += 1
+          rescue StandardError => e
+            say "  #{relative_path.ljust(35)} ✗ Error: #{e.message}", :red
+            failed += 1 if options[:strict]
+          end
+        end
+
+        # Summary
+        say '', :clear
+        say 'Executable Test Summary:', :cyan
+        say "  Total:   #{yaml_files.length}", :white
+        say "  Passed:  #{passed}", :green
+        say "  Skipped: #{skipped}", :yellow
+        say "  Failed:  #{failed}", failed.positive? ? :red : :green
+
+        exit 1 if failed.positive? && options[:strict]
       end
 
       # Run smoke tests from profile
@@ -199,14 +288,14 @@ module Ukiryu
             validation_result = validate_test_result(result, test)
 
             if validation_result[:passed]
-              say "  ✓ PASSED", :green
+              say '  ✓ PASSED', :green
               if options[:verbose] && validation_result[:details]
                 validation_result[:details].each do |detail|
                   say "    #{detail}", :dim
                 end
               end
             else
-              say "  ✗ FAILED", :red
+              say '  ✗ FAILED', :red
               validation_result[:errors].each do |error|
                 say "    ✗ #{error}", :red
               end
@@ -219,39 +308,35 @@ module Ukiryu
         end
       end
 
-      # Execute a test command
+      # Execute a test command using Executor
       #
       # @param tool [Ukiryu::Tool] the tool instance
       # @param test_command [String, Array] command to run
       # @param timeout [Integer] timeout in seconds
-      # @return [Hash] execution result
-      def execute_test_command(tool, test_command, _timeout)
+      # @return [Execution::Result] execution result
+      def execute_test_command(tool, test_command, timeout)
         cmd_array = if test_command.is_a?(Array)
                       test_command
                     else
-                      # Parse command string into array (basic parsing)
                       test_command.shellsplit
                     end
 
-        # Build full command with tool executable
-        full_command = [tool.executable] + cmd_array
+        # Detect shell for internal utility execution
+        shell_class = Shell.detect
 
-        # Execute using Open3
-        require 'open3'
-        stdout_str, stderr_str, status = Open3.capture3(*full_command)
-
-        {
-          stdout: stdout_str,
-          stderr: stderr_str,
-          exit_code: status.exitstatus,
-          success: status.success?,
-          runtime: nil # TODO: add runtime measurement
-        }
+        # Use Executor.execute with explicit shell parameter
+        Executor.execute(
+          tool.executable,
+          cmd_array,
+          timeout: timeout,
+          shell: shell_class,
+          tool_name: tool.name
+        )
       end
 
       # Validate test result against expectations
       #
-      # @param result [Hash] execution result
+      # @param result [Execution::Result] execution result
       # @param test [Hash] test definition with expect section
       # @return [Hash] validation result with :passed, :errors, :details
       def validate_test_result(result, test)
@@ -263,18 +348,18 @@ module Ukiryu
 
         # Check exit code
         expected_exit_code = expect[:exit_code] || expect['exit_code'] || 0
-        if result[:exit_code] != expected_exit_code
-          errors << "Exit code mismatch: expected #{expected_exit_code}, got #{result[:exit_code]}"
+        if result.exit_status != expected_exit_code
+          errors << "Exit code mismatch: expected #{expected_exit_code}, got #{result.exit_status}"
           passed = false
         else
-          details << "Exit code: #{result[:exit_code]} (as expected)"
+          details << "Exit code: #{result.exit_status} (as expected)"
         end
 
         # Check output_match regex
         output_match = expect[:output_match] || expect['output_match']
         if output_match
           regex = Regexp.new(output_match)
-          if result[:stdout] =~ regex
+          if result.stdout =~ regex
             details << "Output matches pattern: #{output_match}"
           else
             errors << "Output does not match pattern: #{output_match}"
@@ -286,7 +371,7 @@ module Ukiryu
         output_contains = expect[:output_contains] || expect['output_contains']
         if output_contains && !output_contains.empty?
           output_contains.each do |str|
-            if result[:stdout].include?(str)
+            if result.stdout.include?(str)
               details << "Output contains: #{str}"
             else
               errors << "Output missing string: #{str}"
@@ -299,7 +384,7 @@ module Ukiryu
         stderr_match = expect[:stderr_match] || expect['stderr_match']
         if stderr_match
           regex = Regexp.new(stderr_match)
-          if result[:stderr] =~ regex
+          if result.stderr =~ regex
             details << "Stderr matches pattern: #{stderr_match}"
           else
             errors << "Stderr does not match pattern: #{stderr_match}"
@@ -358,7 +443,7 @@ module Ukiryu
         else
           { success: true, message: "Command executed (exit code: #{result.exit_status})" }
         end
-      rescue Ukiryu::ExecutionError => e
+      rescue Ukiryu::Errors::ExecutionError => e
         if e.result.stderr.include?('unrecognized') || e.result.stderr.include?('unknown')
           { success: false, message: 'Command not recognized by tool' }
         else
@@ -368,8 +453,6 @@ module Ukiryu
 
       # Validate all definitions in register
       def validate_all
-        require_relative '../register_auto_manager'
-
         register_path = Ukiryu::RegisterAutoManager.register_path
         return say_error("Register not found: #{register_path}") unless Dir.exist?(register_path)
 
@@ -378,6 +461,9 @@ module Ukiryu
 
         results = {}
         yaml_files = Dir.glob(File.join(tools_dir, '*', '*.yaml')).sort
+
+        # Skip index.yaml files - they are metadata files that list implementations
+        yaml_files = yaml_files.reject { |f| File.basename(f) == 'index.yaml' }
 
         say "Validating #{yaml_files.length} tool definitions...", :cyan
         say '', :clear

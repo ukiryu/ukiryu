@@ -48,6 +48,8 @@ The pronunciation of "ukiryu" ("yoo-kee-rhoo") is the English transliteration of
 the Kanji characters 「浮流」, read in Hiragana as 「うきりゅう」.
 
 In the view that a command line tool is a vessel for performing tasks, Ukiryu
+provides the harmonized definitions and interfaces that make cross-platform CLI
+tool integration predictable and reliable.
 serves as the flexible flow that guides its path through different environments.
 
 
@@ -142,11 +144,256 @@ through declarative YAML profiles.
 
 === Key Concepts
 
-* **Tool**: A command-line utility (e.g., `inkscape`, `imagemagick`)
-* **Command**: An action a tool performs (e.g., `export`, `convert`)
-* **Action**: A specific operation within a command (e.g., `export_pdf`)
-* **Routing**: Mapping command names to their implementations
+* **Package**: A distribution unit (e.g., `imagemagick`, `busybox`, `coreutils`)
+* **Tool**: A CLI command you run (e.g., `convert`, `identify`, `ls`, `gzip`)
+* **Interface**: An abstract API contract that multiple tools can implement
+* **Command**: An operation a tool performs
 * **Profile**: YAML file defining tool behavior across platforms/versions
+
+[TIP]
+====
+One package can provide multiple tools, and one interface can be implemented by multiple different tools.
+
+For example:
+* The `imagemagick` package provides the `convert`, `identify`, and `mogrify` tools
+* Both `imagemagick-6` and `imagemagick-7` implement the `convert` interface
+* BusyBox provides many tools (`ls`, `cat`, `gzip`) as one executable
+====
+
+=== Architecture: Packages, Tools, and Interfaces
+
+Ukiryu's architecture is built on a clear separation between distribution units (packages), executable commands (tools), and their abstract contracts (interfaces).
+
+[source]
+----
+.Package, Tool, and Interface Relationships
+┌──────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  PACKAGE (Distribution Unit)                                     │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │ imagemagick-7.1 (Homebrew, MacPorts, apt, etc.)         │     │
+│  │                                                           │     │
+│  │  Provides multiple tools:                                │     │
+│  │  ├─ magick (main executable)                             │     │
+│  │  ├─ convert (tool)                                       │     │
+│  │  ├─ identify (tool)                                      │     │
+│  │  └─ mogrify (tool)                                       │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                                                                   │
+│  INTERFACE (Abstract Contract)                                  │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │ convert interface                                        │     │
+│  │                                                           │     │
+│  │  Defines:                                                │     │
+│  │  ├─ Image format conversion capabilities                 │     │
+│  │  ├─ Common options: resize, quality, strip               │     │
+│  │  └─ Input/output file arguments                          │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│         │                         │                             │
+│         │ implements              │ implements                  │
+│         ▼                         ▼                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐              │
+│  │ imagemagick-6       │  │ imagemagick-7       │              │
+│  │ convert tool        │  │ convert tool        │              │
+│  │                     │  │                     │              │
+│  │ Invocation:         │  │ Invocation:         │              │
+│  │ convert input.png   │  │ magick convert      │              │
+│  │   output.jpg        │  │   input.png         │              │
+│  │                     │  │   output.jpg        │              │
+│  │ standalone: true    │  │ subcommand: true    │              │
+│  └─────────────────────┘  └─────────────────────┘              │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+----
+
+==== What is a Package?
+
+A **package** is a distribution unit - how software is installed and distributed:
+
+* Homebrew formula: `brew install imagemagick`
+* MacPorts port: `sudo port install ImageMagick7`
+* apt package: `apt install imagemagick`
+* Chocolatey package: `choco install imagemagick`
+
+[WARNING]
+====
+Ukiryu does **NOT** define packages in YAML. Package management is the responsibility of the system administrator or CI/CD configuration.
+
+Ukiryu defines **tools**, not packages.
+====
+
+==== What is a Tool?
+
+A **tool** is a CLI command you can run - an executable with a specific interface:
+
+* `convert` - Image conversion tool
+* `identify` - Image information tool
+* `ls` - List directory contents
+* `gzip` - Compression tool
+
+One YAML file defines **one tool**:
+
+[source,yaml]
+----
+# register/tools/convert/6.9.yaml
+name: convert
+version: "6.9"
+display_name: ImageMagick 6.x Convert
+implements: [convert]  # Declares which interface this provides
+
+version_detection:
+  command: -version
+  pattern: 'Version: ImageMagick ([\d.]+)'
+
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+
+    commands:
+      - name: convert
+        standalone_executable: true
+        description: Convert between image formats
+
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+          - name: output
+            type: file
+            position: last
+----
+
+==== What is an Interface?
+
+An **interface** is an abstract API contract that defines:
+
+* What operations can be performed
+* What parameters are accepted
+* what behavior is expected
+
+Interfaces are **typically not explicitly declared** in YAML - they emerge from the tool's command definition. However, tools can declare which interfaces they implement:
+
+[source,yaml]
+----
+# convert tool declares it implements the "convert" interface
+implements: [convert]
+
+# A "pdf2svg" tool might also implement the convert interface
+implements: [convert]
+----
+
+Multiple tools can implement the same interface:
+
+[source,yaml]
+----
+# imagemagick/6.9.yaml
+name: convert
+version: "6.9"
+implements: [convert]
+
+# imagemagick/7.1.yaml
+name: convert
+version: "7.1"
+implements: [convert]
+
+# graphicsmagick/1.3.yaml
+name: gm
+version: "1.3"
+implements: [convert]  # GraphicsMagick's gm convert implements same interface
+----
+
+==== How Invocation Patterns Differ
+
+Different implementations of the same interface have different **invocation patterns**:
+
+*ImageMagick 6.x*:
+[source,bash]
+----
+convert input.png -resize 50% output.png
+# "convert" is a standalone executable
+----
+
+*ImageMagick 7.x*:
+[source,bash]
+----
+magick convert input.png -resize 50% output.png
+# "convert" is a subcommand of "magick"
+----
+
+The YAML profiles capture these differences:
+
+[source,yaml]
+----
+# IM6: standalone executable
+- name: convert
+  standalone_executable: true
+  # Invocation: /usr/bin/convert input.png output.png
+
+# IM7: subcommand
+- name: convert
+  subcommand: convert
+  # Invocation: /usr/bin/magick convert input.png output.png
+----
+
+==== Identity Detection
+
+How does Ukiryu know which implementation it's using? Through **identity detection** - self-contained verification mechanisms intrinsic to the executable itself:
+
+*Version Detection* (primary mechanism):
+[source,yaml]
+----
+version_detection:
+  command: -version
+  pattern: 'Version: ImageMagick ([\d.]+)'
+  modern_threshold: '7.0'
+----
+
+[IMPORTANT]
+====
+Identity detection must be **self-contained** - it only uses information from the executable itself:
+
+* Allowed: Version patterns, help text, command availability
+* **NOT allowed**: Checksums, package manager queries, external APIs
+
+This ensures tools work regardless of how they were installed.
+====
+
+==== Example: BusyBox Multiplexing
+
+BusyBox provides many Unix commands as one executable, using symlinks or applets:
+
+[source,bash]
+----
+# These all point to the same BusyBox binary:
+/bin/ls → /bin/busybox
+/bin/cat → /bin/busybox
+/bin/gzip → /bin/busybox
+----
+
+How do we know it's BusyBox and not the real `gzip`?
+
+[source,yaml]
+----
+# busybox/gzip.yaml
+name: gzip
+version: "1.35"
+implements: [gzip]
+
+version_detection:
+  command: --help
+  # BusyBox's gzip identifies itself in help output
+  pattern: 'BusyBox v([\d.]+)'
+
+profiles:
+  - name: default
+    commands:
+      - name: gzip
+        subcommand: gzip
+        # Invocation: busybox gzip -d file.gz
+----
+
+When version detection shows "BusyBox v1.35.0", Ukiryu knows this is the BusyBox implementation, not GNU gzip.
 
 === Architecture
 
@@ -356,13 +603,81 @@ git_tool.execute(:branch, :delete, {
 })
 ----
 
-=== Routing
+=== Version routing
 
 **Routing** maps command names to their implementations, enabling:
 
 1. **Tool aliases**: Multiple tools implementing the same interface
-2. **Version routing**: Different versions for different behaviors
+2. **Version routing**: Different versions for different behaviors (using https://github.com/lutaml/versionian[Versionian])
 3. **Multi-level hierarchies**: Parent/child command relationships
+
+==== About Versionian
+
+Ukiryu uses the https://github.com/lutaml/versionian[Versionian] library for version parsing, comparison, and range matching.
+
+Versionian provides:
+
+* **Built-in schemes**: Semantic (SemVer), Calendar versioning (CalVer), SoloVer, WendtVer
+* **Version range matching**: `equals`, `after`, `before`, `between` for version constraints
+* **Extensible**: Custom version schemes via declarative YAML or Ruby
+
+In the register's implementation index files, Versionian's syntax is used:
+
+[source,yaml]
+----
+# tools/tar/gnu/index.yaml
+implementations:
+  - name: gnu
+    version_scheme: semantic    <1>
+    versions:
+      - equals: "1.35"         <2>
+        file: "1.35.yaml"
+      - after: "1.35"          <3>
+        file: "1.35.yaml"
+----
+<1> Specifies which Versionian scheme to use for version comparison.
+<2> Exact version match - only version 1.35 matches this rule.
+<3> Semantic version range - matches any version >= 1.35.
+
+==== Version scheme types
+
+The `version_scheme` field in implementation indexes specifies which Versionian scheme to use:
+
+* `semantic` - MAJOR.MINOR.PATCH (e.g., 1.35.0, 2.0.0)
+* `calver` - YYYY.MM.DD (e.g., 2024.01.17, 2024.03.15)
+* `solover` - N[+|-]postfix (e.g., 5+hotfix, 5-beta)
+* `wendtver` - MAJOR.MINOR.PATCH.BUILD
+
+==== How version routing works
+
+When a tool version is detected (e.g., `tar (GNU tar) 1.35`), Ukiryu:
+
+1. Parses the detected version using the specified `version_scheme`
+2. Compares it against the `versions` array rules (in order)
+3. Selects the first matching rule's `file` value
+4. Loads the corresponding YAML profile
+
+Versionian range types used in implementation indexes:
+
+* `equals: "1.35"` - Exact version match
+* `after: "1.35"` - Matches any version >= 1.35 (inclusive)
+* `before: "2.0"` - Matches any version < 2.0 (exclusive)
+* `between: "1.35", "2.0"` - Matches versions in inclusive range [1.35, 2.0]
+
+Example flow:
+
+[source,ruby]
+----
+# Detected version: GNU tar 1.35.0
+# version_scheme: semantic
+# Parsed: [1, 35, 0]
+
+# Check rules in order:
+# 1. equals: "1.35" → "1.35.0" != "1.35" → no match
+# 2. after: "1.35"  → "1.35.0" > "1.35" → MATCH!
+
+# Result: Load tools/tar/1.35.yaml
+----
 
 [source,yaml]
 ----
@@ -601,7 +916,7 @@ jobs:
   convert:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Ukiryu
         run: gem install ukiryu
@@ -615,6 +930,540 @@ jobs:
             output=drawing.png \
             format=png
 ----
+
+// Core concepts
+== Core concepts
+
+Ukiryu transforms how developers interact with command-line tools by replacing fragile,
+hardcoded command strings with a declarative, type-safe API. This section explains
+the core concepts that make this possible.
+
+=== The declarative API model
+
+Traditional CLI usage involves crafting command strings with proper escaping, quoting,
+and platform-specific syntax:
+
+[source,bash]
+----
+# Traditional approach - fragile and error-prone
+convert input.png -resize 50% -quality 85 output.jpg
+ffmpeg -i video.mp4 -ss 00:01:00 -t 30 -c:v libx264 output.mp4
+inkscape --export-filename=output.png --export-type=png input.svg
+----
+
+Ukiryu's declarative model lets you describe *what* you want, not *how* to invoke it:
+
+[source,ruby]
+----
+# Declarative approach - portable and type-safe
+tool = Ukiryu::Tool.get(:imagemagick)
+result = tool.execute(:convert, {
+  inputs: ['input.png'],
+  resize: '50%',
+  quality: 85,
+  output: 'output.jpg'
+})
+----
+
+The YAML profile captures all the knowledge about how to invoke the tool:
+
+[source,yaml]
+----
+# imagemagick/7.1.yaml
+commands:
+  - name: convert
+    description: Convert between image formats
+    arguments:
+      - name: inputs
+        type: file
+        variadic: true
+      - name: output
+        type: file
+        position: last
+    options:
+      - name: resize
+        type: string
+        cli: -resize
+      - name: quality
+        type: integer
+        range: 0..100
+        cli: -quality
+----
+
+=== Architecture overview
+
+Ukiryu's architecture separates concerns into distinct layers that work together
+to provide a unified CLI experience:
+
+[source]
+----
+.Architecture layers
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Developer Code                                 │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ Ruby API                    │           CLI                   │   │
+│  │ tool.execute(:cmd, params)  │   ukiryu exec tool cmd key=val │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Ukiryu Framework                                │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ Tool layer                                                  │   │
+│  │ ├─ Tool.get(:name)        - Load tool profile               │   │
+│  │ ├─ tool.available?        - Check executable exists         │   │
+│  │ └─ tool.version           - Detected version                 │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │ Command layer                                               │   │
+│  │ ├─ build_args(params)     - Validate and format parameters  │   │
+│  │ ├─ execute(params, env)    - Run command                     │   │
+│  │ └─ result parsing         - Structured output                │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │ Shell layer                                               │   │
+│  │ ├─ format_path(path)       - Platform path formatting        │   │
+│  │ ├─ escape_arg(arg)         - Shell-specific escaping         │   │
+│  │ └─ join_args(args)         - Argument joining                │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │ Executor layer                                              │   │
+│  │ ├─ Open3.popen3           - Process spawn                   │   │
+│  │ ├─ capture(output)         - Stdout/stderr capture           │   │
+│  │ └─ timing                  - Execution metadata               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     YAML Tool Profiles                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ Metadata                                                    │   │
+│  │ name, version, homepage, aliases                            │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │ Version detection                                           │   │
+│  │ command, pattern, modern_threshold                          │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │ Search paths                                                │   │
+│  │ Platform-specific executable locations                      │   │
+│  ├─────────────────────────────────────────────────────────────┤   │
+│  │ Profiles (platform/shell combinations)                     │   │
+│  │ commands with arguments, options, flags                     │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+----
+
+=== How Ukiryu processes a command
+
+When you call `tool.execute(:convert, params)`, Ukiryu performs these steps:
+
+[source]
+----
+.Step 1: Tool selection
+┌─────────────────────────────────────────┐
+│ Ukiryu::Tool.get(:convert)              │
+│                                         │
+│ 1. Load convert/*.yaml from register    │
+│ 2. Detect installed version            │
+│    - Run: convert --version             │
+│    - Parse: Version: ImageMagick 7.1.0  │
+│ 3. Select matching profile              │
+│    - 7.1.0 matches "7.1" version       │
+│ 4. Find executable                     │
+│    - Check /usr/bin/convert            │
+│    - Check /opt/homebrew/bin/convert   │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+.Step 2: Command building
+┌─────────────────────────────────────────┐
+│ CommandBuilder.build_args(params)       │
+│                                         │
+│ params = {                             │
+│   inputs: ['a.png', 'b.png'],          │
+│   resize: '50%',                       │
+│   quality: 85,                         │
+│   output: 'c.jpg'                      │
+│ }                                      │
+│                                         │
+│ 1. Validate parameter types            │
+│    - inputs: Array[file] ✓             │
+│    - resize: String ✓                  │
+│    - quality: Integer (0..100) ✓       │
+│    - output: File ✓                     │
+│ 2. Validate required fields           │
+│    - output: required ✓                 │
+│ 3. Format for shell                    │
+│    -args = ['-resize', '50%', ...]    │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+.Step 3: Shell formatting
+┌─────────────────────────────────────────┐
+│ Shell.format_command(args, options)     │
+│                                         │
+│ On bash (linux/macos):                  │
+│ "convert" "-resize" "50%" "-quality"    │
+│   "85" "a.png" "b.png" "c.jpg"         │
+│                                         │
+│ On PowerShell (windows):                │
+│ "convert" "-resize", "50%", "-quality", │
+│   "85", "a.png", "b.png", "c.jpg"     │
+│                                         │
+│ On cmd (windows):                       │
+│ convert -resize 50% -quality 85        │
+│   a.png b.png c.jpg                    │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+.Step 4: Execution
+┌─────────────────────────────────────────┐
+│ Executor.execute(command, env)          │
+│                                         │
+│ 1. Spawn process                        │
+│    Open3.popen3("convert ...")          │
+│ 2. Capture output                       │
+│    stdout: "", stderr: ""              │
+│ 3. Wait for completion                 │
+│    exit_code: 0                        │
+│ 4. Return Result object                 │
+│    result.success? # => true           │
+└─────────────────────────────────────────────────────────────────────┘
+----
+
+=== Crafting a YAML profile
+
+To define a CLI tool for Ukiryu, you create a YAML file that describes its interface.
+Here's a complete example of a fictional `myprocessor` tool:
+
+[source,yaml]
+----
+# tools/myprocessor/1.0.yaml
+---
+ukiryu_schema: '1.0'
+
+# Tool metadata
+name: myprocessor
+display_name: MyProcessor
+homepage: https://example.com/myprocessor
+version: '1.0'
+description: Batch file processor for data transformation
+
+# Version detection
+version_detection:
+  command: --version
+  pattern: 'MyProcessor version ([\d.]+)'
+  modern_threshold: '1.0'
+
+# Where to find the executable on each platform
+search_paths:
+  macos:
+    - /usr/local/bin/myprocessor
+    - /opt/homebrew/bin/myprocessor
+  linux:
+    - /usr/bin/myprocessor
+    - /usr/local/bin/myprocessor
+  windows:
+    - C:/Program Files/MyProcessor/bin/myprocessor.exe
+
+# Profiles: platform/shell combinations
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    option_style: double_dash_space
+
+    commands:
+      - name: process
+        description: Process input files
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+            min: 1
+            description: Input files to process
+          - name: output
+            type: file
+            position: last
+            description: Output file or directory
+        options:
+          - name: format
+            type: string
+            cli: --format
+            values: [json, xml, csv, yaml]
+            description: Output format
+            default: json
+          - name: verbose
+            type: boolean
+            cli: --verbose
+            short: -v
+            description: Enable verbose output
+            default: false
+          - name: workers
+            type: integer
+            cli: --workers
+            range: 1..16
+            description: Number of parallel workers
+            default: 4
+
+      - name: validate
+        description: Validate input files
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+            min: 1
+        options:
+          - name: strict
+            type: boolean
+            cli: --strict
+            description: Enable strict validation
+            default: false
+
+  - name: windows
+    platforms: [windows]
+    shells: [powershell, cmd]
+    option_style: double_dash_space
+    inherits: unix
+----
+
+==== Profile structure explained
+
+The YAML profile has these key sections:
+
+**Metadata** (required):
+[source,yaml]
+----
+name: myprocessor          # Tool identifier (used in API calls)
+version: '1.0'             # Version string
+display_name: MyProcessor  # Human-readable name
+----
+
+**Version detection** (recommended):
+[source,yaml]
+----
+version_detection:
+  command: --version       # Command to run
+  pattern: 'version ([\d.]+)'  # Regex to extract version
+  modern_threshold: '1.0'  # Minimum version considered "modern"
+----
+
+**Search paths** (recommended):
+[source,yaml]
+----
+search_paths:
+  macos: ['/usr/local/bin/myprocessor']
+  linux: ['/usr/bin/myprocessor']
+  windows: ['C:/Program Files/MyProcessor/bin/myprocessor.exe']
+----
+
+**Commands** (required):
+[source,yaml]
+----
+commands:
+  - name: process                    # Command name (used in execute(:process))
+    description: What the command does
+    arguments:                       # Positional parameters
+      - name: inputs
+        type: file
+        variadi: true               # Accept multiple files
+    options:                         # Named parameters
+      - name: format
+        type: string
+        cli: --format               # CLI flag
+        values: [json, xml, csv]   # Valid values
+    flags:                           # Boolean switches
+      - name: verbose
+        type: boolean
+        cli: --verbose
+----
+
+=== Using a custom profile
+
+Load and use your custom profile:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Load from file
+tool = Ukiryu::Tool.load('tools/myprocessor/1.0.yaml')
+
+# Check availability
+puts tool.available? ? "Ready!" : "Not found"
+
+# Execute commands
+result = tool.execute(:process, {
+  inputs: ['file1.txt', 'file2.txt'],
+  output: 'output.json',
+  format: 'json',
+  verbose: true
+})
+
+puts result.success? ? "Done!" : "Error: #{result.output.stderr}"
+----
+
+Or from the CLI:
+
+[source,bash]
+----
+ukiryu exec -d tools/myprocessor/1.0.yaml myprocessor process \
+  inputs=file1.txt,file2.txt \
+  output=output.json \
+  format=json \
+  --verbose
+----
+
+=== Contributing to the official register
+
+The official Ukiryu register is a curated collection of YAML profiles for popular
+CLI tools. Contributing helps the community by making tools more accessible.
+
+==== Submitting a new tool profile
+
+. **Prepare your profile**:
+   Create `tools/<toolname>/<version>.yaml` following the v1 schema.
+   Validate locally:
+   [source,bash]
+   ----
+   gem install ukiryu
+   ukiryu validate --definition tools/mytool/1.0.yaml
+   ukiryu lint file tools/mytool/1.0.yaml
+   ----
+
+. **Test with the executable**:
+   [source,bash]
+   ----
+   ukiryu validate --definition tools/mytool/1.0.yaml --executable
+   ----
+
+. **Submit a pull request**:
+   The register is at https://github.com/ukiryu/register
+   Submit PRs to the `v1` branch.
+
+==== Profile requirements
+
+For inclusion in the official register, profiles must:
+
+* Conform to the v1 schema (`ukiryu_schema: '1.0'`)
+* Have complete metadata (name, version, display_name)
+* Include version detection with accurate pattern
+* Define search paths for all supported platforms
+* Cover major platforms (macOS, Linux, Windows)
+* Support common shells (bash, zsh, fish at minimum)
+* Define all major commands with arguments, options, and flags
+* Pass all validation and linting checks
+* Include smoke tests for basic functionality
+
+==== Directory structure for new tools
+
+[source]
+----
+tools/
+└── mytool/
+    ├── 1.0.yaml           # Version-specific profile
+    ├── 1.1.yaml           # Another version
+    └── index.yaml         # Optional: version routing
+----
+
+For tools with multiple implementations (GNU, BusyBox, BSD):
+
+[source]
+----
+tools/
+└── tar/
+    ├── gnu/
+    │   ├── 1.35.yaml
+    │   ├── 1.36.1.yaml
+    │   └── index.yaml    # GNU implementation routing
+    ├── busybox/
+    │   ├── 1.36.1.yaml
+    │   └── index.yaml    # BusyBox implementation routing
+    └── index.yaml        # Abstract tar interface
+----
+
+==== Validation checklist
+
+Before submitting, verify your profile:
+
+[source,bash]
+----
+# 1. Schema validation
+ukiryu validate --definition tools/mytool/1.0.yaml
+
+# 2. Linting
+ukiryu lint file tools/mytool/1.0.yaml
+
+# 3. Executable testing (if tool is installed)
+ukiryu validate --definition tools/mytool/1.0.yaml --executable
+
+# 4. Check all YAML files in the register
+cd /path/to/register && ukiryu validate all
+----
+
+=== The register ecosystem
+
+The Ukiryu ecosystem consists of three repositories that work together:
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Ukiryu Ecosystem                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐│
+│  │   ukiryu/      │     │   register/    │     │   schemas/      ││
+│  │   ukiryu       │────▶│   register     │◀────│   schemas       ││
+│  │   (Runtime)    │     │   (Profiles)   │     │   (Schema)      ││
+│  └─────────────────┘     └─────────────────┘     └─────────────────┘│
+│         │                        │                       │            │
+│         │   Loads YAML          │   Contains YAML       │   Defines   │
+│         │   Executes commands   │   Profiles            │   Schema    │
+│         │   Validates input     │   Documents CLI       │   Validates │
+│         └──────────────────────┴───────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+ukiryu/       Ruby gem - The runtime engine
+  - lib/ukiryu/         Core framework code
+  - bin/ukiryu          CLI executable
+  - spec/               Tests
+
+register/     GitHub repo - YAML profiles
+  - tools/              Tool profiles (imagemagick/, ffmpeg/, etc.)
+  - interfaces/         Interface definitions
+  - .github/workflows/  Validation CI/CD
+
+schemas/      GitHub repo - JSON Schema
+  - v1/
+    - tool.schema.yaml       Tool profile schema
+    - interface.schema.yaml  Interface definition schema
+----
+
+=== Key terminology
+
+[cols="1,4"]
+|===
+|Term |Definition
+
+|Tool |A CLI executable with a specific command interface (e.g., `convert`, `ffmpeg`)
+
+|Interface |An abstract contract that multiple tools can implement (e.g., `convert` interface)
+
+|Profile |YAML file defining tool behavior for specific platforms and shells
+
+|Command |An operation a tool performs (e.g., `convert export`, `ffmpeg transcode`)
+
+|Argument |Positional parameter (e.g., `input.png`)
+
+|Option |Named parameter with value (e.g., `--resize 50%`)
+
+|Flag |Boolean switch (e.g., `--verbose`)
+
+|Profile |Platform/shell combination (e.g., "unix bash", "windows powershell")
+
+|Register |Collection of YAML tool profiles
+
+|Schema |Formal definition of YAML structure and validation rules
+|===
 
 // Distributed Definitions
 == Distributed Definitions
@@ -727,25 +1576,25 @@ tool = Ukiryu::Tool.load('tool.yaml', validation: :lenient)
 tool = Ukiryu::Tool.load('tool.yaml', validation: :none)
 ----
 
-* **:strict** (default) - Raises `DefinitionValidationError` for missing required fields
+* **:strict** (default) - Raises `Ukiryu::Errors::DefinitionValidationError` for missing required fields
 * **:lenient** - Prints warnings but continues loading
 * **:none** - Skips all validation (useful for testing)
 
-=== Error Handling
+=== Error handling
 
-The definition loading system provides specific error types:
+The definition loading system provides specific error types in the `Ukiryu::Errors` namespace:
 
 [source,ruby]
 ----
 begin
   tool = Ukiryu::Tool.load('tool.yaml')
-rescue Ukiryu::DefinitionNotFoundError => e
+rescue Ukiryu::Errors::DefinitionNotFoundError => e
   # File does not exist
   puts "Definition file not found: #{e.message}"
-rescue Ukiryu::DefinitionLoadError => e
+rescue Ukiryu::Errors::DefinitionLoadError => e
   # Invalid YAML or file read error
   puts "Failed to load definition: #{e.message}"
-rescue Ukiryu::DefinitionValidationError => e
+rescue Ukiryu::Errors::DefinitionValidationError => e
   # Valid YAML but fails validation rules
   puts "Definition validation failed: #{e.message}"
 end
@@ -1707,23 +2556,23 @@ ukiryu info inkscape | grep "Execution Mode"
 # Shows: Execution Mode: headless
 ----
 
-=== Error Handling
+=== Error handling
 
-Structured exceptions instead of magic exit codes:
+Structured exceptions in the `Ukiryu::Errors` namespace instead of magic exit codes:
 
 [source,ruby]
 ----
 begin
   result = tool.execute(:export, params)
-rescue Ukiryu::ToolNotFoundError => e
+rescue Ukiryu::Errors::ToolNotFoundError => e
   puts "Tool not found: #{e.tool_name}"
   puts "Available tools: #{Ukiryu::Register.tools.join(', ')}"
-rescue Ukiryu::ExecutionError => e
+rescue Ukiryu::Errors::ExecutionError => e
   puts "Command failed!"
   puts "Exit code: #{e.result.exit_status}"
   puts "Stderr: #{e.result.stderr}"
   puts "Stdout: #{e.result.stdout}"
-rescue Ukiryu::TimeoutError => e
+rescue Ukiryu::Errors::TimeoutError => e
   puts "Command timed out after #{e.timeout}s"
 end
 ----
@@ -1897,6 +2746,43 @@ Comprehensive documentation is available at:
 bundle exec rspec
 ----
 
+=== Docker Multi-platform Testing
+
+Ukiryu provides a Docker-based test runner for cross-platform validation. The
+`docker-test-all.sh` script runs the full test suite across multiple Linux
+distributions to ensure compatibility.
+
+[source,shell]
+----
+# Test all platforms (alpine, ubuntu, debian)
+./docker-test-all.sh
+
+# Test specific platforms only
+./docker-test-all.sh alpine ubuntu
+
+# Force rebuild Docker images
+./docker-test-all.sh --build
+
+# Verbose output
+./docker-test-all.sh --verbose debian
+
+# Use custom register path
+./docker-test-all.sh --register /path/to/register
+----
+
+The script tests Ukiryu across:
+
+* **Alpine Linux** - Minimal musl libc distribution
+* **Ubuntu** - Debian-based with glibc
+* **Debian** - Standard Debian environment
+
+Each platform is tested in an isolated Docker container with the register
+mounted read-only. Test results are summarized at the end with timing
+information.
+
+Docker test logs are written to `/tmp/docker-test-*.log` for detailed
+inspection of any failures.
+
 === Schema Validation
 
 [source,shell]
@@ -1934,4 +2820,7 @@ Copyright Ribose.
 == Related Repositories
 
 * https://github.com/ukiryu/register[ukiryu/register] - Tool profile register
-* https://github.com/ukiryu/schema[ukiryu/schema] - Profile validation schema
+* https://github.com/ukiryu/schemas[ukiryu/schemas] - Profile validation schema
+* https://github.com/lutaml/versionian[lutaml/versionian] - Version parsing and comparison library
+
+

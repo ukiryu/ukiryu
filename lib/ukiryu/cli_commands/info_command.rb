@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative '../tool'
-
 module Ukiryu
   module CliCommands
     # Show detailed information about a tool
@@ -14,8 +11,8 @@ module Ukiryu
         setup_register
 
         # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
-        tool = Tool.find_by(tool_name.to_sym)
-        error!("Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}") unless tool
+        tool = Ukiryu::Tool.find_by(tool_name.to_sym)
+        error!("Tool not found: #{tool_name}\nAvailable tools: #{Ukiryu::Register.tools.sort.join(', ')}") unless tool
 
         profile = tool.profile
         show_all = options[:all]
@@ -37,7 +34,7 @@ module Ukiryu
             say "All '#{tool_name}' implementations:", :yellow
             all_implementations = [profile.name, *other_implementations].sort
             all_implementations.each do |impl|
-              impl_tool = Tool.get(impl)
+              impl_tool = Ukiryu::Tool.get(impl)
               if impl_tool
                 status = impl_tool.available? ? '[✓]' : '[✗]'
                 color = impl_tool.available? ? :green : :red
@@ -45,7 +42,7 @@ module Ukiryu
               else
                 say "  [?] #{impl}", :white
               end
-            rescue Ukiryu::ToolNotFoundError, Ukiryu::ProfileNotFoundError
+            rescue Ukiryu::Errors::ToolNotFoundError, Ukiryu::Errors::ProfileNotFoundError
               # Tool exists but no compatible profile for this platform
               say "  [ ] #{impl}", :dim
             end
@@ -69,22 +66,6 @@ module Ukiryu
           say "  Command: #{command_display}", :white
           say "  Pattern: #{vd.pattern}", :white
           say "  Modern Threshold: #{vd.modern_threshold}", :white if vd.modern_threshold
-        end
-
-        # Search paths
-        if profile.search_paths
-          say '', :clear
-          say 'Search Paths:', :yellow
-          search_paths = profile.search_paths
-
-          # Iterate over platform attributes
-          %i[macos linux windows freebsd openbsd netbsd].each do |platform|
-            paths = search_paths.send(platform)
-            next if paths.nil? || paths.empty?
-
-            say "  #{platform}:", :white
-            Array(paths).each { |p| say "    - #{p}", :white }
-          end
         end
 
         # Profiles
@@ -122,22 +103,20 @@ module Ukiryu
       # @param current_tool_name [String] the current tool name to exclude
       # @return [Array<String>] list of other tool names
       def find_other_implementations(interface_name, current_tool_name)
-        require_relative '../register'
-
         implementations = []
         interface_sym = interface_name.to_sym
 
         if config.debug
           say "  [DEBUG] Looking for tools implementing '#{interface_name}' (excluding '#{current_tool_name}')", :dim
-          say "  [DEBUG] Register tools: #{Register.tools.inspect}", :dim
+          say "  [DEBUG] Register tools: #{Ukiryu::Register.tools.inspect}", :dim
         end
 
-        Register.tools.each do |tool_name|
+        Ukiryu::Register.tools.each do |tool_name|
           next if tool_name == current_tool_name
 
           begin
             # Don't pass register_path - let it use the default
-            tool_metadata = Register.load_tool_metadata(tool_name.to_sym)
+            tool_metadata = Ukiryu::Register.load_tool_metadata(tool_name.to_sym)
             if config.debug
               say "  [DEBUG] #{tool_name} -> metadata: #{tool_metadata ? tool_metadata.implements : 'nil'}", :dim
             end

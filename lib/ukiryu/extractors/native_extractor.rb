@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_extractor'
-
 module Ukiryu
   module Extractors
     # Native flag extraction strategy

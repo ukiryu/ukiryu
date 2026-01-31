@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'lint_issue'
-
 module Ukiryu
   module Definition
     # Lint tool definitions for best practices
@@ -179,8 +177,8 @@ module Ukiryu
           old_schema_version: {
             rule_id: 'deprecated_old_schema',
             threshold: '1.0',
-            message: 'Using old schema version',
-            suggestion: 'Update to the latest schema version (1.2)'
+            message: 'Schema version should be 1.0',
+            suggestion: 'Use ukiryu_schema: 1.0 (we are in 1.0 development)'
           }
         }.freeze
       end
@@ -234,9 +232,9 @@ module Ukiryu
           definition = YAML.safe_load(File.read(file_path), permitted_classes: [Symbol, Date, Time],
                                                             symbolize_names: true)
           lint(definition, rules: rules)
-        rescue Ukiryu::DefinitionNotFoundError
+        rescue Ukiryu::Errors::DefinitionNotFoundError
           LintResult.new([LintIssue.error("File not found: #{file_path}")])
-        rescue Ukiryu::DefinitionLoadError, Ukiryu::DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           LintResult.new([LintIssue.error(e.message)])
         rescue Errno::ENOENT
           LintResult.new([LintIssue.error("File not found: #{file_path}")])

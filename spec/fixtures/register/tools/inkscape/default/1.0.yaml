@@ -1,0 +1,230 @@
+---
+ukiryu_schema: '1.0'
+name: inkscape
+display_name: Inkscape Vector Graphics Editor
+homepage: https://inkscape.org/
+version: '1.0'
+aliases:
+- inkscapecom
+- ink
+version_detection:
+  command: "--version"
+  pattern: Inkscape (\d+\.\d+)
+  modern_threshold: '1.0'
+search_paths:
+  macos:
+  - "/Applications/Inkscape.app/Contents/MacOS/inkscape"
+  - "/opt/homebrew/bin/inkscape"
+  - "/usr/local/bin/inkscape"
+  - "/opt/local/bin/inkscape"
+  - "/usr/local/opt/inkscape/bin/inkscape"
+  linux:
+  - "/usr/bin/inkscape"
+  - "/usr/local/bin/inkscape"
+  - "/snap/bin/inkscape"
+  - "/var/lib/flatpak/exports/bin/org.inkscape.Inkscape"
+  - "/usr/bin/flatpak-spawn"
+  - "/opt/inkscape.AppImage"
+  - "/usr/local/bin/inkscape.AppImage"
+  - "/opt/bin/inkscape"
+  windows:
+  - C:/Program Files/Inkscape/bin/inkscape.exe
+  - C:/Program Files/Inkscape/inkscape.exe
+  - C:/Program Files (x86)/Inkscape/bin/inkscape.exe
+  - C:/Program Files (x86)/Inkscape/inkscape.exe
+  - "%USERPROFILE%/scoop/apps/inkscape/current/inkscape.exe"
+  - "~/scoop/apps/inkscape/current/inkscape.exe"
+  - C:/ProgramData/chocolatey/lib/inkscape/tools/inkscape*/bin/inkscape.exe
+  - "%LOCALAPPDATA%/Inkscape/bin/inkscape.exe"
+  - "~/AppData/Local/Inkscape/bin/inkscape.exe"
+implements: inkscape/1.0
+profiles:
+- name: modern_unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - fish
+  - sh
+  option_style: double_dash_equals
+  executable_name: inkscape
+  commands:
+  - description: Export document to different format
+    usage: inkscape [OPTIONS] input1.svg [input2.svg ...]
+    use_env_vars:
+    - headless
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      position: last
+      min: 1
+      description: Input file(s)
+    options:
+    - name: output
+      type: file
+      cli: "--export-filename"
+      description: Output filename
+      required: true
+      assignment_delimiter: equals
+    - name: format
+      type: symbol
+      cli: "--export-type"
+      values:
+      - svg
+      - png
+      - ps
+      - eps
+      - pdf
+      - emf
+      - wmf
+      - xaml
+      description: Output format
+      assignment_delimiter: equals
+    - name: dpi
+      type: integer
+      cli: "-d"
+      separator: " "
+      range:
+      - 1
+      - 10000
+      description: 'Resolution for bitmaps (default: 96)'
+      assignment_delimiter: space
+    - name: width
+      type: integer
+      cli: "--export-width"
+      description: Bitmap width in pixels
+      assignment_delimiter: auto
+    - name: height
+      type: integer
+      cli: "--export-height"
+      description: Bitmap height in pixels
+      assignment_delimiter: auto
+    - name: area
+      type: string
+      cli: "--export-area"
+      description: Export area (x0:y0:x1:y1)
+      assignment_delimiter: auto
+    - name: export_page
+      type: string
+      cli: "--export-page"
+      description: Page number to export
+      assignment_delimiter: auto
+    - name: background
+      type: string
+      cli: "--export-background"
+      description: Background color
+      assignment_delimiter: auto
+    - name: background_opacity
+      type: float
+      cli: "--export-background-opacity"
+      range:
+      - 0.0
+      - 1.0
+      description: Background opacity (0.0 to 1.0)
+      assignment_delimiter: auto
+    - name: export_ids
+      type: array
+      of: string
+      cli: "--export-id"
+      separator: ";"
+      description: Object IDs to export
+      assignment_delimiter: auto
+    - name: pages
+      type: string
+      cli: "--pages"
+      description: Page numbers to import from multi-page document (PDF)
+      assignment_delimiter: equals
+    flags:
+    - name: plain
+      cli: "--export-plain-svg"
+      cli_short: "-l"
+      description: Remove Inkscape-specific attributes
+      default: false
+      assignment_delimiter: none
+    - name: area_page
+      cli: "--export-area-page"
+      cli_short: "-C"
+      description: Export area is page
+      default: false
+      assignment_delimiter: none
+    - name: area_drawing
+      cli: "--export-area-drawing"
+      cli_short: "-D"
+      description: Export area is drawing
+      default: false
+      assignment_delimiter: none
+    - name: text_to_path
+      cli: "--export-text-to-path"
+      cli_short: "-T"
+      description: Convert text to paths
+      default: false
+      assignment_delimiter: none
+    - name: ignore_filters
+      cli: "--export-ignore-filters"
+      description: Render without filters
+      default: false
+      assignment_delimiter: none
+    - name: vacuum_defs
+      cli: "--vacuum-defs"
+      description: Remove unused definitions
+      default: false
+      assignment_delimiter: none
+    - name: batch_process
+      cli: "--batch-process"
+      position_constraint: prefix
+      description: Close GUI after processing (required for headless)
+      default: true
+      assignment_delimiter: none
+    name: export
+  - description: Query document dimensions
+    usage: inkscape --query-width/--query-height input.svg
+    use_env_vars:
+    - headless
+    arguments:
+    - name: input
+      type: file
+      required: true
+      position: 1
+      description: Input file
+    flags:
+    - name: width
+      cli: "--query-width"
+      cli_short: "-W"
+      description: Query width
+      default: false
+      assignment_delimiter: none
+    - name: height
+      cli: "--query-height"
+      cli_short: "-H"
+      description: Query height
+      default: false
+      assignment_delimiter: none
+    - name: x
+      cli: "--query-x"
+      cli_short: "-X"
+      description: Query X coordinate
+      default: false
+      assignment_delimiter: none
+    - name: "y"
+      cli: "--query-y"
+      cli_short: "-Y"
+      description: Query Y coordinate
+      default: false
+      assignment_delimiter: none
+    parse_output:
+      type: hash
+      pattern: key:\s*value
+    name: query
+- name: modern_windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: double_dash_equals
+  executable_name: inkscape
+  inherits: modern_unix

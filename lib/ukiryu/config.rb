@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'config/env_provider'
-require_relative 'config/override_resolver'
-
 module Ukiryu
   # Global configuration for Ukiryu
   # Provides unified configuration across CLI, Ruby API, and programmatic interfaces
@@ -28,6 +25,12 @@ module Ukiryu
   # @example Configure via CLI options
   #   ukiryu exec ping host=example.com --format json --timeout 30
   class Config
+    # Autoload nested classes
+    autoload :EnvSchema, 'ukiryu/config/env_schema'
+    autoload :TypeConverter, 'ukiryu/config/type_converter'
+    autoload :EnvProvider, 'ukiryu/config/env_provider'
+    autoload :OverrideResolver, 'ukiryu/config/override_resolver'
+
     class << self
       def instance
         @instance ||= new
@@ -141,18 +144,6 @@ module Ukiryu
       @resolver.set_programmatic(:register, value)
     end
 
-    # Tool search paths (comma-separated)
-    # @return [String, nil] comma-separated search paths
-    def search_paths
-      @resolver.resolve(:search_paths)
-    end
-
-    # Set search paths
-    # @param value [String] comma-separated search paths
-    def search_paths=(value)
-      @resolver.set_programmatic(:search_paths, value)
-    end
-
     # Use color in output
     # @return [Boolean] true if colors should be used
     def use_color
@@ -215,7 +206,6 @@ module Ukiryu
         format: format,
         output: output,
         register: register,
-        search_paths: search_paths,
         use_color: use_color
       }
     end
@@ -232,7 +222,6 @@ module Ukiryu
         format: :yaml,
         output: nil,
         register: nil,
-        search_paths: nil,
         use_color: nil
       }
 

@@ -18,7 +18,6 @@ search_paths:
   - "/usr/bin/inkscape"
   windows:
   - "C:/Program Files/Inkscape/bin/inkscape.exe"
-timeout: 90
 profiles:
 - name: modern_unix
   display_name: Modern Inkscape on Unix

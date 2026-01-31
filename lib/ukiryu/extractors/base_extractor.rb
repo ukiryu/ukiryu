@@ -39,16 +39,32 @@ module Ukiryu
 
       # Execute a command and capture output
       #
-      # @param command [Array<String>] the command to execute
+      # All command execution goes through the Environment system to ensure
+      # consistent environment variable handling, shell escaping, and timeout
+      # management across the entire codebase.
+      #
+      # @param command [Array<String>] the command to execute (array form)
+      # @param env [Environment, Hash] optional environment overrides
+      # @param timeout [Integer] timeout in seconds (default 30 for extraction)
       # @return [Hash] result with :stdout, :stderr, :exit_status keys
-      def execute_command(command)
-        require 'open3'
+      def execute_command(command, env = nil, timeout: 30)
+        # Build environment using Environment system
+        environment = env.is_a?(Ukiryu::Environment) ? env : Ukiryu::Environment.from_env
 
-        stdout, stderr, status = Open3.capture3(*command)
+        # Detect shell for internal extractor utilities
+        shell_class = Ukiryu::Shell.detect
+
+        # Extract executable and args from command array
+        executable = command.first
+        args = command[1..]
+
+        # Execute through Executor (uses Environment system internally)
+        result = Ukiryu::Executor.execute(executable, args, env: environment, shell: shell_class, allow_failure: true, timeout: timeout)
+
         {
-          stdout: stdout,
-          stderr: stderr,
-          exit_status: status.exitstatus
+          stdout: result.stdout,
+          stderr: result.stderr,
+          exit_status: result.status
         }
       rescue Errno::ENOENT
         # Command not found

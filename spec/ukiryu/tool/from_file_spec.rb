@@ -92,7 +92,7 @@ RSpec.describe Ukiryu::Tool, '.from_file' do
   describe 'error handling' do
     it 'raises DefinitionNotFoundError for non-existent file' do
       expect { described_class.from_file('nonexistent.yaml') }.to raise_error(
-        Ukiryu::DefinitionNotFoundError
+        Ukiryu::Errors::DefinitionNotFoundError
       )
     end
 
@@ -101,7 +101,7 @@ RSpec.describe Ukiryu::Tool, '.from_file' do
       File.write(file_path, 'name: test\n  invalid: [')
 
       expect { described_class.from_file(file_path) }.to raise_error(
-        Ukiryu::DefinitionLoadError
+        Ukiryu::Errors::DefinitionLoadError
       )
     end
 
@@ -117,7 +117,7 @@ RSpec.describe Ukiryu::Tool, '.from_file' do
 
       # Validation runs before Tool constructor, so we get DefinitionValidationError
       expect { described_class.from_file(file_path) }.to raise_error(
-        Ukiryu::DefinitionValidationError
+        Ukiryu::Errors::DefinitionValidationError
       )
     end
   end

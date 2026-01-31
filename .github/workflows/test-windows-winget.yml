@@ -1,0 +1,179 @@
+name: Windows Tests (winget x64 + ARM64) - DISABLED
+
+# TEMPORARILY DISABLED: Checkout infrastructure issue with D:\a drive.
+# Chocolatey workflow provides comprehensive Windows testing coverage.
+# Re-enable once GitHub Actions infrastructure issue is resolved.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test-windows-winget:
+    if: false  # TEMPORARILY DISABLED - checkout infrastructure issue
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - runner: windows-latest
+            ruby-version: '3.1'
+          - runner: windows-latest
+            ruby-version: '3.4'
+          - runner: windows-latest
+            ruby-version: '4.0'
+          - runner: windows-11-arm
+            ruby-version: '3.4'
+          - runner: windows-11-arm
+            ruby-version: '4.0'
+
+    steps:
+      - name: Create working directory
+        run: |
+          # GitHub Actions Windows runners should use D:\a but sometimes it's not available
+          # This step ensures the directory exists before checkout
+          if (-not (Test-Path 'D:\a')) {
+            Write-Host "D:\a not available, using C:\a instead"
+            echo "GITHUB_WORKSPACE=C:\a\ukiryu\ukiryu" >> $env:GITHUB_ENV
+            New-Item -ItemType Directory -Force -Path "C:\a\ukiryu\ukiryu"
+          } else {
+            New-Item -ItemType Directory -Force -Path "D:\a"
+          }
+        shell: pwsh
+
+      - uses: actions/checkout@v6
+
+      # checkout schema repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/schema
+          path: schema
+
+      # checkout register repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/register
+          ref: v1
+          path: register
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Configure WinGet
+        run: |
+          # Bypass certificate pinning for msstore source due to SSL inspection issues
+          # See: https://github.com/microsoft/winget-cli/issues/2879
+          winget settings --enable BypassCertificatePinningForMicrosoftStore
+
+      - name: Install ImageMagick (winget)
+        run: |
+          Write-Host "Installing ImageMagick via winget..."
+          winget install --id ImageMagick.ImageMagick --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Install Ghostscript (winget with Chocolatey fallback)
+        run: |
+          # Ghostscript x64 installer times out on ARM64 due to emulation
+          # Skip on ARM since x64 runners already test Ghostscript functionality
+          if ($env:RUNNER_ARCH -ne "ARM64") {
+            Write-Host "Installing Ghostscript..."
+            # Ghostscript 10.01.0+ disabled silent install, so winget cannot install it unattended
+            # Use Chocolatey as fallback: https://github.com/microsoft/winget-pkgs/issues/267547
+            # Requires AutoHotkey for automation: https://github.com/chocolatey-community/chocolatey-packages/pull/2319
+            Write-Host "Installing AutoHotkey (required for Ghostscript automation)..."
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            choco install autohotkey.portable -y
+
+            Write-Host "Attempting winget install (will likely fail)..."
+            winget install --id ArtifexSoftware.Ghostscript --silent --accept-package-agreements --accept-source-agreements 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Winget install failed, using Chocolatey fallback..."
+              choco install ghostscript -y
+            }
+          } else {
+            Write-Host "Skipping Ghostscript on ARM64 (tested on x64 runners)"
+          }
+        shell: pwsh
+
+      - name: Install FFmpeg (winget with Chocolatey fallback)
+        run: |
+          Write-Host "Installing FFmpeg..."
+          # Try winget first, fall back to Chocolatey if package not found
+          Write-Host "Attempting winget install..."
+          winget install --id ffmpeg.ffmpeg --silent --accept-package-agreements --accept-source-agreements 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Winget install failed, using Chocolatey fallback..."
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+              [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+              iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            choco install ffmpeg -y
+          }
+
+      - name: Install Pandoc (winget)
+        run: |
+          Write-Host "Installing Pandoc via winget..."
+          winget install --id JohnMacFarlane.Pandoc --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Install jq (winget)
+        run: |
+          Write-Host "Installing jq via winget..."
+          winget install --id jqlang.jq --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Install yq (winget)
+        run: |
+          Write-Host "Installing yq via winget..."
+          # yq is installed via scoop as it's not available on winget
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          irm get.scoop.sh | iex
+          scoop install yq
+
+      - name: Refresh PATH
+        run: |
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          # Add scoop shims to PATH
+          $env:Path = "$env:USERPROFILE\scoop\shims;" + $env:Path
+          echo "PATH=$env:Path" >> $env:GITHUB_ENV
+
+      - name: Verify installations
+        shell: pwsh
+        run: |
+          Write-Host "=== Verifying installations ==="
+          Write-Host ""
+          Write-Host "ImageMagick:"
+          magick --version
+          Write-Host ""
+          Write-Host "Ghostscript (Windows uses gswin64c/gswin32c):"
+          $gsFound = $false
+          @('gswin64c', 'gswin32c', 'gs') | ForEach-Object {
+            if (Get-Command $_ -ErrorAction SilentlyContinue) {
+              Write-Host "Found: $_"
+              & $_ --version
+              $gsFound = $true
+            }
+          }
+          if (-not $gsFound) {
+            Write-Host "WARNING: Ghostscript executable not found in PATH"
+          }
+          Write-Host ""
+          Write-Host "FFmpeg:"
+          ffmpeg --help | Select-Object -First 3
+          Write-Host ""
+          Write-Host "Pandoc:"
+          pandoc --version
+          Write-Host ""
+          Write-Host "jq:"
+          jq --version
+          Write-Host ""
+          Write-Host "yq:"
+          yq --version
+
+      - name: Run tests
+        run: bundle exec rake spec

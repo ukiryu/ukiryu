@@ -1,0 +1,476 @@
+---
+layout: default
+title: Testing with Ukiryu
+parent: Guides
+nav_order: 4
+---
+
+= Testing with Ukiryu
+
+This guide covers testing strategies for Ukiryu, including Docker multi-platform testing and CI/CD integration.
+
+// Purpose
+== Purpose
+
+This guide documents:
+
+* Running tests across multiple platforms using Docker
+* GitHub Actions workflows for CI/CD
+* Testing strategies for cross-platform compatibility
+
+// Docker Testing
+== Docker Multi-Platform Testing
+
+Ukiryu includes a Docker-based test runner for validating cross-platform compatibility.
+
+=== Running the Script
+
+The `docker-test-all.sh` script runs the full test suite across multiple Linux distributions:
+
+[source,bash]
+----
+# Test all platforms
+./docker-test-all.sh
+
+# Test specific platforms only
+./docker-test-all.sh alpine ubuntu-22
+
+# Force rebuild Docker images
+./docker-test-all.sh --build
+
+# Verbose output
+./docker-test-all.sh --verbose debian
+
+# Use custom register path
+./docker-test-all.sh --register /path/to/register
+----
+
+=== Supported Platforms
+
+The script tests across these platforms:
+
+[cols="1,2"]
+|===
+|Name |Description
+
+|`alpine`
+|Alpine Linux (minimal musl libc distribution)
+
+|`ubuntu-22`
+|Ubuntu 22.04 LTS (Debian-based with glibc)
+
+|`ubuntu-24`
+|Ubuntu 24.04 LTS (Debian-based with glibc)
+
+|`debian-bookworm`
+|Debian 12 (Bookworm)
+
+|`debian-trixie`
+|Debian 13 (Trixie, development)
+|===
+
+=== Docker Images
+
+Docker images are located in `docker/` directory:
+
+* `Dockerfile.alpine` - Alpine Linux
+* `Dockerfile.ubuntu-22.04` - Ubuntu 22.04
+* `Dockerfile.ubuntu-24.04` - Ubuntu 24.04
+* `Dockerfile.debian-bookworm` - Debian 12
+* `Dockerfile.debian-trixie` - Debian 13
+
+=== How It Works
+
+[source,bash]
+----
+# 1. Script builds/uses Docker images for each platform
+# 2. Mounts register directory read-only
+# 3. Runs bundle install
+# 4. Runs full RSpec test suite
+# 5. Captures output and timing
+# 6. Summarizes results at the end
+----
+
+=== Output Location
+
+Test logs are written to `/tmp/docker-test-*.log`:
+
+[source,bash]
+----
+# Check logs for failures
+tail -f /tmp/docker-test-alpine.log
+cat /tmp/docker-test-ubuntu-22.log
+----
+
+// GitHub Actions
+== GitHub Actions Workflows
+
+Ukiryu provides comprehensive GitHub Actions workflows for CI/CD.
+
+=== Test Workflows
+
+==== Linux Tests (Alpine)
+
+[source,yaml]
+----
+# .github/workflows/test-linux-alpine.yml
+name: Tests (Alpine)
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ruby
+        run: apk add ruby ruby-bundler
+      - name: Install dependencies
+        run: bundle install
+      - name: Run tests
+        run: bundle exec rspec
+----
+
+==== Linux Tests (Ubuntu)
+
+[source,yaml]
+----
+# .github/workflows/test-linux-ubuntu.yml
+name: Tests (Ubuntu)
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Run tests
+        run: bundle exec rspec
+----
+
+==== macOS Tests (Homebrew)
+
+[source,yaml]
+----
+# .github/workflows/test-macos-homebrew.yml
+name: Tests (macOS Homebrew)
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Install tools
+        run: |
+          brew install imagemagick@7 ghostscript
+          brew link imagemagick@7 --force
+      - name: Run tests
+        run: bundle exec rspec
+----
+
+==== macOS Tests (MacPorts)
+
+[source,yash]
+----
+# .github/workflows/test-macos-macports.yml
+name: Tests (macOS MacPorts)
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Install MacPorts
+        run: |
+          # MacPorts installation steps...
+      - name: Install tools
+        run: |
+          port install ImageMagick7 ghostscript
+      - name: Run tests
+        run: bundle exec rspec
+----
+
+==== Windows Tests (Chocolatey)
+
+[source,yaml]
+----
+# .github/workflows/test-windows-chocolatey.yml
+name: Tests (Windows Chocolatey)
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Install tools
+        run: |
+          choco install imagemagick -y
+          choco install ghostscript -y
+      - name: Run tests
+        run: bundle exec rspec
+----
+
+==== Windows Tests (winget)
+
+[source,yaml]
+----
+# .github/workflows/test-windows-winget.yml
+name: Tests (Windows winget)
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Install tools (winget)
+        run: |
+          winget install ImageMagick.ImageMagick
+          winget install Ghostscript.Ghostscript
+      - name: Run tests
+        run: bundle exec rspec
+----
+
+=== Matrix Testing
+
+The Windows workflows use matrix strategy for comprehensive coverage:
+
+[source,yaml]
+----
+strategy:
+  matrix:
+    include:
+      - runner: windows-2025
+        ruby-version: '3.1'
+      - runner: windows-2025
+        ruby-version: '3.4'
+      - runner: windows-2025
+        ruby-version: '4.0'
+      # ARM64 is experimental
+      - runner: windows-11-arm
+        ruby-version: '3.4'
+        experimental: true
+----
+
+=== CI Configuration
+
+==== Link Checker
+
+[source,yaml]
+----
+# .github/workflows/links.yml
+name: Check Links
+
+on: [push, pull_request]
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check links
+        run: ./ci/check-links.sh
+----
+
+==== Release Workflow
+
+[source,yaml]
+----
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build gem
+        run: gem build ukiryu.gemspec
+      - name: Release to RubyGems
+        run: gem push ukiryu-*.gem
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+----
+
+// Testing Strategies
+== Testing Strategies
+
+=== Cross-Platform Testing
+
+[source,ruby]
+----
+# spec/spec_helper.rb
+RSpec.configure do |config|
+  # Use Docker for Linux testing consistency
+  # Use GitHub Actions for macOS/Windows testing
+end
+----
+
+=== Smoke Testing
+
+Test basic functionality across platforms:
+
+[source,ruby]
+----
+# spec/smoke_spec.rb
+require 'spec_helper'
+
+RSpec.describe 'Smoke Tests' do
+  it 'runs imagemagick convert' do
+    tool = Ukiryu::Tool.get(:imagemagick)
+    expect(tool.available?).to be true
+
+    result = tool.execute(:convert, {
+      inputs: ['spec/fixtures/images/test_red.png'],
+      output: '/tmp/test_output.png'
+    })
+
+    expect(result.success?).to be true
+  end
+end
+----
+
+=== Environment Testing
+
+Test environment variable handling:
+
+[source,ruby]
+----
+# spec/environment_spec.rb
+require 'spec_helper'
+
+RSpec.describe Ukiryu::Environment do
+  describe '#prepend_path' do
+    it 'adds directory to beginning of PATH' do
+      env = Ukiryu::Environment.system
+        .set('PATH', '/usr/bin:/bin')
+        .prepend_path('/custom/bin')
+
+      expect(env.path_array.first).to eq('/custom/bin')
+    end
+  end
+end
+----
+
+// Best Practices
+== Best Practices
+
+=== CI Pipeline Structure
+
+[source,yaml]
+----
+# Recommended structure
+jobs:
+  # Fast jobs first
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - rubocop
+      - yaml-lint
+
+  # Quick tests
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - bundle exec rspec --tag ~integration
+
+  # Platform-specific tests
+  linux-test:
+    uses: ./.github/workflows/test-linux-*.yml
+
+  macos-test:
+    uses: ./.github/workflows/test-macos-*.yml
+
+  windows-test:
+    uses: ./.github/workflows/test-windows-*.yml
+----
+
+=== Test Data
+
+Store test fixtures in `spec/fixtures/`:
+
+[source,bash]
+----
+spec/
+├── fixtures/
+│   ├── images/
+│   │   ├── test_red.png
+│   │   └── test_blue.png
+│   ├── register/
+│   │   └── tools/
+│   │       └── imagemagick/
+│   └── profiles/
+----
+
+// Troubleshooting
+== Troubleshooting
+
+=== Docker Issues
+
+[source,bash]
+----
+# Container not starting
+docker ps -a
+docker logs <container_id>
+
+# Disk space
+docker system df
+docker prune -a
+----
+
+=== GitHub Actions
+
+[source,bash]
+----
+# View workflow runs
+gh run list
+
+# View job logs
+gh run view <run_id> --log-job <job>
+----
+
+// See Also
+== See Also
+
+* link:/getting-started/core-concepts[Core Concepts] - Understanding Ukiryu architecture
+* link:/features/platform-support[Platform Support] - Platform-specific considerations
+* link:/reference/ruby-api[Ruby API] - Programmatic testing

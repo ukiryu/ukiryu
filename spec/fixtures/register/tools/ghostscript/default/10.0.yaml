@@ -1,0 +1,180 @@
+---
+ukiryu_schema: '1.0'
+name: ghostscript
+display_name: Ghostscript
+homepage: https://www.ghostscript.com/
+version: '1.0'
+aliases:
+- gs
+version_detection:
+  command: "--version"
+  pattern: "(\\d+\\.\\d+)"
+search_paths:
+implements: ghostscript/1.0
+profiles:
+- name: unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  option_style: single_dash_space
+  executable_name: ghostscript
+  commands:
+  - name: convert
+    description: Convert between file formats
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      position: last
+    options:
+    - name: device
+      type: string
+      cli: "-sDEVICE"
+      assignment_delimiter: equals
+    - name: output
+      type: file
+      cli: "-sOutputFile"
+      assignment_delimiter: equals
+    - name: resolution
+      type: string
+      cli: "-r"
+      assignment_delimiter: auto
+    - name: first_page
+      type: integer
+      cli: "-dFirstPage"
+      assignment_delimiter: equals
+    - name: last_page
+      type: integer
+      cli: "-dLastPage"
+      assignment_delimiter: equals
+    - name: pdf_settings
+      type: string
+      cli: "-dPDFSETTINGS"
+      values:
+      - screen
+      - ebook
+      - printer
+      - prepress
+      - default
+      assignment_delimiter: equals
+    - name: quality
+      type: integer
+      cli: "-dJPEGQ"
+      range:
+      - 1
+      - 100
+      assignment_delimiter: equals
+    - name: text_alpha
+      type: integer
+      cli: "-dTextAlphaBits"
+      range:
+      - 1
+      - 4
+      assignment_delimiter: equals
+    - name: graphics_alpha
+      type: integer
+      cli: "-dGraphicsAlphaBits"
+      range:
+      - 1
+      - 4
+      assignment_delimiter: equals
+    flags:
+    - name: quiet
+      cli: "-q"
+      assignment_delimiter: none
+    - name: batch
+      cli: "-dBATCH"
+      assignment_delimiter: none
+    - name: no_pause
+      cli: "-dNOPAUSE"
+      assignment_delimiter: none
+    - name: no_screen
+      cli: "-dNOSAFER"
+      assignment_delimiter: none
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: gswin64c
+  commands:
+  - name: convert
+    description: Convert between file formats
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      position: last
+    options:
+    - name: device
+      type: string
+      cli: "-sDEVICE"
+      assignment_delimiter: equals
+    - name: output
+      type: file
+      cli: "-sOutputFile"
+      assignment_delimiter: equals
+    - name: resolution
+      type: string
+      cli: "-r"
+      assignment_delimiter: auto
+    - name: first_page
+      type: integer
+      cli: "-dFirstPage"
+      assignment_delimiter: equals
+    - name: last_page
+      type: integer
+      cli: "-dLastPage"
+      assignment_delimiter: equals
+    - name: pdf_settings
+      type: string
+      cli: "-dPDFSETTINGS"
+      values:
+      - screen
+      - ebook
+      - printer
+      - prepress
+      - default
+      assignment_delimiter: equals
+    - name: quality
+      type: integer
+      cli: "-dJPEGQ"
+      range:
+      - 1
+      - 100
+      assignment_delimiter: equals
+    - name: text_alpha
+      type: integer
+      cli: "-dTextAlphaBits"
+      range:
+      - 1
+      - 4
+      assignment_delimiter: equals
+    - name: graphics_alpha
+      type: integer
+      cli: "-dGraphicsAlphaBits"
+      range:
+      - 1
+      - 4
+      assignment_delimiter: equals
+    flags:
+    - name: quiet
+      cli: "-q"
+      assignment_delimiter: none
+    - name: batch
+      cli: "-dBATCH"
+      assignment_delimiter: none
+    - name: no_pause
+      cli: "-dNOPAUSE"
+      assignment_delimiter: none
+    - name: no_screen
+      cli: "-dNOSAFER"
+      assignment_delimiter: none

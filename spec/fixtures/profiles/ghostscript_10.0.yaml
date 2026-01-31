@@ -18,7 +18,6 @@ search_paths:
   - "/usr/bin/gs"
   windows:
   - "C:/Program Files/gs/gs*/bin/gswin64c.exe"
-timeout: 120
 profiles:
 - name: unix
   display_name: Ghostscript on Unix

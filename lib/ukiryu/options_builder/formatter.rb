@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../shell'
-
 module Ukiryu
   module OptionsBuilder
     # Formatting utilities for options, flags, and arguments

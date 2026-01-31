@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-require_relative 'command_definition'
-require_relative 'env_var_definition'
-require_relative 'routing'
-require_relative 'exit_codes'
-
 module Ukiryu
   module Models
     # Platform-specific profile for a tool
@@ -14,40 +8,43 @@ module Ukiryu
     #   profile = PlatformProfile.new(
     #     name: 'default',
     #     platforms: [:macos, :linux],
+    #     executable_name: 'ping',
     #     commands: [CommandDefinition.new(...)]
     #   )
     class PlatformProfile < Lutaml::Model::Serializable
       attribute :name, :string
       attribute :display_name, :string
-      attribute :platforms, :string, collection: true, default: []
-      attribute :shells, :string, collection: true, default: []
+      attribute :platforms, :string, collection: true, initialize_empty: true
+      attribute :shells, :string, collection: true, initialize_empty: true
       attribute :option_style, :string, default: 'single_dash_space'
-      attribute :commands, CommandDefinition, collection: true, initialize_empty: true
+      attribute :executable_name, :string
+      attribute :commands, Ukiryu::Models::CommandDefinition, collection: true, initialize_empty: true
       attribute :inherits, :string
       attribute :routing_data, :hash, default: {} # Raw routing from YAML
       attribute :version_requirement, :string # Semantic version requirement (e.g., ">= 2.30")
-      attribute :exit_codes, ExitCodes # Exit code definitions for this profile
+      attribute :exit_codes, Ukiryu::Models::ExitCodes # Exit code definitions for this profile
       attribute :env_var_sets, :hash, default: {} # Reusable env var sets (e.g., "headless")
 
-      yaml do
-        map_element 'name', to: :name
-        map_element 'display_name', to: :display_name
-        map_element 'platforms', to: :platforms
-        map_element 'shells', to: :shells
-        map_element 'option_style', to: :option_style
-        map_element 'commands', to: :commands
-        map_element 'inherits', to: :inherits
-        map_element 'routing', to: :routing_data
-        map_element 'version_requirement', to: :version_requirement
-        map_element 'exit_codes', to: :exit_codes
-        map_element 'env_var_sets', to: :env_var_sets
+      key_value do
+        map 'name', to: :name
+        map 'display_name', to: :display_name
+        map 'platforms', to: :platforms
+        map 'shells', to: :shells
+        map 'option_style', to: :option_style
+        map 'executable_name', to: :executable_name
+        map 'commands', to: :commands
+        map 'inherits', to: :inherits
+        map 'routing', to: :routing_data
+        map 'version_requirement', to: :version_requirement
+        map 'exit_codes', to: :exit_codes
+        map 'env_var_sets', to: :env_var_sets
       end
 
       # Get the routing table as a Routing model
       #
       # @return [Routing] the routing table
       def routing
-        @routing ||= Routing.new(@routing_data || {})
+        @routing ||= Ukiryu::Models::Routing.new(@routing_data || {})
       end
 
       # Check if this profile has routing defined
@@ -148,7 +145,20 @@ module Ukiryu
       def build_commands_index
         return unless commands
 
-        @commands_index = commands.to_h { |c| [c.name, c] }
+        # Handle both array and single object cases
+        # In some cases (e.g., serialization edge cases), commands might be
+        # a single CommandDefinition instead of an array
+        commands_array = if commands.is_a?(Array)
+                           commands
+                         elsif commands.respond_to?(:each) && commands.class.name.include?('CommandDefinition')
+                           # Single CommandDefinition object - wrap in array
+                           [commands]
+                         else
+                           # Unknown type - try to convert to array
+                           Array(commands).compact
+                         end
+
+        @commands_index = commands_array.to_h { |c| [c.name, c] }
         @commands_index_built = true
       end
     end

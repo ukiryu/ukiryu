@@ -1,0 +1,15 @@
+---
+ukiryu_schema: '1.0'
+name: gzip
+interface: gzip
+implementations:
+- name: default
+  display_name: Gzip
+  detection:
+    command: ["--version"]
+    pattern: gzip ([\d.]+)
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml

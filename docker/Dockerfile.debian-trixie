@@ -1,0 +1,67 @@
+# Dockerfile for Debian Trixie testing
+# Build: docker build -f docker/Dockerfile.debian-trixie -t ukiryu-test:debian-trixie .
+# Run: docker run --rm ukiryu-test:debian-trixie
+
+FROM ruby:3.4-slim-trixie
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    libz-dev \
+    curl \
+    # Shells
+    bash \
+    zsh \
+    fish \
+    dash \
+    tcsh \
+    # Common CLI tools for testing
+    bzip2 \
+    gzip \
+    tar \
+    unzip \
+    zip \
+    grep \
+    sed \
+    gawk \
+    findutils \
+    wget \
+    jq \
+    ghostscript \
+    imagemagick \
+    ffmpeg \
+    exiftool \
+    libtiff-tools \
+    iputils-ping \
+    inkscape \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install yq (mikefarah/yq) with architecture detection
+RUN ARCH=$(uname -m) && \
+    YQ_ARCH=amd64 && \
+    if [ "$ARCH" = "aarch64" ]; then YQ_ARCH=arm64; fi && \
+    wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}" && \
+    chmod +x /usr/local/bin/yq
+
+WORKDIR /ukiryu
+
+# Copy the entire application
+COPY . .
+
+# Install dependencies
+RUN rm -f Gemfile.lock && bundle install
+
+# Create entrypoint script
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'cd /ukiryu' >> /entrypoint.sh && \
+    echo 'rm -f Gemfile.lock' >> /entrypoint.sh && \
+    echo 'bundle install' >> /entrypoint.sh && \
+    echo 'bundle exec rspec' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

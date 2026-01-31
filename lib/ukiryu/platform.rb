@@ -29,7 +29,7 @@ module Ukiryu
           when /linux/i
             :linux
           else
-            raise UnsupportedPlatformError, <<~ERROR
+            raise Ukiryu::Errors::UnsupportedPlatformError, <<~ERROR
               Unable to detect platform. Host OS: #{host_os}
 
               Supported platforms: Windows, macOS, Linux

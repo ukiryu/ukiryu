@@ -1,0 +1,97 @@
+---
+ukiryu_schema: '1.0'
+name: jq
+version: '1.0'
+display_name: Jq Interface
+actions:
+- name: process
+  description: Process JSON with filter expression
+  signature:
+    inputs:
+      inputs:
+      - name: filter
+        type: string
+        required: true
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: file
+        type: file
+      - name: arg
+        type: string
+      - name: argjson
+        type: string
+      - name: slurpfile
+        type: string
+      - name: rawfile
+        type: string
+      - name: args
+        type: string
+      - name: jsonargs
+        type: string
+      - name: zero_input
+        type: string
+      - name: raw_input
+        type: string
+      - name: slurp
+        type: string
+      - name: compact_output
+        type: string
+      - name: raw_output
+        type: string
+      - name: raw_output0
+        type: string
+      - name: join_output
+        type: string
+      - name: color_output
+        type: string
+      - name: monochrome_output
+        type: string
+      - name: ascii_output
+        type: string
+      - name: sort_keys
+        type: string
+      - name: indent
+        type: integer
+      - name: tab
+        type: string
+      - name: unbuffered
+        type: string
+      - name: stream
+        type: string
+      - name: stream_errors
+        type: string
+      - name: from_file
+        type: file
+      flags:
+      - name: zero_input
+        type: boolean
+      - name: raw_input
+        type: boolean
+      - name: slurp
+        type: boolean
+      - name: compact_output
+        type: boolean
+      - name: raw_output
+        type: boolean
+      - name: color_output
+        type: boolean
+      - name: monochrome_output
+        type: boolean
+      - name: ascii_output
+        type: boolean
+      - name: sort_keys
+        type: boolean
+      - name: tab
+        type: boolean
+      - name: unbuffered
+        type: boolean
+      - name: stream
+        type: boolean
+      - name: help
+        type: boolean
+      - name: version
+        type: boolean
+aliases:
+- jq

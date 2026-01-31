@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-require_relative 'option_definition'
-require_relative 'flag_definition'
-require_relative 'argument_definition'
-require_relative 'exit_codes'
-
 module Ukiryu
   module Models
     # Components register for reusable definitions
@@ -22,13 +16,13 @@ module Ukiryu
       attribute :options, :hash, default: {}
       attribute :flags, :hash, default: {}
       attribute :arguments, :hash, default: {}
-      attribute :exit_codes, ExitCodes
+      attribute :exit_codes, Ukiryu::Models::ExitCodes
 
-      yaml do
-        map_element 'options', to: :options
-        map_element 'flags', to: :flags
-        map_element 'arguments', to: :arguments
-        map_element 'exit_codes', to: :exit_codes
+      key_value do
+        map 'options', to: :options
+        map 'flags', to: :flags
+        map 'arguments', to: :arguments
+        map 'exit_codes', to: :exit_codes
       end
 
       # Get an option by name

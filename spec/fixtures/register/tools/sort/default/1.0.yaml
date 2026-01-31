@@ -1,0 +1,53 @@
+---
+ukiryu_schema: '1.0'
+name: sort
+display_name: Sort (Unix)
+homepage: https://www.gnu.org/software/coreutils/
+version: '1.0'
+aliases: []
+version_detection:
+  command: "--version"
+  pattern: "(\\d+\\.\\d+)"
+search_paths:
+  macos:
+  - "/usr/bin/sort"
+  linux:
+  - "/usr/bin/sort"
+  - "/bin/sort"
+implements: sort/1.0
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  - windows
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: sort
+  commands:
+  - name: sort
+    description: Sort lines of text
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      description: Input files to sort
+    options:
+    - name: output
+      type: file
+      cli: "-o"
+      description: Output file
+    - name: numeric_sort
+      type: boolean
+      cli: "-n"
+      description: Numeric sort
+    flags:
+    - name: reverse
+      cli: "-r"
+      description: Reverse sort

@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../register_auto_manager'
-require_relative '../register'
-
 module Ukiryu
   module CliCommands
     # Command to manage the register
@@ -24,7 +21,7 @@ module Ukiryu
         else
           error!("Unknown subcommand: #{subcommand}. Valid subcommands: info, update, path")
         end
-      rescue RegisterAutoManager::RegisterError => e
+      rescue Ukiryu::RegisterAutoManager::RegisterError => e
         error!("Register error: #{e.message}")
       end
 
@@ -34,7 +31,7 @@ module Ukiryu
       #
       # @param options [Hash] command options
       def show_info(_options = {})
-        info = RegisterAutoManager.register_info
+        info = Ukiryu::RegisterAutoManager.register_info
 
         say 'Register Information', :cyan
         say ''
@@ -92,7 +89,7 @@ module Ukiryu
           say 'Updating register...', :cyan
         end
 
-        RegisterAutoManager.update_register(force: force)
+        Ukiryu::RegisterAutoManager.update_register(force: force)
 
         say 'Register updated successfully!', :green
         show_info(options)
@@ -100,7 +97,7 @@ module Ukiryu
 
       # Show the register path
       def show_path
-        path = RegisterAutoManager.register_path
+        path = Ukiryu::RegisterAutoManager.register_path
 
         if path
           say path
@@ -132,7 +129,7 @@ module Ukiryu
         say 'Manual setup:', :cyan
         say ''
         say '  1. Clone the register:'
-        say "     git clone #{RegisterAutoManager::REGISTER_URL} ~/.ukiryu/register"
+        say "     git clone #{Ukiryu::RegisterAutoManager::REGISTER_URL} ~/.ukiryu/register"
         say ''
         say '  2. Or set environment variable:'
         say '     export UKIRYU_REGISTER=/path/to/register'

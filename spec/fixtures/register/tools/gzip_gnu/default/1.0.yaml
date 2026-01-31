@@ -1,0 +1,62 @@
+---
+ukiryu_schema: '1.0'
+name: gzip_gnu
+display_name: GNU gzip
+homepage:
+version: '1.0'
+aliases: []
+version_detection:
+  command: "--version"
+  pattern: gzip ([\d.]+)
+search_paths:
+  macos:
+  - "/usr/bin/gzip"
+  linux:
+  - "/usr/bin/gzip"
+  - "/bin/gzip"
+implements: gzip_gnu/1.0
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  option_style: single_dash_space
+  executable_name: gzip
+  commands:
+  - name: compress
+    description: Compress files
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: File(s) to compress
+    flags:
+    - name: keep
+      cli: "-k"
+      description: Keep input files
+      default: false
+  - name: decompress
+    description: Decompress files
+    flags:
+    - name: keep
+      cli: "-k"
+      description: Keep input files
+      default: false
+    - name: decompress
+      cli: "-d"
+      description: Decompress mode
+      default: true
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: File(s) to decompress

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../errors'
-
 module Ukiryu
   module OptionsBuilder
     # Validation utilities for options classes
@@ -27,13 +25,13 @@ module Ukiryu
             errors << "Missing required argument: #{attr_name}" if min.positive? && (value.nil? || (value.is_a?(Array) && value.empty?))
           end
 
-          raise ValidationError, errors.join(', ') if errors.any?
+          raise Ukiryu::Errors::ValidationError, errors.join(', ') if errors.any?
         end
       end
 
       # Validation error for options
       #
-      class ValidationError < Error
+      class ValidationError < Ukiryu::Errors::Error
         def initialize(messages)
           super("Validation failed: #{messages.join(', ')}")
         end

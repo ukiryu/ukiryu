@@ -1,13 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative 'response_formatter'
-require_relative '../tool'
-require_relative '../executor'
-require_relative '../logger'
-require_relative '../models/success_response'
-require_relative '../models/error_response'
-require_relative '../models/execution_report'
 require 'yaml'
 
 module Ukiryu
@@ -121,16 +113,13 @@ module Ukiryu
       def resolve_default_command(tool_name)
         # If --definition is provided, load from definition file
         if options[:definition]
-          tool = Tool.load(options[:definition], validation: :strict)
+          tool = Ukiryu::Tool.load(options[:definition], validation: :strict)
           metadata = tool.profile
         else
-          # Use Register to load tool metadata without full resolution
-          # This avoids triggering debug output for "Tool Resolution" twice
-          require_relative '../register'
-          require_relative '../models/tool_metadata'
-
-          metadata = Register.load_tool_metadata(tool_name.to_sym, register_path: config.register)
-          error! "Tool not found: #{tool_name}" unless metadata
+          # Use Ukiryu::Register to load tool metadata without full resolution
+          # This avoids triggering debug output for "Ukiryu::Tool Resolution" twice
+          metadata = Ukiryu::Register.load_tool_metadata(tool_name.to_sym, register_path: config.register)
+          error! "Ukiryu::Tool not found: #{tool_name}" unless metadata
         end
 
         # Get the default command (checks YAML default_command, then implements, then tool name)
@@ -197,26 +186,26 @@ module Ukiryu
                            end
 
         begin
-          # Stage: Tool Resolution
+          # Stage: Ukiryu::Tool Resolution
           execution_report.tool_resolution.start! if collect_metrics
 
           # Load tool from definition file if --definition option provided
           if options[:definition]
-            tool = Tool.load(options[:definition], validation: :strict)
+            tool = Ukiryu::Tool.load(options[:definition], validation: :strict)
             # Verify that the tool name matches (if user specified one)
             if tool_name && tool.name.to_sym != tool_name.to_sym
               return Models::ErrorResponse.from_message(
-                "Tool name mismatch: definition file contains '#{tool.name}' but command specified '#{tool_name}'"
+                "Ukiryu::Tool name mismatch: definition file contains '#{tool.name}' but command specified '#{tool_name}'"
               )
             end
           else
             # Get tool - try find_by first for interface-based discovery, fallback to get
-            tool = Tool.find_by(tool_name.to_sym) || Tool.get(tool_name.to_sym)
+            tool = Ukiryu::Tool.find_by(tool_name.to_sym) || Ukiryu::Tool.get(tool_name.to_sym)
           end
 
-          return Models::ErrorResponse.from_message("Tool not available: #{tool_name}") unless tool
+          return Models::ErrorResponse.from_message("Ukiryu::Tool not available: #{tool_name}") unless tool
 
-          return Models::ErrorResponse.from_message("Tool found but not executable: #{tool_name}") unless tool.available?
+          return Models::ErrorResponse.from_message("Ukiryu::Tool found but not executable: #{tool_name}") unless tool.available?
 
           execution_report.tool_resolution.finish! if collect_metrics
 
@@ -242,7 +231,9 @@ module Ukiryu
           execution_report.execution.start! if collect_metrics
 
           # Execute command (pass arguments hash with stdin, not just options object)
-          result = tool.execute(command_name.to_sym, arguments)
+          # Use config.timeout with fallback to 90 seconds
+          execution_timeout = config.timeout || 90
+          result = tool.execute(command_name.to_sym, execution_timeout: execution_timeout, **arguments)
 
           execution_report.execution.finish! if collect_metrics
 
@@ -287,13 +278,13 @@ module Ukiryu
           logger.debug_section_structured_response(response) if config.debug && logger
 
           response
-        rescue Ukiryu::ToolNotFoundError => e
-          Models::ErrorResponse.from_message("Tool not found: #{e.message}")
-        rescue Ukiryu::ProfileNotFoundError => e
+        rescue Ukiryu::Errors::ToolNotFoundError => e
+          Models::ErrorResponse.from_message("Ukiryu::Tool not found: #{e.message}")
+        rescue Ukiryu::Errors::ProfileNotFoundError => e
           Models::ErrorResponse.from_message("Profile not found: #{e.message}")
-        rescue Ukiryu::ExecutionError => e
+        rescue Ukiryu::Errors::ExecutionError => e
           Models::ErrorResponse.from_message(e.message)
-        rescue Ukiryu::TimeoutError => e
+        rescue Ukiryu::Errors::TimeoutError => e
           Models::ErrorResponse.from_message("Command timed out: #{e.message}")
         rescue ArgumentError => e
           # Output full backtrace for debugging
@@ -322,7 +313,7 @@ module Ukiryu
       def say_dry_run(request)
         say 'DRY RUN - Ukiryu Structured Execution Request:', :yellow
         say '', :clear
-        say "Tool: #{request['tool']}", :cyan
+        say "Ukiryu::Tool: #{request['tool']}", :cyan
         say "Command: #{request['command']}", :cyan
         say 'Arguments:', :cyan
         request['arguments'].each do |key, value|
@@ -346,16 +337,16 @@ module Ukiryu
 
         # Load tool from definition file if --definition option provided
         tool = if options[:definition]
-                 Tool.load(options[:definition], validation: :strict)
+                 Ukiryu::Tool.load(options[:definition], validation: :strict)
                else
                  # Use find_by for interface-based discovery
-                 Tool.find_by(tool_name.to_sym)
+                 Ukiryu::Tool.find_by(tool_name.to_sym)
                end
 
-        error! "Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}" unless tool
+        error! "Ukiryu::Tool not found: #{tool_name}\nAvailable tools: #{Ukiryu::Register.tools.sort.join(', ')}" unless tool
 
         say '', :clear
-        say "Tool: #{tool.name}", :cyan
+        say "Ukiryu::Tool: #{tool.name}", :cyan
         say "Display Name: #{tool.profile.display_name || 'N/A'}", :white
         say "Version: #{tool.profile.version || 'N/A'}", :white
         say "Homepage: #{tool.profile.homepage || 'N/A'}", :white

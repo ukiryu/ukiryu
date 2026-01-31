@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'env_schema'
-require_relative 'type_converter'
-
 module Ukiryu
   class Config
     # Provides environment variable values for configuration
@@ -14,12 +11,12 @@ module Ukiryu
           result = {}
 
           # Load UKIRYU_* environment variables
-          EnvSchema.all_attributes.each do |attr|
-            env_key = EnvSchema.env_key(attr)
+          Ukiryu::Config::EnvSchema.all_attributes.each do |attr|
+            env_key = Ukiryu::Config::EnvSchema.env_key(attr)
             value = ENV[env_key]
 
             # Convert and store if value exists
-            result[attr] = TypeConverter.convert(attr, value) if value
+            result[attr] = Ukiryu::Config::TypeConverter.convert(attr, value) if value
           end
 
           # Handle NO_COLOR standard environment variable (https://no-color.org/)
@@ -32,17 +29,17 @@ module Ukiryu
 
         # Load execution-specific environment overrides
         def load_execution
-          load_attributes(EnvSchema.all_execution_attributes)
+          load_attributes(Ukiryu::Config::EnvSchema.all_execution_attributes)
         end
 
         # Load output-specific environment overrides
         def load_output
-          load_attributes(EnvSchema.all_output_attributes)
+          load_attributes(Ukiryu::Config::EnvSchema.all_output_attributes)
         end
 
         # Load register-specific environment overrides
         def load_register
-          load_attributes(EnvSchema.all_register_attributes)
+          load_attributes(Ukiryu::Config::EnvSchema.all_register_attributes)
         end
 
         private
@@ -50,11 +47,11 @@ module Ukiryu
         def load_attributes(attributes)
           result = {}
           attributes.each do |attr|
-            env_key = EnvSchema.env_key(attr)
+            env_key = Ukiryu::Config::EnvSchema.env_key(attr)
             value = ENV[env_key]
 
             # Convert and store if value exists
-            result[attr] = TypeConverter.convert(attr, value) if value
+            result[attr] = Ukiryu::Config::TypeConverter.convert(attr, value) if value
           end
           result
         end

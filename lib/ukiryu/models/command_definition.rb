@@ -1,12 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-require_relative 'option_definition'
-require_relative 'flag_definition'
-require_relative 'argument_definition'
-require_relative 'env_var_definition'
-require_relative 'exit_codes'
-
 module Ukiryu
   module Models
     # Command definition for a tool
@@ -15,6 +8,7 @@ module Ukiryu
     #   cmd = CommandDefinition.new(
     #     name: 'convert',
     #     description: 'Convert image format',
+    #     implements: ['convert'], # v2: command implements interface
     #     options: [OptionDefinition.new(...)],
     #     flags: [FlagDefinition.new(...)]
     #   )
@@ -25,8 +19,10 @@ module Ukiryu
       attribute :subcommand, :string
       attribute :belongs_to, :string  # Parent command this action belongs to
       attribute :cli_flag, :string    # CLI flag for this action (e.g., '-d' for delete)
-      attribute :aliases, :string, collection: true, default: []
-      attribute :use_env_vars, :string, collection: true, default: []
+      attribute :standalone_executable, :boolean, default: false # DEPRECATED: Use invocation.type instead
+      attribute :aliases, :string, collection: true, initialize_empty: true
+      attribute :use_env_vars, :string, collection: true, initialize_empty: true
+      attribute :implements, :string, collection: true, initialize_empty: true # v2: interfaces this command implements
 
       # Collections of model objects (lutaml-model handles serialization automatically)
       attribute :options, OptionDefinition, collection: true
@@ -36,21 +32,23 @@ module Ukiryu
       attribute :env_vars, EnvVarDefinition, collection: true
       attribute :exit_codes, ExitCodes # Exit code definitions for this command
 
-      yaml do
-        map_element 'name', to: :name
-        map_element 'description', to: :description
-        map_element 'usage', to: :usage
-        map_element 'subcommand', to: :subcommand
-        map_element 'options', to: :options
-        map_element 'flags', to: :flags
-        map_element 'arguments', to: :arguments
-        map_element 'post_options', to: :post_options
-        map_element 'env_vars', to: :env_vars
-        map_element 'exit_codes', to: :exit_codes
-        map_element 'use_env_vars', to: :use_env_vars
-        map_element 'belongs_to', to: :belongs_to
-        map_element 'cli_flag', to: :cli_flag
-        map_element 'aliases', to: :aliases
+      key_value do
+        map 'name', to: :name
+        map 'description', to: :description
+        map 'usage', to: :usage
+        map 'subcommand', to: :subcommand
+        map 'options', to: :options
+        map 'flags', to: :flags
+        map 'arguments', to: :arguments
+        map 'post_options', to: :post_options
+        map 'env_vars', to: :env_vars
+        map 'exit_codes', to: :exit_codes
+        map 'use_env_vars', to: :use_env_vars
+        map 'belongs_to', to: :belongs_to
+        map 'cli_flag', to: :cli_flag
+        map 'standalone_executable', to: :standalone_executable
+        map 'aliases', to: :aliases
+        map 'implements', to: :implements # v2: implements mapping (no collection: true in yaml)
       end
 
       # Check if this command/action belongs to a parent command
@@ -124,6 +122,14 @@ module Ukiryu
       # @return [Boolean] true if has subcommand
       def has_subcommand?
         !subcommand.nil? && !subcommand.empty?
+      end
+
+      # Check if this command should use a standalone executable
+      # (for ImageMagick v6 style where identify/mogrify are separate commands)
+      #
+      # @return [Boolean] true if standalone_executable is true
+      def standalone_executable?
+        standalone_executable == true
       end
 
       # Clear all indexes

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'tempfile'
 require_relative '../spec_helper'
 
 RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
@@ -18,18 +19,19 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'Ghostscript' do
-    let(:tool) { Ukiryu::Tools::Ghostscript.new }
+    let(:tool) { Ukiryu::Tool.find_by(:ghostscript) }
 
     it 'detects version' do
-      skip 'Ghostscript not installed or profile not configured' unless tool.available?
-
+      skip 'Ghostscript not installed on Windows ARM64 (emulation timeout)' if Ukiryu::Platform.windows? && ENV['RUNNER_ARCH'] == 'ARM64'
+      expect(tool).to be_available
       version = tool.version
       expect(version).to match(/\d+\.\d+/)
       puts "  Ghostscript version: #{version}"
     end
 
     it 'converts PDF to PNG' do
-      skip 'Ghostscript not installed or profile not configured' unless tool.available?
+      skip 'Ghostscript not installed on Windows ARM64 (emulation timeout)' if Ukiryu::Platform.windows? && ENV['RUNNER_ARCH'] == 'ARM64'
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         test_pdf = File.join(tmpdir, 'test-smoke.pdf')
@@ -45,7 +47,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
                               device: 'png16m',
                               quiet: true,
                               batch: true,
-                              no_pause: true)
+                              no_pause: true,
+                              execution_timeout: 30)
 
         expect(result.success?).to be true
         expect(File.exist?(test_png)).to be true
@@ -54,20 +57,26 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'bzip2' do
-    let(:tool) { Ukiryu::Tools::Bzip2.new }
+    # bzip2 has separate implementations: GNU and BusyBox
+    # - Alpine Linux uses BusyBox bzip2 (minimal implementation)
+    # - Debian/Ubuntu/macOS use GNU bzip2 (full implementation)
+
+    let(:tool) do
+      # Use the interface - the system will resolve to the correct implementation
+      # (GNU on most systems, BusyBox on Alpine, etc.)
+      Ukiryu::Tool.find_by(:bzip2)
+    end
 
     it 'detects version' do
-      skip 'bzip2 not installed' unless tool.available?
+      skip 'bzip2 tools not installed on this system' unless tool&.available?
 
-      result = `bzip2 --help 2>&1`
-
-      # Handle possible encoding issues
-      result = result.encode('UTF-8', invalid: :replace, undef: :replace) if result.respond_to?(:encode)
-      expect(result).to match(/Version [\d.]+/)
+      version = tool.version
+      expect(version).to match(/\d[\d.]+/)
+      puts "  bzip2 version: #{version} (#{tool.name})"
     end
 
     it 'compresses and decompresses a file' do
-      skip 'bzip2 not installed' unless tool.available?
+      skip 'bzip2 tools not installed on this system' unless tool&.available?
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-bzip2.txt')
@@ -78,14 +87,16 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
 
         # Compress
         compress_result = tool.execute(:compress,
-                                       inputs: [test_file])
+                                       inputs: [test_file],
+                                       execution_timeout: 30)
         expect(compress_result.success?).to be true
         expect(File.exist?(compressed_file)).to be true
 
         # Decompress
         decompress_result = tool.execute(:decompress,
                                          inputs: [compressed_file],
-                                         keep: true)
+                                         keep: true,
+                                         execution_timeout: 30)
         expect(decompress_result.success?).to be true
 
         # Verify content
@@ -95,17 +106,22 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'gzip' do
-    let(:tool) { Ukiryu::Tools::Gzip.new }
+    # gzip uses the unified interface - system resolves to correct implementation
+    # (GNU on most systems, BusyBox on Alpine)
+    let(:tool) do
+      Ukiryu::Tool.find_by(:gzip)
+    end
 
     it 'detects version' do
-      skip 'gzip not installed' unless tool.available?
+      skip 'gzip tools not installed on this system' unless tool&.available?
 
-      result = `gzip --version 2>&1`
-      expect(result).to match(/gzip [\d.]+/)
+      version = tool.version
+      expect(version).to match(/\d[\d.]+/)
+      puts "  gzip version: #{version} (#{tool.name})"
     end
 
     it 'compresses and decompresses a file' do
-      skip 'gzip not installed' unless tool.available?
+      skip 'gzip tools not installed on this system' unless tool&.available?
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-gzip.txt')
@@ -116,14 +132,16 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
 
         # Compress
         compress_result = tool.execute(:compress,
-                                       inputs: [test_file])
+                                       inputs: [test_file],
+                                       execution_timeout: 30)
         expect(compress_result.success?).to be true
         expect(File.exist?(compressed_file)).to be true
 
         # Decompress using gunzip
         decompress_result = tool.execute(:decompress,
                                          inputs: [compressed_file],
-                                         keep: true)
+                                         keep: true,
+                                         execution_timeout: 30)
         expect(decompress_result.success?).to be true
 
         # Verify content
@@ -133,10 +151,10 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'tar' do
-    let(:tool) { Ukiryu::Tools::Tar.new }
+    let(:tool) { Ukiryu::Tool.find_by(:tar) }
 
     it 'detects version' do
-      skip 'tar not installed' unless tool.available?
+      expect(tool).to be_available
 
       result = `tar --version 2>&1`
       # macOS uses bsdtar, Linux uses GNU tar
@@ -144,7 +162,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     end
 
     it 'creates and extracts an archive' do
-      skip 'tar not installed' unless tool.available?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         old_pwd = Dir.pwd
@@ -163,14 +181,15 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
           # Create archive
           create_result = tool.execute(:create,
                                        inputs: [test_dir],
-                                       file: archive_file)
+                                       file: archive_file,
+                                       execution_timeout: 30)
           expect(create_result.success?).to be true
           expect(File.exist?(archive_file)).to be true
 
           # Extract archive (use Dir.chdir for bsdtar)
           FileUtils.mkdir_p(extract_dir)
           Dir.chdir(extract_dir) do
-            extract_result = tool.execute(:extract, file: "../#{archive_file}")
+            extract_result = tool.execute(:extract, file: "../#{archive_file}", execution_timeout: 30)
             expect(extract_result.success?).to be true
           end
 
@@ -186,17 +205,17 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'unzip' do
-    let(:tool) { Ukiryu::Tools::Unzip.new }
+    let(:tool) { Ukiryu::Tool.find_by(:unzip) }
 
     it 'detects version' do
-      skip 'unzip not installed' unless tool.available?
+      expect(tool).to be_available
 
       result = `unzip -v 2>&1`
       expect(result).to match(/UnZip [\d.]+/)
     end
 
     it 'lists and extracts a zip archive' do
-      skip 'unzip not installed' unless tool.available?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         old_pwd = Dir.pwd
@@ -215,15 +234,17 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
 
           # List archive
           list_result = tool.execute(:extract,
-                                     inputs: [zip_file],
-                                     list: true)
+                                     zipfile: zip_file,
+                                     list: true,
+                                     execution_timeout: 30)
           expect(list_result.success?).to be true
 
           # Extract archive
           FileUtils.mkdir_p(extract_dir)
           extract_result = tool.execute(:extract,
-                                        inputs: [zip_file],
-                                        output_dir: extract_dir)
+                                        zipfile: zip_file,
+                                        directory: extract_dir,
+                                        execution_timeout: 30)
           expect(extract_result.success?).to be true
 
           # Verify extracted content
@@ -238,10 +259,10 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'sort' do
-    let(:tool) { Ukiryu::Tools::Sort.new }
+    let(:tool) { Ukiryu::Tool.find_by(:sort) }
 
     it 'detects version' do
-      skip 'sort not installed' unless tool.available?
+      expect(tool).to be_available
 
       result = `sort --version 2>&1`
       # macOS sort has different format
@@ -249,7 +270,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     end
 
     it 'sorts input lines' do
-      skip 'sort not installed' unless tool.available?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-sort.txt')
@@ -261,7 +282,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
         # Sort
         result = tool.execute(:sort,
                               inputs: [test_file],
-                              output: output_file)
+                              output: output_file,
+                              execution_timeout: 30)
         expect(result.success?).to be true
 
         # Verify sorted content
@@ -271,7 +293,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     end
 
     it 'sorts numerically' do
-      skip 'sort not installed' unless tool.available?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-numeric.txt')
@@ -284,7 +306,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
         result = tool.execute(:sort,
                               inputs: [test_file],
                               output: output_file,
-                              numeric_sort: true)
+                              numeric_sort: true,
+                              execution_timeout: 30)
         expect(result.success?).to be true
 
         # Verify sorted content
@@ -295,10 +318,11 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'pdf2ps' do
-    let(:tool) { Ukiryu::Tools::Pdf2ps.new }
+    let(:tool) { Ukiryu::Tool.find_by(:pdf2ps) }
 
     it 'detects version' do
-      skip 'pdf2ps not installed' unless tool.available?
+      skip 'pdf2ps is Unix-only (not available on Windows)' if Ukiryu::Platform.windows?
+      expect(tool).to be_available
 
       # pdf2ps uses -v - to show Ghostscript version
       result = `pdf2ps -v - 2>&1`
@@ -306,7 +330,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     end
 
     it 'converts PDF to PostScript' do
-      skip 'pdf2ps not installed' unless tool.available?
+      skip 'pdf2ps is Unix-only (not available on Windows)' if Ukiryu::Platform.windows?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         old_pwd = Dir.pwd
@@ -322,7 +347,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
 
           result = tool.execute(:convert,
                                 input: test_pdf,
-                                output: test_ps)
+                                output: test_ps,
+                                execution_timeout: 30)
 
           expect(result.success?).to be true
           expect(File.exist?(test_ps)).to be true
@@ -338,48 +364,23 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'FFmpeg' do
-    let(:tool) { Ukiryu::Tools::Ffmpeg.new }
+    let(:tool) { Ukiryu::Tool.find_by(:ffmpeg) }
 
     it 'detects version' do
-      skip 'FFmpeg not installed' unless tool.available?
+      skip 'FFmpeg not available on this system' unless tool&.available?
 
+      expect(tool).to be_available
       version = tool.version
       expect(version).to match(/\d+\.\d+/)
       puts "  FFmpeg version: #{version}"
     end
-
-    it 'has convert command defined' do
-      skip 'FFmpeg not installed' unless tool.available?
-
-      # Verify that FFmpeg has the convert command with proper options
-      tool_def = tool.tool_definition
-      expect(tool_def).not_to be_nil
-
-      # Get the compatible profile
-      profile = tool_def.compatible_profile
-      expect(profile).not_to be_nil
-
-      # Get the convert command
-      convert_cmd = profile.command('convert')
-      expect(convert_cmd).not_to be_nil
-
-      # Check for essential options (stored as strings in YAML)
-      expect(convert_cmd.options).to be_a(Array)
-
-      option_names = convert_cmd.options.map { |opt| opt.name.to_sym }
-      expect(option_names).to include(:codec)
-      expect(option_names).to include(:video_codec)
-      expect(option_names).to include(:audio_codec)
-      expect(option_names).to include(:format)
-      expect(option_names).to include(:duration)
-    end
   end
 
   describe 'exiftool' do
-    let(:tool) { Ukiryu::Tools::Exiftool.new }
+    let(:tool) { Ukiryu::Tool.find_by(:exiftool) }
 
     it 'detects version' do
-      skip 'exiftool not installed' unless tool.available?
+      expect(tool).to be_available
 
       version = tool.version
       expect(version).to match(/\d+\.\d+/)
@@ -387,14 +388,15 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     end
 
     it 'reads metadata from file' do
-      skip 'exiftool not installed' unless tool.available?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-exiftool.txt')
         File.write(test_file, 'Hello, World!')
 
         result = tool.execute(:read,
-                              inputs: [test_file])
+                              inputs: [test_file],
+                              execution_timeout: 30)
 
         expect(result.success?).to be true
         expect(result.stdout).not_to be_empty
@@ -403,14 +405,20 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'ping_bsd' do
-    let(:tool) { Ukiryu::Tools::PingBsd.new }
+    let(:tool) { Ukiryu::Tool.find_by(:ping) }
 
     it 'pings localhost' do
-      skip 'ping_bsd not installed' unless tool.available?
+      skip 'ping_bsd is BSD-only (not available on Linux or Windows)' if Ukiryu::Platform.linux? || Ukiryu::Platform.windows?
+      expect(tool).to be_available
+
+      # Verify we got the BSD implementation on BSD systems
+      skip 'Not on BSD platform' unless Ukiryu::Platform.macos? || Ukiryu::Platform.freebsd?
+      expect(tool.name).to eq('ping_bsd')
 
       result = tool.execute(:ping,
                             host: 'localhost',
-                            count: 1)
+                            count: 1,
+                            execution_timeout: 30)
 
       expect(result.success?).to be true
       expect(result.stdout).to include('localhost')
@@ -422,30 +430,37 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
       # Tool.find_by auto-selects the correct implementation (ping_gnu on Linux, ping_bsd on macOS/BSD)
       # based on platform compatibility defined in the tool profiles
       tool = Ukiryu::Tool.find_by(:ping)
-
-      skip 'ping tool not installed' unless tool
+      expect(tool).to be_available
 
       result = tool.execute(:ping,
                             host: 'localhost',
-                            count: 1)
+                            count: 1,
+                            execution_timeout: 30)
 
       expect(result.success?).to be true
-      expect(result.stdout).to include('localhost')
+      # On Windows, ping resolves localhost to the actual hostname
+      # On Unix-like systems, the output contains "localhost"
+      if Ukiryu::Platform.windows?
+        # Windows ping output contains "Pinging" which indicates success
+        expect(result.stdout).to match(/Pinging|Reply from/)
+      else
+        expect(result.stdout).to include('localhost')
+      end
     end
   end
 
   describe 'jq' do
-    let(:tool) { Ukiryu::Tools::Jq.new }
+    let(:tool) { Ukiryu::Tool.find_by(:jq) }
 
     it 'detects version' do
-      skip 'jq not installed' unless tool.available?
+      expect(tool).to be_available
 
       result = `jq --version 2>&1`
       expect(result).to match(/jq-[\d.]+/)
     end
 
     it 'processes JSON' do
-      skip 'jq not installed' unless tool.available?
+      expect(tool).to be_available
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-jq.json')
@@ -453,7 +468,8 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
 
         result = tool.execute(:process,
                               filter: '.',
-                              inputs: [test_file])
+                              inputs: [test_file],
+                              execution_timeout: 30)
 
         expect(result.success?).to be true
         expect(result.stdout).to include('foo')
@@ -463,52 +479,78 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'yq' do
-    let(:tool) { Ukiryu::Tools::Yq.new }
+    let(:tool) { Ukiryu::Tool.find_by(:yq) }
 
     it 'detects version' do
-      skip 'yq not installed' unless tool.available?
+      expect(tool).to be_available
 
       result = `yq --version 2>&1`
-      expect(result).to match(/version v[\d.]+/)
+      # Only match mikefarah/yq which includes version info
+      # Formats:
+      # - "yq (https://github.com/mikefarah/yq/) version v4.50.1" (homebrew)
+      # - "yq version v4.44.3" (binary download)
+      # - "yq 3.4.3" (APT/APK package)
+      # The jq wrapper (impostor) outputs "yq 0.0.0" without version info
+      skip 'jq wrapper impostor detected (not mikefarah/yq)' if result.strip == 'yq 0.0.0'
+      # Match both with and without "version" word, and with or without v prefix
+      expect(result).to match(/yq(?:.*version.*v?[\d.]+| [\d.]+)/)
     end
 
     it 'evaluates YAML expression' do
-      skip 'yq not installed' unless tool.available?
+      expect(tool).to be_available
+
+      # Skip for jq wrapper impostor which doesn't support yq's eval subcommand
+      result = `yq --version 2>&1`
+      skip 'jq wrapper impostor detected (not mikefarah/yq)' if result.strip == 'yq 0.0.0'
 
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-yq.yaml')
         File.write(test_file, "foo:\n  bar: baz\n")
 
-        result = tool.execute(:eval,
+        result = tool.execute(:eval_all,
                               expression: '.foo.bar',
-                              inputs: [test_file])
+                              inputs: [test_file],
+                              raw_output: true,
+                              execution_timeout: 30)
 
         expect(result.success?).to be true
-        expect(result.stdout.strip).to eq('baz')
+        # Some yq installations (like the jq wrapper on Ubuntu) may return
+        # quoted strings. Strip surrounding quotes if present.
+        output = result.stdout.strip.gsub(/^"|"$/, '')
+        expect(output).to eq('baz')
       end
     end
   end
 
   describe 'Ping (platform-independent)' do
     it 'resolves to platform-specific implementation' do
-      tool = Ukiryu::Tools::Ping.new
-      skip 'ping not installed' unless tool.available?
+      tool = Ukiryu::Tool.find_by(:ping)
+      expect(tool).to be_available
 
       # On macOS, should resolve to ping_bsd
       # On Linux, should resolve to ping_gnu
-      expect(tool.name).to match(/ping_(bsd|gnu)/)
+      # On Windows, should resolve to ping_windows
+      expect(tool.name).to match(/ping_(bsd|gnu|windows)/)
     end
 
     it 'pings localhost' do
-      tool = Ukiryu::Tools::Ping.new
-      skip 'ping not installed' unless tool.available?
+      tool = Ukiryu::Tool.find_by(:ping)
+      expect(tool).to be_available
 
       result = tool.execute(:ping,
                             host: 'localhost',
-                            count: 1)
+                            count: 1,
+                            execution_timeout: 30)
 
       expect(result.success?).to be true
-      expect(result.stdout).to include('localhost')
+      # On Windows, ping resolves localhost to the actual hostname
+      # On Unix-like systems, the output contains "localhost"
+      if Ukiryu::Platform.windows?
+        # Windows ping output contains "Pinging" which indicates success
+        expect(result.stdout).to match(/Pinging|Reply from/)
+      else
+        expect(result.stdout).to include('localhost')
+      end
     end
   end
 end

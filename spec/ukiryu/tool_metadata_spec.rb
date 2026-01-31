@@ -23,7 +23,7 @@ RSpec.describe Ukiryu::ToolMetadata do
       expect(metadata.name).to eq('test_tool')
       expect(metadata.version).to eq('1.0.0')
       expect(metadata.display_name).to eq('Test Tool')
-      expect(metadata.implements).to eq(:test_interface)
+      expect(metadata.implements).to eq('test_interface')
       expect(metadata.homepage).to eq('https://example.com')
       expect(metadata.description).to eq('A test tool')
       expect(metadata.aliases).to eq(%w[test tst])
@@ -185,7 +185,7 @@ RSpec.describe Ukiryu::ToolMetadata do
       # inspect uses Ruby's .inspect which produces quoted strings
       expect(inspection).to include('name="test_tool"')
       expect(inspection).to include('version="1.0.0"')
-      expect(inspection).to include('implements=:test_interface')
+      expect(inspection).to include('implements="test_interface"')
     end
   end
 
@@ -208,11 +208,11 @@ RSpec.describe Ukiryu::ToolMetadata do
       expect(metadata.name).to eq('test_tool')
       expect(metadata.version).to eq('1.0.0')
       expect(metadata.display_name).to eq('Test Tool')
-      expect(metadata.implements).to eq(:test_interface)
+      expect(metadata.implements).to eq('test_interface')
       expect(metadata.homepage).to eq('https://example.com')
       expect(metadata.description).to eq('A test tool')
       expect(metadata.aliases).to eq(%w[test tst])
-      expect(metadata.default_command).to eq('custom_default')
+      expect(metadata.default_command).to eq(:custom_default)
       expect(metadata.tool_name).to eq('test_tool')
       expect(metadata.register_path).to eq(register_path)
     end
@@ -230,7 +230,7 @@ RSpec.describe Ukiryu::ToolMetadata do
       expect(metadata.aliases).to eq([])
     end
 
-    it 'converts implements string to symbol' do
+    it 'stores implements as string' do
       hash = {
         'version' => '1.0.0',
         'implements' => 'ping'
@@ -238,13 +238,20 @@ RSpec.describe Ukiryu::ToolMetadata do
 
       metadata = described_class.from_hash(hash, tool_name: 'ping_tool', register_path: register_path)
 
-      expect(metadata.implements).to eq(:ping)
+      expect(metadata.implements).to eq('ping')
     end
   end
 
   describe 'integration with Register' do
+    let(:real_register_path) { ENV['UKIRYU_REGISTER'] }
+
+    before do
+      skip 'Set UKIRYU_REGISTER environment variable to run integration tests' unless real_register_path && Dir.exist?(real_register_path)
+      Ukiryu::Register.default_register_path = real_register_path
+    end
+
     it 'can load metadata for a real tool' do
-      metadata = Ukiryu::Register.load_tool_metadata(:ping, register_path: register_path)
+      metadata = Ukiryu::Register.load_tool_metadata(:ping, register_path: real_register_path)
 
       expect(metadata).to be_a(described_class)
       expect(metadata.name).to be_a(String)
@@ -253,10 +260,10 @@ RSpec.describe Ukiryu::ToolMetadata do
 
     it 'can find tools by interface' do
       # Ping tool implements the 'ping' interface
-      metadata = Ukiryu::Register.load_tool_metadata(:ping, register_path: register_path)
+      metadata = Ukiryu::Register.load_tool_metadata(:ping, register_path: real_register_path)
 
       expect(metadata).to be_a(described_class)
-      expect(metadata.implements).to eq(:ping)
+      expect(metadata.implements).to eq('ping')
     end
   end
 end

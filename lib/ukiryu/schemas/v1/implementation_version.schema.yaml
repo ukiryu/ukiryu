@@ -1,0 +1,171 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/ukiryu/ukiryu/schemas/v1/implementation_version.schema.yaml
+title: ImplementationVersion
+description: Schema for implementation version with execution profiles
+type: object
+required:
+  - ukiryu_schema
+  - implements
+  - version
+  - execution_profiles
+properties:
+  ukiryu_schema:
+    type: string
+    pattern: '^1\.0$'
+    description: Schema version for validation
+  implements:
+    type: string
+    description: Reference to interface (e.g., "gzip/1.0")
+  version:
+    type: string
+    description: Implementation version (e.g., "1.12.0")
+  display_name:
+    type: string
+    description: Human-readable display name
+  homepage:
+    type: string
+    format: uri
+    description: Implementation homepage URL
+  execution_profiles:
+    type: array
+    description: Platform/shell specific execution profiles
+    items:
+      type: object
+      required:
+        - name
+        - platforms
+        - shells
+        - option_style
+        - executable_name
+        - actions
+      properties:
+        name:
+          type: string
+          description: Profile name
+        display_name:
+          type: string
+          description: Human-readable profile name
+        platforms:
+          type: array
+          items:
+            type: string
+            enum:
+              - macos
+              - linux
+              - windows
+        shells:
+          type: array
+          items:
+            type: string
+            enum:
+              - bash
+              - zsh
+              - fish
+              - sh
+              - powershell
+              - cmd
+        option_style:
+          type: string
+          enum:
+            - double_dash_equals
+            - double_dash_space
+            - single_dash_equals
+            - single_dash_space
+            - slash_colon
+            - slash_space
+        executable_name:
+          type: string
+          description: Executable name
+        actions:
+          type: object
+          description: Command definitions mapped by action name
+          additionalProperties:
+            type: object
+            required:
+              - arguments
+            properties:
+              subcommand:
+                type: string
+                description: Subcommand prefix
+              arguments:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - type
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                      enum:
+                        - string
+                        - integer
+                        - boolean
+                        - file
+                        - array
+                        - hash
+                    cli:
+                      type: string
+                    description:
+                      type: string
+                    required:
+                      type: boolean
+                    default:
+                      type:
+                        - string
+                        - boolean
+                        - number
+                        - array
+                    variadic:
+                      type: boolean
+                    min:
+                      type: integer
+                    position:
+                      type: string
+                      enum:
+                        - first
+                        - last
+              options:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - type
+                    - cli
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                    cli:
+                      type: string
+                    description:
+                      type: string
+                    required:
+                      type: boolean
+                    default:
+                      type:
+                        - string
+                        - boolean
+                        - number
+                    format:
+                      type: string
+              flags:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - cli
+                  properties:
+                    name:
+                      type: string
+                    cli:
+                      type: string
+                    description:
+                      type: string
+                    default:
+                      type: boolean

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
-
 module Ukiryu
   module Models
     # Error CLI execution response
@@ -12,13 +10,7 @@ module Ukiryu
       attribute :exit_code, :integer, default: 1
       attribute :error, :string
 
-      yaml do
-        map_element 'status', to: :status
-        map_element 'exit_code', to: :exit_code
-        map_element 'error', to: :error
-      end
-
-      json do
+      key_value do
         map 'status', to: :status
         map 'exit_code', to: :exit_code
         map 'error', to: :error

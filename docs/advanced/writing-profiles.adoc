@@ -1,0 +1,745 @@
+---
+layout: default
+title: Writing Tool Profiles
+parent: Advanced
+nav_order: 1
+---
+
+== Writing Tool Profiles
+
+A comprehensive guide to creating YAML profiles for CLI tools and contributing them to the Ukiryu register.
+
+// Overview
+== Overview
+
+Tool profiles define how Ukiryu interacts with command-line tools. A well-written profile:
+
+* Defines all commands the tool supports
+* Specifies argument, option, and flag types with validation
+* Handles platform-specific differences (macOS, Linux, Windows)
+* Adapts to shell-specific syntax (bash, zsh, fish, PowerShell, cmd)
+* Provides accurate version detection for compatibility
+
+// Profile Structure
+== Profile Structure
+
+=== Minimal Profile
+
+The simplest profile must include these required fields:
+
+[source,yaml]
+----
+---
+ukiryu_schema: '1.0'
+name: mytool
+version: '1.0'
+profiles:
+  - name: default
+    platforms: [macos, linux, windows]
+    shells: [bash, zsh, fish, sh, powershell, cmd]
+    commands:
+      - name: run
+        description: Run the tool
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+----
+
+=== Complete Profile
+
+A production-ready profile includes all sections:
+
+[source,yaml]
+----
+---
+# Schema version
+ukiryu_schema: '1.0'
+
+# Tool metadata
+name: imagemagick
+display_name: ImageMagick
+homepage: https://imagemagick.org
+version: '7.1'
+description: Image conversion and processing tool
+aliases: [magick, convert]
+
+# What interface(s) this implements
+implements: [convert]
+
+# Version detection
+version_detection:
+  detection_methods:
+    - type: command
+      command: -version
+      pattern: 'Version: ImageMagick ([\d.]+)'
+    - type: man_page
+      paths:
+        macos: /usr/share/man/man1/convert.1
+        linux: /usr/share/man/man1/convert.1
+  modern_threshold: '7.0'
+
+# Where to find the executable
+search_paths:
+  macos:
+    - /opt/homebrew/bin/convert
+    - /usr/local/bin/convert
+  linux:
+    - /usr/bin/convert
+  windows:
+    - C:/Program Files/ImageMagick/convert.exe
+
+# Platform/shell configurations
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    option_style: double_dash_space
+    commands:
+      - name: convert
+        # ... command definition
+----
+
+// Step-by-Step Guide
+== Step-by-Step Guide
+
+=== Step 1: Gather Tool Information
+
+Before writing a profile, gather information about the tool:
+
+[source,bash]
+----
+# Check tool version
+tool --version
+
+# Read man page
+man tool
+
+# List available commands
+tool --help
+
+# Test command syntax
+tool command --help
+----
+
+Key information to collect:
+
+* Version output format
+* Available commands and subcommands
+* Command syntax and options
+* Platform differences (if any)
+* Installation locations on different platforms
+
+=== Step 2: Create Basic Profile
+
+Start with the minimal structure:
+
+[source,yaml]
+----
+---
+ukiryu_schema: '1.0'
+name: mytool
+version: '1.0'
+version_detection:
+  command: --version
+  pattern: 'MyTool v([\d.]+)'
+search_paths:
+  macos:
+    - /usr/local/bin/mytool
+  linux:
+    - /usr/bin/mytool
+  windows:
+    - C:/Program Files/MyTool/bin/mytool.exe
+profiles:
+  - name: default
+    platforms: [macos, linux, windows]
+    shells: [bash, zsh, fish, sh, powershell, cmd]
+    option_style: double_dash_space
+    commands: []
+----
+----
+
+=== Step 3: Define Commands
+
+Add each command the tool supports. Start with the most important ones.
+
+[source,yaml]
+----
+commands:
+  - name: process
+    description: Process input files
+    arguments:
+      - name: inputs
+        type: file
+        variadic: true
+        min: 1
+        description: Input files to process
+    options:
+      - name: output
+        type: file
+        cli: --output
+        required: true
+        description: Output file
+      - name: format
+        type: symbol
+        cli: --format
+        values: [json, xml, csv]
+        default: json
+        description: Output format
+    flags:
+      - name: verbose
+        cli: --verbose
+        default: false
+        description: Verbose output
+----
+
+=== Step 4: Define Argument Types
+
+Choose the appropriate type for each argument:
+
+* **file**: File path (gets platform-specific formatting)
+* **string**: Text string
+* **integer**: Whole number with optional range validation
+* **float**: Decimal number with optional range validation
+* **symbol**: Enumerated value from `values` list
+* **boolean**: True/false (usually for flags)
+* **array**: Multiple values
+
+[source,yaml]
+----
+arguments:
+  - name: input_file
+    type: file
+    required: true
+
+  - name: count
+    type: integer
+    range: 1..100
+    default: 10
+
+  - name: threshold
+    type: float
+    range: 0.0..1.0
+
+  - name: format
+    type: symbol
+    values: [json, xml, csv]
+    default: json
+----
+
+=== Step 5: Handle Multiple Platforms
+
+If the tool behaves differently on different platforms, create separate profiles:
+
+[source,yaml]
+----
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    option_style: double_dash_space
+    commands:
+      - name: process
+        # Unix-specific command definition
+
+  - name: windows
+    platforms: [windows]
+    shells: [powershell, cmd]
+    option_style: double_dash_space
+    commands:
+      - name: process
+        # Windows-specific command definition
+----
+
+Use profile inheritance to avoid duplication:
+
+[source,yaml]
+----
+profiles:
+  - name: unix_base
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+    commands:
+      - name: process
+        # Shared definition
+
+  - name: unix_extended
+    platforms: [macos, linux]
+    shells: [bash, zsh]
+    inherits: unix_base
+    commands:
+      - name: advanced_feature
+        # Additional commands for bash/zsh
+----
+
+=== Step 6: Test Your Profile
+
+Validate the profile locally:
+
+[source,bash]
+----
+# 1. Validate schema
+ukiryu validate --definition tools/mytool/1.0.yaml
+
+# 2. Lint for best practices
+ukiryu lint file tools/mytool/1.0.yaml
+
+# 3. Test with executable (if tool is installed)
+ukiryu validate --definition tools/mytool/1.0.yaml --executable
+
+# 4. Test via Ruby API
+ruby << 'RUBY'
+require 'ukiryu'
+tool = Ukiryu::Tool.load('tools/mytool/1.0.yaml')
+result = tool.execute(:process, { inputs: ['test.txt'] })
+puts result.success? ? "Success!" : "Failed: #{result.stderr}"
+RUBY
+----
+
+// Version Detection
+== Version Detection
+
+Accurate version detection allows Ukiryu to select the correct profile for the installed tool version.
+
+=== Command-Based Detection
+
+Most tools support `--version`:
+
+[source,yaml]
+----
+version_detection:
+  command: --version
+  pattern: 'Tool version ([\d.]+)'
+----
+
+### Pattern Matching Tips
+
+* Use capture groups `()` to extract the version
+* Escape special regex characters: `\.`, `\(`, `\)`
+* Test patterns manually: `tool --version | grep -E 'pattern'`
+
+[source,bash]
+----
+# Test your pattern
+tool --version | grep -oE '[0-9]+\.[0-9]+'
+----
+
+### Multiple Detection Methods
+
+For robustness, provide multiple methods with fallback:
+
+[source,yaml]
+----
+version_detection:
+  detection_methods:
+    # Try --version first
+    - type: command
+      command: --version
+      pattern: 'Tool v([\d.]+)'
+
+    # Fall back to parsing man page
+    - type: man_page
+      paths:
+        macos: /usr/share/man/man1/tool.1
+        linux: /usr/share/man/man1/tool.1
+
+    # Finally, mark as system tool if detection fails
+    - type: system_tool
+  modern_threshold: '1.0'
+----
+
+### Generic Tools
+
+For tools with stable interfaces (like `cat`, `grep`, `ls`), use:
+
+[source,yaml]
+----
+name: cat
+version: generic
+version_detection:
+  detection_methods:
+    - type: command
+      command: --version
+      pattern: 'cat \(GNU coreutils\) ([\d.]+)'
+    - type: man_page
+      paths:
+        macos: /usr/share/man/man1/cat.1
+        linux: /usr/share/man/man1/cat.1
+  system_tool: true
+----
+
+// Search Paths
+== Search Paths
+
+Define where the executable might be found on each platform.
+
+### Standard Locations
+
+[source,yaml]
+----
+search_paths:
+  macos:
+    - /Applications/MyTool.app/Contents/MacOS/mytool
+    - /opt/homebrew/bin/mytool
+    - /usr/local/bin/mytool
+  linux:
+    - /usr/bin/mytool
+    - /usr/local/bin/mytool
+  windows:
+    - C:/Program Files/MyTool/bin/mytool.exe
+    - C:/Program Files (x86)/MyTool/bin/mytool.exe
+----
+
+### Discovery Order
+
+Ukiryu searches in this order:
+
+1. Paths defined in profile
+2. System `PATH` environment variable
+3. Current working directory
+
+### Common Installation Paths
+
+* **Homebrew (macOS)**: `/opt/homebrew/bin/`
+* **MacPorts (macOS)**: `/opt/local/bin/`
+* **apt (Linux)**: `/usr/bin/`
+* **snap (Linux)**: `/snap/bin/`
+* **Chocolatey (Windows)**: `C:/Program Files/`
+* **scoop (Windows)**: `C:/Users/<user>/scoop/shims/`
+
+// Platform-Specific Handling
+== Platform-Specific Handling
+
+### Subcommands vs Standalone Executables
+
+Some tools use subcommands (e.g., `magick export`), others are standalone (`convert`):
+
+[source,yaml]
+----
+# Subcommand (ImageMagick 7.x)
+commands:
+  - name: export
+    subcommand: export
+    # Invocation: magick export input.svg output.png
+
+# Standalone executable (ImageMagick 6.x)
+commands:
+  - name: convert
+    standalone_executable: true
+    # Invocation: convert input.svg output.png
+----
+
+### Windows Path Handling
+
+Windows paths use backslashes and may contain spaces:
+
+[source,yaml]
+----
+search_paths:
+  windows:
+    - 'C:/Program Files/MyTool/bin/tool.exe'    # Forward slashes work
+    - 'C:/Program Files (x86)/MyTool/bin/tool.exe'
+----
+
+// Shell-Specific Behavior
+== Shell-Specific Behavior
+
+### Option Styles
+
+Different tools use different option styles. Specify the default:
+
+[source,yaml]
+----
+option_style: double_dash_space   # --output file.png
+# option_style: double_dash_equals  # --output=file.png
+# option_style: single_dash_space    # -q 85
+# option_style: single_dash_equals   # -q=85
+# option_style: slash_colon          # /format:pdf
+# option_style: slash_space          # /format pdf
+----
+
+### Shell Inheritance
+
+For multiple similar shells, use inheritance to avoid duplication. Ukiryu's shell implementations share common behavior through UnixBase.
+
+[source,yaml]
+----
+profiles:
+  - name: unix_base
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh, dash, tcsh]
+    option_style: double_dash_space
+    commands:
+      - name: process
+        description: Process input files
+        # Common command definition for all Unix shells
+
+  - name: unix_extended
+    platforms: [macos, linux]
+    shells: [bash, zsh]
+    inherits: unix_base
+    # Inherits all commands from unix_base
+    # bash and zsh get extended behavior
+    commands:
+      - name: advanced_feature
+        description: Advanced feature available in bash/zsh
+----
+
+==== Shell Platform Groups
+
+Use platform groups to target all Unix shells:
+
+[source,yaml]
+----
+profiles:
+  - name: unix_all
+    platforms: [macos, linux]
+    shells: [unix]  # Platform group for all Unix shells
+    option_style: double_dash_space
+    commands:
+      - name: process
+        description: Process files on Unix
+----
+
+Available shell identifiers:
+
+[cols="1,2"]
+|===
+|Identifier |Shells Included
+
+|`bash`
+|Bourne Again Shell
+
+|`zsh`
+|Z Shell
+
+|`fish`
+|Friendly Interactive Shell
+
+|`sh`
+|POSIX Shell
+
+|`dash`
+|Debian Almquist Shell
+
+|`tcsh`
+|TENEX C Shell
+
+|`unix`
+|All Unix shells (bash, zsh, fish, sh, dash, tcsh)
+
+|`powershell`
+|PowerShell Core
+
+|`cmd`
+|Windows Command Prompt
+
+|`windows`
+|Windows cmd.exe
+|===
+
+// Contributing to the Register
+== Contributing to the Register
+
+### Prerequisites
+
+Before contributing, ensure:
+
+* [ ] Profile passes `ukiryu validate`
+* [ ] Profile passes `ukiryu lint`
+* [ ] Profile passes `ukiryu validate --executable` (if tool is installed)
+* [ ] Profile follows the v1 schema
+* [ ] Profile includes complete metadata
+* [ ] Profile covers all major commands
+
+### Submission Process
+
+1. **Fork the register**: https://github.com/ukiryu/register
+
+2. **Create profile file**: `tools/<toolname>/<version>.yaml`
+
+3. **Validate locally**:
+   [source,bash]
+   ----
+   # From register root
+   ukiryu validate --definition tools/mytool/1.0.yaml
+   ukiryu lint file tools/mytool/1.0.yaml
+   ----
+
+4. **Test with executable**:
+   [source,bash]
+   ----
+   ukiryu validate --definition tools/mytool/1.0.yaml --executable
+   ----
+
+5. **Create pull request**: Submit to the `v1` branch
+
+### Directory Structure
+
+For tools with multiple versions:
+
+[source]
+----
+tools/
+└── mytool/
+    ├── 1.0.yaml
+    ├── 1.1.yaml
+    └── index.yaml    # Version routing (optional)
+----
+
+For tools with multiple implementations:
+
+[source]
+----
+tools/
+└── tar/
+    ├── gnu/
+    │   ├── 1.35.yaml
+    │   ├── 1.36.1.yaml
+    │   └── index.yaml
+    ├── busybox/
+    │   ├── 1.36.1.yaml
+    │   └── index.yaml
+    └── index.yaml
+----
+
+### Version Routing (Optional)
+
+For versioned tools, use `index.yaml` for version routing:
+
+[source,yaml]
+----
+# tools/mytool/index.yaml
+ukiryu_schema: '1.0'
+name: mytool
+interface: mytool
+
+implementations:
+  - name: default
+    display_name: MyTool
+    version_scheme: semantic
+    versions:
+      - equals: '1.0'
+        file: '1.0.yaml'
+      - after: '1.0'
+        file: '1.1.yaml'
+    default: '1.1.yaml'
+----
+
+// Common Patterns
+== Common Patterns
+
+### Multi-Command Tools
+
+For tools with multiple commands, define each:
+
+[source,yaml]
+----
+commands:
+  - name: init
+    description: Initialize project
+
+  - name: build
+    description: Build project
+
+  - name: test
+    description: Run tests
+----
+
+### Command with Subcommands
+
+For hierarchical commands like `git remote add`:
+
+[source,yaml]
+----
+commands:
+  - name: remote
+    description: Manage remote repositories
+
+  - name: add
+    description: Add remote repository
+    belongs_to: remote
+    arguments:
+      - name: name
+        type: string
+        required: true
+      - name: url
+        type: string
+        required: true
+----
+
+### Commands with Positional and Optional Args
+
+[source,yaml]
+----
+commands:
+  - name: process
+    arguments:
+      # Required positional
+      - name: input
+        type: file
+        required: true
+        position: 1
+
+      # Optional positional
+      - name: output
+        type: file
+        position: 2
+
+      # Variadic (all remaining)
+      - name: extra_files
+        type: file
+        variadic: true
+        position: last
+----
+
+// Testing Profiles
+== Testing Profiles
+
+### Unit Testing
+
+Test profile loading:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+describe 'MyTool Profile' do
+  it 'loads successfully' do
+    tool = Ukiryu::Tool.load('tools/mytool/1.0.yaml')
+    expect(tool.name).to eq(:mytool)
+    expect(tool.version).to eq('1.0')
+  end
+
+  it 'validates arguments' do
+    tool = Ukiryu::Tool.load('tools/mytool/1.0.yaml')
+    expect {
+      tool.execute(:process, { count: -1 })
+    }.to raise_error(Ukiryu::Errors::ValidationError)
+  end
+end
+----
+
+### Integration Testing
+
+Test actual command execution:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Test with real tool
+tool = Ukiryu::Tool.get(:mytool)
+result = tool.execute(:process, { inputs: ['test.txt'] })
+
+expect(result.success?).to be true
+expect(result.exit_status).to eq(0)
+----
+
+// See Also
+== See Also
+
+* link:/reference/tool-profile-schema[Tool Profile Schema] - Complete schema reference
+* link:/reference/error-codes[Error Codes] - Validation error meanings
+* link:https://github.com/ukiryu/register[Ukiryu Register] - Example profiles
+* link:https://github.com/ukiryu/schemas[Ukiryu Schemas] - Schema validation files

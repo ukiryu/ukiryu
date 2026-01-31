@@ -1,0 +1,201 @@
+name: Windows Tests (Chocolatey x64 + ARM64 Experimental)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test-windows-chocolatey:
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      matrix:
+        include:
+          - runner: windows-2025
+            ruby-version: '3.1'
+          - runner: windows-2025
+            ruby-version: '3.4'
+          - runner: windows-2025
+            ruby-version: '4.0'
+          # Windows ARM64 is experimental - some native dependencies (nokogiri) don't compile
+          - runner: windows-11-arm
+            ruby-version: '3.4'
+            experimental: true
+          - runner: windows-11-arm
+            ruby-version: '4.0'
+            experimental: true
+
+    steps:
+      - name: Create working directory
+        run: |
+          # GitHub Actions Windows runners should use D:\a but sometimes it's not available
+          # This step ensures the directory exists before checkout
+          if (-not (Test-Path 'D:\a')) {
+            Write-Host "D:\a not available, using C:\a instead"
+            echo "GITHUB_WORKSPACE=C:\a\ukiryu\ukiryu" >> $env:GITHUB_ENV
+            New-Item -ItemType Directory -Force -Path "C:\a\ukiryu\ukiryu"
+          } else {
+            New-Item -ItemType Directory -Force -Path "D:\a"
+          }
+        shell: pwsh
+
+      - uses: actions/checkout@v6
+
+      # checkout schema repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/schema
+          path: schema
+
+      # checkout register repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/register
+          ref: v1
+          path: register
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Install ImageMagick (chocolatey)
+        run: |
+          Write-Host "Installing ImageMagick via chocolatey..."
+          choco install imagemagick -y --allow-downgrade
+
+      - name: Install AutoHotkey (chocolatey)
+        run: |
+          Write-Host "Installing AutoHotkey via chocolatey..."
+          choco install autohotkey.portable -y --allow-downgrade
+
+      - name: Install Ghostscript (chocolatey)
+        run: |
+          # Ghostscript x64 installer times out on ARM64 due to emulation
+          # Skip on ARM since x64 runners already test Ghostscript functionality
+          if ($env:RUNNER_ARCH -ne "ARM64") {
+            Write-Host "Installing Ghostscript via chocolatey..."
+            choco install ghostscript -y --allow-downgrade
+          } else {
+            Write-Host "Skipping Ghostscript on ARM64 (tested on x64 runners)"
+          }
+        shell: pwsh
+
+      - name: Install FFmpeg (chocolatey)
+        run: |
+          Write-Host "Installing FFmpeg via chocolatey..."
+          choco install ffmpeg -y --allow-downgrade
+
+      - name: Install ExifTool (chocolatey)
+        run: |
+          Write-Host "Installing ExifTool via chocolatey..."
+          choco install exiftool -y --allow-downgrade
+
+      - name: Install Pandoc (chocolatey)
+        run: |
+          Write-Host "Installing Pandoc via chocolatey..."
+          choco install pandoc -y --allow-downgrade
+
+      - name: Install jq (chocolatey)
+        run: |
+          Write-Host "Installing jq via chocolatey..."
+          choco install jq -y --allow-downgrade
+
+      - name: Install yq (chocolatey)
+        run: |
+          Write-Host "Installing yq via chocolatey..."
+          choco install yq -y --allow-downgrade
+
+      - name: Install Inkscape (chocolatey)
+        run: |
+          Write-Host "Installing Inkscape via chocolatey..."
+          choco install inkscape -y --allow-downgrade
+
+      # Configure Inkscape for headless operation
+      - name: Configure Inkscape for headless
+        shell: pwsh
+        run: |
+          # Set INKSCAPE_DIR environment variable for tests
+          $inkscapePath = "C:\Program Files\Inkscape\bin"
+          if (Test-Path $inkscapePath) {
+            echo "INKSCAPE_DIR=$inkscapePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Host "Inkscape found at: $inkscapePath"
+          }
+
+      - name: Refresh PATH
+        run: |
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          echo "PATH=$env:Path" >> $env:GITHUB_ENV
+
+      - name: Verify installations
+        shell: pwsh
+        run: |
+          Write-Host "=== Verifying installations ==="
+          Write-Host ""
+          Write-Host "PATH order check:"
+          $env:Path -split ';' | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" }
+          Write-Host ""
+          Write-Host "ImageMagick (magick):"
+          $magickPath = Get-Command magick -ErrorAction SilentlyContinue
+          if ($magickPath) {
+            Write-Host "  Found: $($magickPath.Source)"
+            & magick --version | Select-Object -First 3
+          } else {
+            Write-Host "  WARNING: magick not found"
+          }
+          Write-Host ""
+          Write-Host "Checking for convert.exe (should NOT be Windows system32):"
+          $convertPath = Get-Command convert -ErrorAction SilentlyContinue
+          if ($convertPath) {
+            if ($convertPath.Source -like "*System32*") {
+              Write-Host "  WARNING: Found Windows convert.exe at: $($convertPath.Source)"
+              Write-Host "  This is NOT ImageMagick - tests may fail!"
+            } else {
+              Write-Host "  Found ImageMagick convert at: $($convertPath.Source)"
+            }
+          } else {
+            Write-Host "  convert.exe not found (expected for ImageMagick 7+)"
+          }
+          Write-Host ""
+          Write-Host "Ghostscript (Windows uses gswin64c/gswin32c):"
+          $gsFound = $false
+          @('gswin64c', 'gswin32c', 'gs') | ForEach-Object {
+            $gsCmd = Get-Command $_ -ErrorAction SilentlyContinue
+            if ($gsCmd) {
+              Write-Host "  Found: $($gsCmd.Source)"
+              & $_ --version | Select-Object -First 3
+              $gsFound = $true
+            }
+          }
+          if (-not $gsFound) {
+            Write-Host "  WARNING: Ghostscript executable not found in PATH"
+          }
+          Write-Host ""
+          Write-Host "FFmpeg:"
+          ffmpeg --help | Select-Object -First 3
+          Write-Host ""
+          Write-Host "ExifTool:"
+          exiftool -ver
+          Write-Host ""
+          Write-Host "Pandoc:"
+          pandoc --version
+          Write-Host ""
+          Write-Host "jq:"
+          jq --version
+          Write-Host ""
+          Write-Host "yq:"
+          yq --version
+          Write-Host ""
+          Write-Host "Inkscape:"
+          inkscape --version
+
+      - name: Run tests
+        run: bundle exec rake spec
+        env:
+          UKIRYU_DEBUG_HELP_PARSER: 1

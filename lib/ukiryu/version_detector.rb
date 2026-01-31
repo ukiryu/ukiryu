@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'executor'
-require_relative 'models/version_info'
-require_relative 'man_page_parser'
-
 module Ukiryu
   # Version detector for external CLI tools
   #
@@ -40,14 +36,16 @@ module Ukiryu
       # @param pattern [Regexp] the regex pattern to extract version
       # @param shell [Symbol] the shell to use for execution
       # @param source [String] the version source: 'command' (default) or 'man'
+      # @param timeout [Integer] timeout in seconds (default: 30)
       # @return [String, nil] the detected version or nil if not found
-      def detect(executable:, command: '--version', pattern: /(\d+\.\d+)/, shell: nil, source: 'command')
+      def detect(executable:, command: '--version', pattern: /(\d+\.\d+)/, shell: nil, source: 'command', timeout: 30)
         result = detect_info(
           executable: executable,
           command: command,
           pattern: pattern,
           shell: shell,
-          source: source
+          source: source,
+          timeout: timeout
         )
 
         result&.value
@@ -60,17 +58,23 @@ module Ukiryu
       # @param pattern [Regexp] the regex pattern to extract version
       # @param shell [Symbol] the shell to use for execution
       # @param source [String] the version source: 'command' (default) or 'man'
+      # @param timeout [Integer] timeout in seconds (default: 30 for version detection)
       # @return [VersionInfo, nil] the version info or nil if not found
-      def detect_info(executable:, command: '--version', pattern: /(\d+\.\d+)/, shell: nil, source: 'command')
+      def detect_info(executable:, command: '--version', pattern: /(\d+\.\d+)/, shell: nil, source: 'command',
+                      timeout: 30)
         # Return nil if executable is not found
         return nil if executable.nil? || executable.empty?
 
-        shell ||= Shell.detect
+        shell ||= Ukiryu::Shell.detect
 
         # Normalize command to array
         command_args = command.is_a?(Array) ? command : [command]
 
-        result = Executor.execute(executable, command_args, shell: shell, allow_failure: true)
+        # DEBUG: Log timing to investigate timeout issues
+        start_time = Time.now
+        result = Ukiryu::Executor.execute(executable, command_args, shell: shell, allow_failure: true, timeout: timeout)
+        elapsed = Time.now - start_time
+        warn "[UKIRYU DEBUG] Version detection for #{File.basename(executable)} took #{elapsed.round(2)}s (expected <0.1s)" if elapsed > 1
 
         return nil unless result.success?
 
@@ -84,11 +88,13 @@ module Ukiryu
           # Get last 500 characters to catch the OS version at bottom
           tail = output[-500..] || output
           match = tail.match(pattern)
-          return Models::VersionInfo.new(
-            value: match[1],
-            method_used: :man_page,
-            available_methods: [:man_page]
-          ) if match
+          if match
+            return Models::VersionInfo.new(
+              value: match[1],
+              method_used: :man_page,
+              available_methods: [:man_page]
+            )
+          end
         end
 
         match = stdout.match(pattern) || stderr.match(pattern)
@@ -113,9 +119,10 @@ module Ukiryu
       # @param executable [String] the tool executable path
       # @param methods [Array<Hash>] array of method definitions
       # @param shell [Symbol] the shell to use
+      # @param timeout [Integer] timeout in seconds (default: 30)
       # @return [VersionInfo, nil] version info or nil if all methods fail
-      def detect_with_methods(executable:, methods:, shell: nil)
-        shell ||= Shell.detect
+      def detect_with_methods(executable:, methods:, shell: nil, timeout: 30)
+        shell ||= Ukiryu::Shell.detect
 
         # Track available methods for VersionInfo
         available_methods = methods.map { |m| m[:type] }.uniq
@@ -130,7 +137,8 @@ module Ukiryu
               command: method[:command] || '--version',
               pattern: method[:pattern] || /(\d+\.\d+)/,
               shell: shell,
-              source: 'command'
+              source: 'command',
+              timeout: timeout
             )
 
             return info if info
@@ -140,14 +148,13 @@ module Ukiryu
             paths = method[:paths] || {}
 
             # Resolve man page path for current platform
-            require_relative 'platform'
-            platform = Platform.detect
+            platform = Ukiryu::Platform.detect
             man_path = paths[platform] || paths[platform.to_s]
 
             next unless man_path
 
             # Parse date from man page
-            date_str = ManPageParser.parse_date(man_path)
+            date_str = Ukiryu::ManPageParser.parse_date(man_path)
 
             next unless date_str
 

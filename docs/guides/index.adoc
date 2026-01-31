@@ -17,4 +17,5 @@ Practical guides for real-world usage:
 * link:/guides/headless-graphics[Headless Graphics Processing] - Batch convert images on servers
 * link:/guides/ci-cd-integration[CI/CD Integration] - Use Ukiryu in GitHub Actions
 * link:/guides/debugging[Debugging] - Troubleshoot tool execution issues
-* link:/guides/testing[Testing with Ukiryu] - Test tools in RSpec suites
+* link:/guides/environment[Environment Management] - Managing environment variables for execution
+* link:/guides/testing[Testing with Ukiryu] - Docker multi-platform testing and CI/CD

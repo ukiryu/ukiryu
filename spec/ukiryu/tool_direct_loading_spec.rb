@@ -90,7 +90,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       it 'raises DefinitionLoadError for syntax errors' do
         expect do
           Ukiryu::Tool.load_from_string(invalid_yaml)
-        end.to raise_error(Ukiryu::DefinitionLoadError)
+        end.to raise_error(Ukiryu::Errors::DefinitionLoadError)
       end
     end
 
@@ -98,7 +98,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       it 'raises DefinitionValidationError for missing required fields' do
         expect do
           Ukiryu::Tool.load_from_string(profile_with_missing_fields, validation: :strict)
-        end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'version' field/)
+        end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Missing 'version' field/)
       end
 
       it 'raises DefinitionValidationError for invalid ukiryu_schema format' do
@@ -114,7 +114,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
         expect do
           Ukiryu::Tool.load_from_string(invalid_schema, validation: :strict)
-        end.to raise_error(Ukiryu::DefinitionValidationError, /Invalid ukiryu_schema format/)
+        end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Invalid ukiryu_schema format/)
       end
 
       it 'raises DefinitionValidationError for invalid $self URI' do
@@ -131,7 +131,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
         expect do
           Ukiryu::Tool.load_from_string(invalid_self, validation: :strict)
-        end.to raise_error(Ukiryu::DefinitionValidationError, /Invalid \$self URI format/)
+        end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Invalid \$self URI format/)
       end
     end
 
@@ -140,7 +140,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
         expect do
           Ukiryu::Tool.load_from_string(profile_with_missing_fields, validation: :lenient)
         end.to output(/Profile validation failed/).to_stderr
-                                                  .and raise_error(Ukiryu::ProfileNotFoundError)
+                                                  .and raise_error(Ukiryu::Errors::ProfileNotFoundError)
       end
     end
 
@@ -148,7 +148,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
       it 'skips validation but still fails on profile initialization' do
         expect do
           Ukiryu::Tool.load_from_string(profile_with_missing_fields, validation: :none)
-        end.to raise_error(Ukiryu::ProfileNotFoundError)
+        end.to raise_error(Ukiryu::Errors::ProfileNotFoundError)
       end
     end
   end
@@ -172,15 +172,18 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
     it 'raises DefinitionNotFoundError for non-existent file' do
       expect do
         Ukiryu::Tool.load('/nonexistent/path/to/file.yaml')
-      end.to raise_error(Ukiryu::DefinitionNotFoundError)
+      end.to raise_error(Ukiryu::Errors::DefinitionNotFoundError)
     end
 
     it 'passes validation mode to load_from_string' do
       File.write(temp_file, profile_with_missing_fields)
 
+      # Clear cache to ensure fresh validation
+      Ukiryu::Definition::Loader.clear_cache
+
       expect do
         Ukiryu::Tool.load(temp_file, validation: :strict)
-      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'version' field/)
+      end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Missing 'version' field/)
     end
   end
 
@@ -286,7 +289,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
       expect do
         loader.send(:validate_profile, profile, :strict)
-      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'name' field/)
+      end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Missing 'name' field/)
     end
 
     it 'detects missing version' do
@@ -296,7 +299,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
       expect do
         loader.send(:validate_profile, profile, :strict)
-      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'version' field/)
+      end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Missing 'version' field/)
     end
 
     it 'detects missing or empty profiles' do
@@ -306,7 +309,7 @@ RSpec.describe 'Ukiryu::Tool Direct Loading' do
 
       expect do
         loader.send(:validate_profile, profile, :strict)
-      end.to raise_error(Ukiryu::DefinitionValidationError, /Missing 'profiles' field/)
+      end.to raise_error(Ukiryu::Errors::DefinitionValidationError, /Missing 'profiles' field/)
     end
   end
 
