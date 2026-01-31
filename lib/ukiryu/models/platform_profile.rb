@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require 'lutaml/model'
-require_relative 'command_definition'
-require_relative 'env_var_definition'
-require_relative 'routing'
-require_relative 'exit_codes'
 
 module Ukiryu
   module Models
@@ -22,11 +18,11 @@ module Ukiryu
       attribute :platforms, :string, collection: true, default: []
       attribute :shells, :string, collection: true, default: []
       attribute :option_style, :string, default: 'single_dash_space'
-      attribute :commands, CommandDefinition, collection: true, initialize_empty: true
+      attribute :commands, Ukiryu::Models::CommandDefinition, collection: true, initialize_empty: true
       attribute :inherits, :string
       attribute :routing_data, :hash, default: {} # Raw routing from YAML
       attribute :version_requirement, :string # Semantic version requirement (e.g., ">= 2.30")
-      attribute :exit_codes, ExitCodes # Exit code definitions for this profile
+      attribute :exit_codes, Ukiryu::Models::ExitCodes # Exit code definitions for this profile
       attribute :env_var_sets, :hash, default: {} # Reusable env var sets (e.g., "headless")
 
       yaml do
@@ -47,7 +43,7 @@ module Ukiryu
       #
       # @return [Routing] the routing table
       def routing
-        @routing ||= Routing.new(@routing_data || {})
+        @routing ||= Ukiryu::Models::Routing.new(@routing_data || {})
       end
 
       # Check if this profile has routing defined
@@ -148,7 +144,20 @@ module Ukiryu
       def build_commands_index
         return unless commands
 
-        @commands_index = commands.to_h { |c| [c.name, c] }
+        # Handle both array and single object cases
+        # In some cases (e.g., serialization edge cases), commands might be
+        # a single CommandDefinition instead of an array
+        commands_array = if commands.is_a?(Array)
+                           commands
+                         elsif commands.respond_to?(:each) && commands.class.name.include?('CommandDefinition')
+                           # Single CommandDefinition object - wrap in array
+                           [commands]
+                         else
+                           # Unknown type - try to convert to array
+                           Array(commands).compact
+                         end
+
+        @commands_index = commands_array.to_h { |c| [c.name, c] }
         @commands_index_built = true
       end
     end

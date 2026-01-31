@@ -48,6 +48,8 @@ The pronunciation of "ukiryu" ("yoo-kee-rhoo") is the English transliteration of
 the Kanji characters 「浮流」, read in Hiragana as 「うきりゅう」.
 
 In the view that a command line tool is a vessel for performing tasks, Ukiryu
+provides the harmonized definitions and interfaces that make cross-platform CLI
+tool integration predictable and reliable.
 serves as the flexible flow that guides its path through different environments.
 
 
@@ -142,11 +144,256 @@ through declarative YAML profiles.
 
 === Key Concepts
 
-* **Tool**: A command-line utility (e.g., `inkscape`, `imagemagick`)
-* **Command**: An action a tool performs (e.g., `export`, `convert`)
-* **Action**: A specific operation within a command (e.g., `export_pdf`)
-* **Routing**: Mapping command names to their implementations
+* **Package**: A distribution unit (e.g., `imagemagick`, `busybox`, `coreutils`)
+* **Tool**: A CLI command you run (e.g., `convert`, `identify`, `ls`, `gzip`)
+* **Interface**: An abstract API contract that multiple tools can implement
+* **Command**: An operation a tool performs
 * **Profile**: YAML file defining tool behavior across platforms/versions
+
+[TIP]
+====
+One package can provide multiple tools, and one interface can be implemented by multiple different tools.
+
+For example:
+* The `imagemagick` package provides the `convert`, `identify`, and `mogrify` tools
+* Both `imagemagick-6` and `imagemagick-7` implement the `convert` interface
+* BusyBox provides many tools (`ls`, `cat`, `gzip`) as one executable
+====
+
+=== Architecture: Packages, Tools, and Interfaces
+
+Ukiryu's architecture is built on a clear separation between distribution units (packages), executable commands (tools), and their abstract contracts (interfaces).
+
+[source]
+----
+.Package, Tool, and Interface Relationships
+┌──────────────────────────────────────────────────────────────────┐
+│                                                                   │
+│  PACKAGE (Distribution Unit)                                     │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │ imagemagick-7.1 (Homebrew, MacPorts, apt, etc.)         │     │
+│  │                                                           │     │
+│  │  Provides multiple tools:                                │     │
+│  │  ├─ magick (main executable)                             │     │
+│  │  ├─ convert (tool)                                       │     │
+│  │  ├─ identify (tool)                                      │     │
+│  │  └─ mogrify (tool)                                       │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                                                                   │
+│  INTERFACE (Abstract Contract)                                  │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │ convert interface                                        │     │
+│  │                                                           │     │
+│  │  Defines:                                                │     │
+│  │  ├─ Image format conversion capabilities                 │     │
+│  │  ├─ Common options: resize, quality, strip               │     │
+│  │  └─ Input/output file arguments                          │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│         │                         │                             │
+│         │ implements              │ implements                  │
+│         ▼                         ▼                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐              │
+│  │ imagemagick-6       │  │ imagemagick-7       │              │
+│  │ convert tool        │  │ convert tool        │              │
+│  │                     │  │                     │              │
+│  │ Invocation:         │  │ Invocation:         │              │
+│  │ convert input.png   │  │ magick convert      │              │
+│  │   output.jpg        │  │   input.png         │              │
+│  │                     │  │   output.jpg        │              │
+│  │ standalone: true    │  │ subcommand: true    │              │
+│  └─────────────────────┘  └─────────────────────┘              │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+----
+
+==== What is a Package?
+
+A **package** is a distribution unit - how software is installed and distributed:
+
+* Homebrew formula: `brew install imagemagick`
+* MacPorts port: `sudo port install ImageMagick7`
+* apt package: `apt install imagemagick`
+* Chocolatey package: `choco install imagemagick`
+
+[WARNING]
+====
+Ukiryu does **NOT** define packages in YAML. Package management is the responsibility of the system administrator or CI/CD configuration.
+
+Ukiryu defines **tools**, not packages.
+====
+
+==== What is a Tool?
+
+A **tool** is a CLI command you can run - an executable with a specific interface:
+
+* `convert` - Image conversion tool
+* `identify` - Image information tool
+* `ls` - List directory contents
+* `gzip` - Compression tool
+
+One YAML file defines **one tool**:
+
+[source,yaml]
+----
+# register/tools/convert/6.9.yaml
+name: convert
+version: "6.9"
+display_name: ImageMagick 6.x Convert
+implements: [convert]  # Declares which interface this provides
+
+version_detection:
+  command: -version
+  pattern: 'Version: ImageMagick ([\d.]+)'
+
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish, sh]
+
+    commands:
+      - name: convert
+        standalone_executable: true
+        description: Convert between image formats
+
+        arguments:
+          - name: inputs
+            type: file
+            variadic: true
+          - name: output
+            type: file
+            position: last
+----
+
+==== What is an Interface?
+
+An **interface** is an abstract API contract that defines:
+
+* What operations can be performed
+* What parameters are accepted
+* what behavior is expected
+
+Interfaces are **typically not explicitly declared** in YAML - they emerge from the tool's command definition. However, tools can declare which interfaces they implement:
+
+[source,yaml]
+----
+# convert tool declares it implements the "convert" interface
+implements: [convert]
+
+# A "pdf2svg" tool might also implement the convert interface
+implements: [convert]
+----
+
+Multiple tools can implement the same interface:
+
+[source,yaml]
+----
+# imagemagick/6.9.yaml
+name: convert
+version: "6.9"
+implements: [convert]
+
+# imagemagick/7.1.yaml
+name: convert
+version: "7.1"
+implements: [convert]
+
+# graphicsmagick/1.3.yaml
+name: gm
+version: "1.3"
+implements: [convert]  # GraphicsMagick's gm convert implements same interface
+----
+
+==== How Invocation Patterns Differ
+
+Different implementations of the same interface have different **invocation patterns**:
+
+*ImageMagick 6.x*:
+[source,bash]
+----
+convert input.png -resize 50% output.png
+# "convert" is a standalone executable
+----
+
+*ImageMagick 7.x*:
+[source,bash]
+----
+magick convert input.png -resize 50% output.png
+# "convert" is a subcommand of "magick"
+----
+
+The YAML profiles capture these differences:
+
+[source,yaml]
+----
+# IM6: standalone executable
+- name: convert
+  standalone_executable: true
+  # Invocation: /usr/bin/convert input.png output.png
+
+# IM7: subcommand
+- name: convert
+  subcommand: convert
+  # Invocation: /usr/bin/magick convert input.png output.png
+----
+
+==== Identity Detection
+
+How does Ukiryu know which implementation it's using? Through **identity detection** - self-contained verification mechanisms intrinsic to the executable itself:
+
+*Version Detection* (primary mechanism):
+[source,yaml]
+----
+version_detection:
+  command: -version
+  pattern: 'Version: ImageMagick ([\d.]+)'
+  modern_threshold: '7.0'
+----
+
+[IMPORTANT]
+====
+Identity detection must be **self-contained** - it only uses information from the executable itself:
+
+* Allowed: Version patterns, help text, command availability
+* **NOT allowed**: Checksums, package manager queries, external APIs
+
+This ensures tools work regardless of how they were installed.
+====
+
+==== Example: BusyBox Multiplexing
+
+BusyBox provides many Unix commands as one executable, using symlinks or applets:
+
+[source,bash]
+----
+# These all point to the same BusyBox binary:
+/bin/ls → /bin/busybox
+/bin/cat → /bin/busybox
+/bin/gzip → /bin/busybox
+----
+
+How do we know it's BusyBox and not the real `gzip`?
+
+[source,yaml]
+----
+# busybox/gzip.yaml
+name: gzip
+version: "1.35"
+implements: [gzip]
+
+version_detection:
+  command: --help
+  # BusyBox's gzip identifies itself in help output
+  pattern: 'BusyBox v([\d.]+)'
+
+profiles:
+  - name: default
+    commands:
+      - name: gzip
+        subcommand: gzip
+        # Invocation: busybox gzip -d file.gz
+----
+
+When version detection shows "BusyBox v1.35.0", Ukiryu knows this is the BusyBox implementation, not GNU gzip.
 
 === Architecture
 
@@ -601,7 +848,7 @@ jobs:
   convert:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Ukiryu
         run: gem install ukiryu
@@ -1935,3 +2182,5 @@ Copyright Ribose.
 
 * https://github.com/ukiryu/register[ukiryu/register] - Tool profile register
 * https://github.com/ukiryu/schema[ukiryu/schema] - Profile validation schema
+
+

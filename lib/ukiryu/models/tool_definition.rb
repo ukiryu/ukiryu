@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require 'lutaml/model'
-require_relative 'platform_profile'
-require_relative 'version_detection'
-require_relative 'search_paths'
-require_relative 'components'
 
 module Ukiryu
   module Models
@@ -20,9 +16,10 @@ module Ukiryu
       attribute :display_name, :string
       attribute :homepage, :string
       attribute :version, :string
-      attribute :implements, :string
+      attribute :implements, :string, collection: true, default: [] # v2: array of interface names
       attribute :aliases, :string, collection: true, default: []
       attribute :timeout, :integer, default: 90
+      attribute :invocation, Invocation # v2: invocation configuration
       attribute :profiles, PlatformProfile, collection: true
       attribute :version_detection, VersionDetection
       attribute :search_paths, SearchPaths
@@ -35,9 +32,10 @@ module Ukiryu
         map_element 'display_name', to: :display_name
         map_element 'homepage', to: :homepage
         map_element 'version', to: :version
-        map_element 'implements', to: :implements
+        map_element 'implements', to: :implements # v2: array mapping
         map_element 'aliases', to: :aliases
         map_element 'timeout', to: :timeout
+        map_element 'invocation', to: :invocation # v2: invocation mapping
         map_element 'profiles', to: :profiles
         map_element 'version_detection', to: :version_detection
         map_element 'search_paths', to: :search_paths
@@ -50,11 +48,8 @@ module Ukiryu
       # @param shell [Symbol] the shell
       # @return [PlatformProfile, nil] the compatible profile
       def compatible_profile(platform: nil, shell: nil)
-        require_relative '../platform'
-        require_relative '../shell'
-
-        platform ||= Platform.detect
-        shell ||= Shell.detect
+        platform ||= Ukiryu::Platform.detect
+        shell ||= Ukiryu::Shell.detect
         return nil unless platform && shell
 
         return nil if profiles.empty?
@@ -69,7 +64,30 @@ module Ukiryu
       # @param interface_name [String, Symbol] the interface name
       # @return [Boolean] true if implements
       def implements?(interface_name)
-        implements == interface_name.to_s
+        # v2: implements is an array, check if it contains the interface
+        # v1: implements is a string, check for equality
+        interface_sym = interface_name.to_s.to_sym
+        implements_any?(interface_sym)
+      end
+
+      # Check if tool implements any of the given interfaces
+      #
+      # @param interface_names [Array<Symbol>] the interface names to check
+      # @return [Boolean] true if implements any of the given interfaces
+      def implements_any?(*interface_names)
+        return false if implements.nil? || implements.empty?
+
+        interface_syms = interface_names.flatten.map(&:to_sym)
+        implements_syms = implements.map(&:to_sym)
+
+        (interface_syms & implements_syms).any?
+      end
+
+      # Get all interfaces this tool implements
+      #
+      # @return [Array<String>] array of interface names
+      def interfaces
+        implements || []
       end
 
       # Check if tool is available on a platform

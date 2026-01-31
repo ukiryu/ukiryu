@@ -6,7 +6,7 @@ homepage: https://github.com/mikefarah/yq
 version: '1.0'
 version_detection:
   command: --version
-  pattern: 'version v([\d.]+)'
+  pattern: 'yq (\d+\.\d+\.\d+)'
 search_paths:
   macos:
   - /opt/homebrew/bin/yq
@@ -18,11 +18,14 @@ profiles:
   platforms:
   - macos
   - linux
+  - windows
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: eval
     description: Evaluate YAML expression

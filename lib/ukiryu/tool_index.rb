@@ -167,10 +167,19 @@ module Ukiryu
         tool_sym = tool_name.to_sym
 
         # Index by interface (multiple tools can implement one interface)
-        implements = hash['implements']&.to_sym
-        if implements
-          @interface_to_tools[implements] ||= []
-          @interface_to_tools[implements] << tool_sym unless @interface_to_tools[implements].include?(tool_sym)
+        # v2: implements is an array, v1: implements is a string
+        implements_value = hash['implements']
+        if implements_value
+          interfaces = if implements_value.is_a?(Array)
+                         implements_value.map(&:to_sym)
+                       else
+                         [implements_value.to_sym]
+                       end
+
+          interfaces.each do |interface_sym|
+            @interface_to_tools[interface_sym] ||= []
+            @interface_to_tools[interface_sym] << tool_sym unless @interface_to_tools[interface_sym].include?(tool_sym)
+          end
         end
 
         # Index by alias

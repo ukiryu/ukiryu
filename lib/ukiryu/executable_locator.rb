@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'executor'
-require_relative 'platform'
-require_relative 'models/search_paths'
-
 module Ukiryu
   # Executable locator for finding tool executables
   #
@@ -30,7 +26,7 @@ module Ukiryu
       # @param platform [Symbol] the platform (defaults to Runtime.platform)
       # @return [String, nil] the executable path or nil if not found
       def find(tool_name:, aliases: [], search_paths: [], platform: nil)
-        platform ||= Runtime.instance.platform
+        platform ||= Ukiryu::Runtime.instance.platform
 
         # Convert SearchPaths model to array if needed
         paths = normalize_search_paths(search_paths, platform)
@@ -57,7 +53,7 @@ module Ukiryu
         # Try with PATHEXT extensions (Windows executables)
         exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
 
-        search_paths = Platform.executable_search_paths
+        search_paths = Ukiryu::Platform.executable_search_paths
         search_paths.concat(additional_paths) if additional_paths
         search_paths.uniq!
 
@@ -96,11 +92,17 @@ module Ukiryu
 
       # Try to find an executable by name
       #
+      # PATH-FIRST approach: Check system PATH first, then fallback to search_paths
+      #
       # @param command [String] the command name
-      # @param search_paths [Array<String>] custom search paths
+      # @param search_paths [Array<String>] custom search paths (fallback only)
       # @return [String, nil] the executable path or nil
       def try_find(command, search_paths)
-        # Check custom search paths first (both absolute paths and glob patterns)
+        # FIRST: Try PATH discovery using native commands (which/command -v)
+        path = find_via_system_command(command)
+        return path if path
+
+        # SECOND: Check custom search paths as fallback
         search_paths.each do |path_pattern|
           # Handle glob patterns
           if path_pattern.include?('*')
@@ -113,8 +115,41 @@ module Ukiryu
           end
         end
 
-        # Fall back to PATH
+        # LAST: Manual PATH search as final fallback
         find_in_path(command)
+      end
+
+      # Find executable via system command (which/where/command -v)
+      #
+      # @param command [String] the command name
+      # @return [String, nil] the executable path or nil
+      def find_via_system_command(command)
+        platform = Ukiryu::Runtime.instance.platform
+
+        if platform == :windows
+          execute_and_parse('where', ["#{command}.exe"])
+        else
+          # Try 'command -v' (POSIX standard) via sh first
+          execute_and_parse('sh', ['-c', "command -v '#{command}' 2>/dev/null"]) ||
+            # Fallback to 'which'
+            execute_and_parse('which', [command])
+        end
+      end
+
+      # Execute command and return parsed stdout if successful
+      #
+      # @param executable [String] the command to run
+      # @param args [Array<String>] arguments
+      # @return [String, nil] stdout stripped or nil if failed
+      def execute_and_parse(executable, args)
+        # Detect shell for internal utility
+        shell_class = Ukiryu::Shell.detect
+        result = Ukiryu::Executor.execute(executable, args, shell: shell_class, allow_failure: true)
+        return nil unless result.success?
+
+        # Take only the first line (where/which may return multiple matches)
+        path = result.stdout.split("\n").first.to_s.strip
+        path unless path.empty?
       end
     end
   end

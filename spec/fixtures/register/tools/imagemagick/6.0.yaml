@@ -1,22 +1,24 @@
-# Minimal imagemagick tool profile for testing
-# IMv7 uses unified 'magick' command with subcommands
+# ImageMagick 6.x tool profile
+# IMv6 uses individual commands (convert, identify, mogrify)
+# Primary executable: convert
 ukiryu_schema: '1.0'
 name: imagemagick
 display_name: ImageMagick
 homepage: https://imagemagick.org/
-version: '7.1'
+version: '6.0'
+aliases:
+  - convert
 version_detection:
-  command: --version
-  pattern: '(\d+\.\d+\.\d+)'
+  command: -version
+  pattern: 'Version:\s+ImageMagick\s+(6\.\d+\.\d+[\w.-]*)'
 search_paths:
   macos:
-  - /opt/homebrew/bin/magick
-  - /usr/local/bin/magick
+  - /usr/local/bin/convert
   linux:
-  - /usr/bin/magick
-  - /usr/local/bin/magick
+  - /usr/bin/convert
+  - /usr/local/bin/convert
   windows:
-  - 'C:/Program Files/ImageMagick*/magick.exe'
+  - 'C:/Program Files/ImageMagick*/convert.exe'
 timeout: 90
 profiles:
 - name: default
@@ -55,6 +57,7 @@ profiles:
       cli: -strip
   - name: identify
     subcommand: identify
+    standalone_executable: true
     description: Identify image attributes
     arguments:
     - name: inputs
@@ -62,6 +65,7 @@ profiles:
       variadic: true
   - name: mogrify
     subcommand: mogrify
+    standalone_executable: true
     description: Process multiple images
     arguments:
     - name: inputs

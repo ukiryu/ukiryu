@@ -5,7 +5,8 @@ display_name: FFmpeg
 homepage: https://ffmpeg.org/
 version: '1.0'
 version_detection:
-  command: -version
+  # ffmpeg -h outputs version info and returns exit code 0
+  command: -h
   pattern: 'ffmpeg version (\d+\.\d+)'
 search_paths:
   macos:
@@ -18,11 +19,14 @@ profiles:
   platforms:
   - macos
   - linux
+  - windows
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: convert
     description: Convert media files

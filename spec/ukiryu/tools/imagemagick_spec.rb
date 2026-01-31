@@ -6,11 +6,28 @@ require 'tool_helper'
 RSpec.describe 'ImageMagick Tool Profile' do
   include ToolHelper
 
-  before(:each) { @temp_dir = create_temp_dir }
+  before(:each) do
+    @temp_dir = create_temp_dir
+
+    # Skip ImageMagick tests on Windows ARM64 due to broken Chocolatey package
+    # The ARM64 build can't read images (RegistryKeyLookupFailed CoderModulesPath)
+    # This is a Chocolatey packaging issue, not a ukiryu bug
+    skip 'ImageMagick tests skipped on Windows ARM64 due to broken Chocolatey package' if Ukiryu::Platform.windows? && RbConfig::CONFIG['host_cpu'] =~ /arm|aarch64/i
+  end
 
   after(:each) do
     # Clean up temp directory
     FileUtils.rm_rf(@temp_dir) if @temp_dir && Dir.exist?(@temp_dir)
+  end
+
+  # Verify image dimensions using the identify command
+  # @param path [String] path to the image file
+  # @return [String] the identify output
+  def verify_image_dimensions(path)
+    tool = get_tool(:imagemagick)
+    result = tool.execute(:identify, { input: [path] })
+    raise "Failed to identify image: #{result.stderr}" unless result.success?
+    result.stdout
   end
 
   describe 'tool availability' do
@@ -19,7 +36,8 @@ RSpec.describe 'ImageMagick Tool Profile' do
 
       tool = get_tool(:imagemagick)
       expect(tool.available?).to be true
-      expect(tool.executable).to match(/magick/)
+      # ImageMagick v7 uses 'magick' command, v6 uses 'convert'
+      expect(tool.executable).to match(/magick|convert/)
       expect(tool.version).to match(/\d+\.\d+/)
     end
   end
@@ -64,7 +82,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
       expect(File.exist?(output)).to be true
 
       # Verify dimensions
-      info = `magick identify #{output}`
+      info = verify_image_dimensions(output)
       expect(info).to match(/50x50/)
     end
 
@@ -121,7 +139,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
       expect(File.exist?(output)).to be true
 
       # Verify dimensions
-      info = `magick identify #{output}`
+      info = verify_image_dimensions(output)
       expect(info).to match(/75x75/)
     end
 
@@ -153,7 +171,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
 
       tool = get_tool(:imagemagick)
       result = tool.execute(:identify, {
-                              inputs: [input]
+                              input: [input]
                             })
 
       expect(result.success?).to be true
@@ -168,7 +186,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
 
       tool = get_tool(:imagemagick)
       result = tool.execute(:identify, {
-                              inputs: [input1, input2]
+                              input: [input1, input2]
                             })
 
       expect(result.success?).to be true
@@ -192,7 +210,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
       expect(result.success?).to be true
 
       # Verify the file was modified
-      info = `magick identify #{input}`
+      info = verify_image_dimensions(input)
       expect(info).to match(/50x50/)
     end
   end
