@@ -399,7 +399,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     let(:tool) { Ukiryu::Tool.find_by(:ffmpeg) }
 
     it 'detects version' do
-      skip 'FFmpeg version detection needs fix in register (command should be -version, not [])' unless tool&.version
+      skip 'FFmpeg not available on this system' unless tool&.available?
 
       expect(tool).to be_available
       version = tool.version

@@ -5,9 +5,8 @@ display_name: FFmpeg
 homepage: https://ffmpeg.org/
 version: '1.0'
 version_detection:
-  # ffmpeg outputs version info when run without arguments
-  # Use empty array to mean "run with no arguments"
-  command: []
+  # ffmpeg -h outputs version info and returns exit code 0
+  command: -h
   pattern: 'ffmpeg version (\d+\.\d+)'
 search_paths:
   macos:
