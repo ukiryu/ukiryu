@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base'
 require 'open3'
 require 'timeout'
 
@@ -128,8 +127,6 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command(executable, args, env, timeout, cwd = nil)
-        require_relative '../executor'
-
         # Build the command with proper quoting for each element
         # Use double quotes for PowerShell -Command (works better than single quotes)
         exe_quoted = %("#{escape(executable)}")
@@ -193,8 +190,6 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command_with_stdin(executable, args, env, timeout, cwd, stdin_data)
-        require_relative '../executor'
-
         # Build the command with proper quoting for each element
         # Use double quotes for PowerShell -Command (works better than single quotes)
         exe_quoted = %("#{escape(executable)}")

@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../runtime'
-require_relative '../command_builder'
-require_relative 'class_generator'
-require_relative 'executable_finder'
-
 module Ukiryu
   # Tools namespace for tool-specific classes
   #
@@ -56,7 +51,7 @@ module Ukiryu
           raise ArgumentError, "Unknown command: #{command_name}" unless command_def
 
           # Generate the options class using ClassGenerator
-          options_class = ClassGenerator.generate_options_class(self, command_name, command_def)
+          options_class = Ukiryu::Tools::ClassGenerator.generate_options_class(self, command_name, command_def)
           @options_classes[command_name] = options_class
           options_class
         end
@@ -83,7 +78,7 @@ module Ukiryu
           raise ArgumentError, "Unknown command: #{command_name}" unless command_def
 
           # Generate the action class using ClassGenerator
-          action_class = ClassGenerator.generate_action_class(self, command_name, command_def)
+          action_class = Ukiryu::Tools::ClassGenerator.generate_action_class(self, command_name, command_def)
           @action_classes[command_name] = action_class
           action_class
         end
@@ -113,7 +108,7 @@ module Ukiryu
             # Check for compatible profile first
             return false unless platform_profile
 
-            executable = ExecutableFinder.find_executable(@tool_definition.name.to_s, @tool_definition)
+            executable = Ukiryu::ExecutableFinder.find_executable(@tool_definition.name.to_s, @tool_definition)
             !executable.nil?
           end
         end
@@ -132,7 +127,7 @@ module Ukiryu
           raise ArgumentError, "Unknown command: #{command_name}" unless command_def
 
           # Generate the response class using ClassGenerator
-          response_class = ClassGenerator.generate_response_class(self, command_name, command_def)
+          response_class = Ukiryu::Tools::ClassGenerator.generate_response_class(self, command_name, command_def)
           @response_classes[command_name] = response_class
           response_class
         end
@@ -246,9 +241,6 @@ module Ukiryu
       # @param options [Object] the options object
       # @return [Response::Base] the execution response
       def execute(command_name, options)
-        require_relative '../executor'
-        require_relative '../options_builder'
-
         command_name = command_name.to_sym
         # Get command from platform profile model
         command_def = self.class.platform_profile.command(command_name.to_s)
@@ -266,7 +258,7 @@ module Ukiryu
         args = build_args(command_def, params)
 
         # Find executable using ExecutableFinder
-        executable = ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
 
         # Get shell
         shell_sym = Ukiryu::Runtime.instance.shell
@@ -293,7 +285,7 @@ module Ukiryu
       #
       # @return [String, nil] the executable path or nil
       def find_executable
-        ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
       end
 
       # Message when executable is not found
@@ -326,7 +318,6 @@ module Ukiryu
         executable = find_executable
         return nil unless executable
 
-        require_relative '../executor'
         shell_sym = Ukiryu::Runtime.instance.shell
         result = Ukiryu::Executor.execute(executable, [cmd], shell: shell_sym, allow_failure: true)
 
@@ -411,8 +402,6 @@ module Ukiryu
       # @param result [Executor::Result] the execution result
       # @return [Response::Base] the response object
       def build_response(command_name, result)
-        require_relative '../response/base'
-
         # Get the response class for this command
         response_class = self.class.response_class_for(command_name)
 
@@ -434,10 +423,9 @@ module Ukiryu
 
         cmd = vd.command
 
-        executable = ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
         return nil unless executable
 
-        require_relative '../executor'
         shell_sym = Ukiryu::Runtime.instance.shell
 
         # If command is an empty array, run executable with no arguments

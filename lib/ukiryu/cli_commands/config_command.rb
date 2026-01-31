@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative '../config'
-require_relative '../register_auto_manager'
 require 'yaml'
 require 'fileutils'
 
@@ -229,7 +226,7 @@ module Ukiryu
       #
       # @return [String] formatted register display
       def format_register_display
-        info = RegisterAutoManager.register_info
+        info = Ukiryu::RegisterAutoManager.register_info
 
         case info[:status]
         when :ok

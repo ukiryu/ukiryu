@@ -1,20 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'register'
-require_relative 'executor'
-require_relative 'shell'
-require_relative 'runtime'
-require_relative 'command_builder'
-require_relative 'tools/base'
-require_relative 'tools/generator'
-require_relative 'cache'
-require_relative 'executable_locator'
-require_relative 'version_detector'
-require_relative 'logger'
-require_relative 'tool_index'
-require_relative 'models/routing'
-require_relative 'errors'
-
 module Ukiryu
   # Tool wrapper class for external command-line tools
   #
@@ -42,7 +27,7 @@ module Ukiryu
       #
       # @return [Cache] the tools cache
       def tools_cache
-        @tools_cache ||= Cache.new(max_size: 50, ttl: 3600)
+        @tools_cache ||= Ukiryu::Cache.new(max_size: 50, ttl: 3600)
       end
 
       # Get a tool by name (traditional API)
@@ -133,19 +118,18 @@ module Ukiryu
       # @return [Tool, nil] the tool instance or nil if not found
       def find_by(identifier, options = {})
         identifier = identifier.to_s
-        runtime = Runtime.instance
+        runtime = Ukiryu::Runtime.instance
         platform = options[:platform] || runtime.platform
         shell = options[:shell] || runtime.shell
 
         # Create logger instance
-        logger = Logger.new
+        logger = Ukiryu::Logger.new
 
         # 1. Try exact name match first (fastest path)
         begin
           tool = get(identifier, options)
           if logger.debug_enabled?
-            require_relative 'register'
-            all_tools = Register.tools
+            all_tools = Ukiryu::Register.tools
             logger.debug_section_tool_resolution(
               identifier: identifier,
               platform: platform,
@@ -161,7 +145,7 @@ module Ukiryu
         end
 
         # 2. Use ToolIndex for O(1) interface lookup
-        index = ToolIndex.instance
+        index = Ukiryu::ToolIndex.instance
         interface_tool_names = index.find_all_by_interface(identifier.to_sym)
         if interface_tool_names.any?
           interface_tool_names.each do |tool_name|
@@ -184,8 +168,7 @@ module Ukiryu
         end
 
         # 4. Fallback to exhaustive search (should rarely reach here)
-        require_relative 'register'
-        all_tools = Register.tools
+        all_tools = Ukiryu::Register.tools
 
         all_tools.each do |tool_name|
           tool_def = Tools::Generator.load_tool_definition(tool_name)
@@ -261,7 +244,7 @@ module Ukiryu
       # @param tool_name [Symbol, String] the tool name
       # @return [Class] the tool class (e.g., Ukiryu::Tools::Imagemagick)
       def get_class(tool_name)
-        Tools::Generator.generate_and_const_set(tool_name)
+        Ukiryu::Tools::Generator.generate_and_const_set(tool_name)
       end
 
       # Clear the tool cache
@@ -269,15 +252,14 @@ module Ukiryu
       # @api public
       def clear_cache
         tools_cache.clear
-        Tools::Generator.clear_cache
+        Ukiryu::Tools::Generator.clear_cache
       end
 
       # Clear the definition cache only
       #
       # @api public
       def clear_definition_cache
-        require_relative 'definition/loader'
-        Definition::Loader.clear_cache
+        Ukiryu::Definition::Loader.clear_cache
       end
 
       # Alias for load - load from file path
@@ -315,11 +297,8 @@ module Ukiryu
       # @return [Tool] the tool instance
       # @raise [DefinitionLoadError] if file cannot be loaded or validation fails
       def load(file_path, options = {})
-        require_relative 'definition/loader'
-        require_relative 'definition/sources/file'
-
-        source = Definition::Sources::FileSource.new(file_path)
-        profile = Definition::Loader.load_from_source(source, options)
+        source = Ukiryu::Definition::Sources::FileSource.new(file_path)
+        profile = Ukiryu::Definition::Loader.load_from_source(source, options)
         new(profile, options.merge(definition_source: source))
       end
 
@@ -333,11 +312,8 @@ module Ukiryu
       # @return [Tool] the tool instance
       # @raise [DefinitionLoadError] if YAML cannot be parsed or validation fails
       def load_from_string(yaml_string, options = {})
-        require_relative 'definition/loader'
-        require_relative 'definition/sources/string'
-
-        source = Definition::Sources::StringSource.new(yaml_string)
-        profile = Definition::Loader.load_from_source(source, options)
+        source = Ukiryu::Definition::Sources::StringSource.new(yaml_string)
+        profile = Ukiryu::Definition::Loader.load_from_source(source, options)
         new(profile, options.merge(definition_source: source))
       end
 
@@ -371,9 +347,7 @@ module Ukiryu
       #
       # @return [Array<String>] list of search paths
       def bundled_definition_search_paths
-        require_relative 'platform'
-
-        platform = Platform.detect
+        platform = Ukiryu::Platform.detect
 
         paths = case platform
                 when :macos, :linux
@@ -419,9 +393,7 @@ module Ukiryu
       # @example Extract and write to file
       #   result = Tool.extract_definition(:git, output: './git.yaml')
       def extract_definition(tool_name, options = {})
-        require_relative 'extractors/extractor'
-
-        result = Extractors::Extractor.extract(tool_name, options)
+        result = Ukiryu::Extractors::Extractor.extract(tool_name, options)
 
         # Write to output file if specified
         output = options.delete(:output)
@@ -438,7 +410,7 @@ module Ukiryu
 
       # Generate a cache key for a tool
       def cache_key_for(name, options)
-        runtime = Runtime.instance
+        runtime = Ukiryu::Runtime.instance
         platform = options[:platform] || runtime.platform
         shell = options[:shell] || runtime.shell
         version = options[:version] || 'latest'
@@ -447,8 +419,7 @@ module Ukiryu
 
       # Load a profile for a tool
       def load_profile(name, options = {})
-        require_relative 'tools/generator'
-        Tools::Generator.load_tool_definition(name.to_s, version: options[:version])
+        Ukiryu::Tools::Generator.load_tool_definition(name.to_s, version: options[:version])
       end
 
       # Load a built-in profile
@@ -467,7 +438,7 @@ module Ukiryu
       @profile = profile
       @options = options
       @definition_source = options[:definition_source]
-      runtime = Runtime.instance
+      runtime = Ukiryu::Runtime.instance
 
       # Allow override via options for testing
       @platform = options[:platform]&.to_sym || runtime.platform
@@ -584,7 +555,6 @@ module Ukiryu
         params.transform_keys(&:to_sym)
       elsif !params.is_a?(Hash)
         # It's an options object, convert to hash
-        require_relative 'options_builder'
         Ukiryu::OptionsBuilder.to_hash(params)
       else
         params
@@ -600,7 +570,7 @@ module Ukiryu
     # @param stdin [String, nil] optional stdin input
     # @return [Executor::Result] the execution result
     def execute_with_config(executable, args, command_def, params, stdin:)
-      Executor.execute(
+      Ukiryu::Executor.execute(
         executable,
         args,
         env: build_env_vars(command_def, @command_profile, params),
@@ -699,7 +669,6 @@ module Ukiryu
     # @param command_name [Symbol] the command name
     # @return [Class] the options class for this command
     def options_for(command_name)
-      require_relative 'options_builder'
       Ukiryu::OptionsBuilder.for(@profile.name, command_name)
     end
 
@@ -882,7 +851,7 @@ module Ukiryu
 
     # Find the executable path using ExecutableLocator
     def find_executable
-      ExecutableLocator.find(
+      ::Ukiryu::ExecutableLocator.find(
         tool_name: @profile.name,
         aliases: @profile.aliases || [],
         search_paths: @profile.search_paths,
@@ -935,7 +904,7 @@ module Ukiryu
         command_args = vd.command
       end
 
-      VersionDetector.detect_info(
+      Ukiryu::VersionDetector.detect_info(
         executable: executable,
         command: command_args,
         pattern: vd.pattern || /(\d+\.\d+)/,
@@ -993,7 +962,7 @@ module Ukiryu
         end
       end
 
-      VersionDetector.detect_with_methods(
+      Ukiryu::VersionDetector.detect_with_methods(
         executable: @executable,
         methods: detector_methods,
         shell: @shell,
@@ -1006,14 +975,12 @@ module Ukiryu
     # @param mode [Symbol] check mode (:strict, :lenient, :probe)
     # @return [VersionCompatibility] the compatibility result
     def check_version_compatibility(mode = :strict)
-      require_relative 'models/version_compatibility'
-
       installed = version
       requirement = profile_version_requirement
 
       # If no requirement, always compatible
       if !requirement || requirement.empty?
-        return VersionCompatibility.new(
+        return Ukiryu::VersionCompatibility.new(
           installed_version: installed || 'unknown',
           required_version: 'none',
           compatible: true,
@@ -1027,14 +994,14 @@ module Ukiryu
       # If still unknown, handle based on mode
       unless installed
         if mode == :strict
-          return VersionCompatibility.new(
+          return Ukiryu::VersionCompatibility.new(
             installed_version: 'unknown',
             required_version: requirement,
             compatible: false,
             reason: 'Cannot determine installed tool version'
           )
         else
-          return VersionCompatibility.new(
+          return Ukiryu::VersionCompatibility.new(
             installed_version: 'unknown',
             required_version: requirement,
             compatible: true,
@@ -1044,7 +1011,7 @@ module Ukiryu
       end
 
       # Check compatibility
-      result = VersionCompatibility.check(installed, requirement)
+      result = Ukiryu::VersionCompatibility.check(installed, requirement)
 
       if !result.compatible? && mode == :lenient
         # In lenient mode, return compatible but with warning

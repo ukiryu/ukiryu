@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../environment'
-require_relative '../executor'
-
 module Ukiryu
   module Extractors
     # Base class for definition extraction strategies
@@ -50,20 +47,18 @@ module Ukiryu
       # @param env [Environment, Hash] optional environment overrides
       # @return [Hash] result with :stdout, :stderr, :exit_status keys
       def execute_command(command, env = nil)
-        require_relative '../shell'
-
         # Build environment using Environment system
-        environment = env.is_a?(Environment) ? env : Environment.from_env
+        environment = env.is_a?(Ukiryu::Environment) ? env : Ukiryu::Environment.from_env
 
         # Detect shell for internal extractor utilities
-        shell_class = Shell.detect
+        shell_class = Ukiryu::Shell.detect
 
         # Extract executable and args from command array
         executable = command.first
         args = command[1..]
 
         # Execute through Executor (uses Environment system internally)
-        result = Executor.execute(executable, args, env: environment, shell: shell_class, allow_failure: true)
+        result = Ukiryu::Executor.execute(executable, args, env: environment, shell: shell_class, allow_failure: true)
 
         {
           stdout: result.stdout,

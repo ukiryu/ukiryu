@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'platform'
-require_relative 'executor'
 require 'time'
 require 'date'
 
@@ -48,7 +46,7 @@ module Ukiryu
       # @param paths [Hash] platform-specific path templates
       # @return [String, nil] resolved man page path or nil
       def resolve_man_page_path(tool_name, paths = {})
-        platform = Platform.current
+        platform = Ukiryu::Platform.current
 
         # Get platform-specific path pattern
         path_pattern = paths[platform]

@@ -13,11 +13,9 @@ module Ukiryu
       # @param tool_definition [Models::ToolDefinition] the tool definition
       # @return [String, nil] path to executable or nil
       def self.find_executable(tool_name, tool_definition)
-        require_relative '../executable_locator'
-
         platform = Ukiryu::Runtime.instance.platform
 
-        ExecutableLocator.find(
+        Ukiryu::ExecutableLocator.find(
           tool_name: tool_name,
           aliases: tool_definition.aliases || [],
           search_paths: tool_definition.search_paths,

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../../lib/ukiryu/shell/powershell'
 
 RSpec.describe Ukiryu::Shell::PowerShell do
   let(:shell) { described_class.new }

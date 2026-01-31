@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../../lib/ukiryu/shell/bash'
 require_relative 'unix_base_shared_examples'
 
 RSpec.describe Ukiryu::Shell::Bash do

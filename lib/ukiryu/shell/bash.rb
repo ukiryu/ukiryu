@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'unix_base'
-
 module Ukiryu
   module Shell
     # Bash shell implementation
@@ -63,8 +61,6 @@ module Ukiryu
       #
       # @return [Hash] environment variables for headless operation
       def headless_environment
-        require_relative '../platform'
-
         env = {}
 
         # Completely remove DISPLAY instead of setting to empty string
@@ -72,7 +68,7 @@ module Ukiryu
         # The executor will exclude this key from the environment entirely
 
         # Add macOS-specific environment variables to prevent GUI initialization
-        if Platform.detect == :macos
+        if Ukiryu::Platform.detect == :macos
           env['NSAppleEventsSuppressStartupAlert'] = 'true' # Suppress Apple Events
           env['NSUIElement'] = '1' # Run as background agent
           env['GDK_BACKEND'] = 'x11' # Force X11 backend (respects missing DISPLAY)

@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'type'
-require_relative 'shell'
-require_relative 'models/env_var_definition'
-
 module Ukiryu
   # CommandBuilder module provides shared command building functionality.
   #
@@ -73,7 +69,7 @@ module Ukiryu
 
         if arg_def.variadic
           # Variadic argument - expand array
-          array = Type.validate(value, :array, arg_def)
+          array = Ukiryu::Type.validate(value, :array, arg_def)
           array.each { |v| args << format_arg(v, arg_def) }
         else
           args << format_arg(value, arg_def)
@@ -95,7 +91,7 @@ module Ukiryu
         param_key = last_arg.name_sym
         if params.key?(param_key) && !params[param_key].nil?
           if last_arg.variadic
-            array = Type.validate(params[param_key], :array, last_arg)
+            array = Ukiryu::Type.validate(params[param_key], :array, last_arg)
             array.each { |v| args << format_arg(v, last_arg) }
           else
             args << format_arg(params[param_key], last_arg)
@@ -113,11 +109,11 @@ module Ukiryu
     # @return [String] the formatted argument
     def format_arg(value, arg_def)
       # Validate type
-      Type.validate(value, arg_def.type || :string, arg_def)
+      Ukiryu::Type.validate(value, arg_def.type || :string, arg_def)
 
       # Apply platform-specific path formatting
       if arg_def.type == :file
-        shell_class = Shell.class_for(@shell)
+        shell_class = Ukiryu::Shell.class_for(@shell)
         shell_class.new.format_path(value.to_s)
       else
         value.to_s
@@ -131,7 +127,7 @@ module Ukiryu
     # @return [String, Array<String>] the formatted option(s)
     def format_option(opt_def, value)
       # Validate type
-      Type.validate(value, opt_def.type || :string, opt_def)
+      Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
 
       # Handle boolean types - just return the CLI flag (no value)
       type_val = opt_def.type

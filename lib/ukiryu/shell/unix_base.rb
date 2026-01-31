@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base'
 require 'open3'
 require 'timeout'
 
@@ -42,8 +41,6 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command(executable, args, env, timeout, cwd = nil)
-        require_relative '../executor'
-
         # Build command string using this shell's quoting rules
         command_string = join(executable, *args)
 
@@ -84,8 +81,6 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command_with_stdin(executable, args, env, timeout, cwd, stdin_data)
-        require_relative '../executor'
-
         # Build command string using this shell's quoting rules
         command_string = join(executable, *args)
 
@@ -142,8 +137,6 @@ module Ukiryu
       # @return [String] the shell executable path
       # @raise [RuntimeError] if shell is not found
       def find_shell_executable
-        require_relative '../executor'
-
         command = shell_command
         path = Ukiryu::Executor.find_executable(command)
 

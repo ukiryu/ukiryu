@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'shell'
-require_relative 'type'
-require_relative 'cache'
-require_relative 'options_builder/formatter'
-require_relative 'options_builder/validator'
-
 module Ukiryu
   # Builds structured option classes from tool profile metadata
   #
@@ -23,12 +17,16 @@ module Ukiryu
   #   # Serialize to shell command
   #   shell_args = options.to_shell(type: :bash)
   module OptionsBuilder
+    # Autoload nested classes
+    autoload :Formatter, 'ukiryu/options_builder/formatter'
+    autoload :Validator, 'ukiryu/options_builder/validator'
+
     class << self
       # Get the options classes cache (bounded LRU cache)
       #
       # @return [Cache] the options classes cache
       def option_classes_cache
-        @option_classes_cache ||= Cache.new(max_size: 100, ttl: 3600)
+        @option_classes_cache ||= Ukiryu::Cache.new(max_size: 100, ttl: 3600)
       end
 
       # Get or create an options class for a tool command
@@ -46,7 +44,7 @@ module Ukiryu
         return cached if cached
 
         # Get the tool and command profile
-        tool = Tool.get(tool_name_sym)
+        tool = Ukiryu::Tool.get(tool_name_sym)
         command_def = tool.command_definition(command_name_sym)
 
         raise ArgumentError, "Unknown command: #{command_name} for tool: #{tool_name}" unless command_def
@@ -137,13 +135,13 @@ module Ukiryu
           end
 
           # Define attribute accessors for each argument and option
-          OptionsBuilder.define_accessors(self, command_def)
+          Ukiryu::OptionsBuilder.define_accessors(self, command_def)
 
           # Define to_shell method for serialization
-          OptionsBuilder.define_to_shell_method(self, command_def)
+          Ukiryu::OptionsBuilder.define_to_shell_method(self, command_def)
 
           # Define validation method
-          OptionsBuilder::Validator.define_validation_method(self, command_def)
+          Ukiryu::OptionsBuilder::Validator.define_validation_method(self, command_def)
         end
       end
 
@@ -163,9 +161,9 @@ module Ukiryu
           klass.define_method("#{attr_name}=") do |value|
             # For variadic arguments, validate each element
             validated = if arg_def.variadic && value.is_a?(Array)
-                          value.map { |v| Type.validate(v, arg_def.type || :string, arg_def) }
+                          value.map { |v| Ukiryu::Type.validate(v, arg_def.type || :string, arg_def) }
                         else
-                          Type.validate(value, arg_def.type || :string, arg_def)
+                          Ukiryu::Type.validate(value, arg_def.type || :string, arg_def)
                         end
             instance_variable_set("@#{attr_name}", validated)
           end
@@ -183,7 +181,7 @@ module Ukiryu
             return if value.nil?
 
             # Validate and coerce the value
-            validated = Type.validate(value, opt_def.type || :string, opt_def)
+            validated = Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
             instance_variable_set("@#{attr_name}", validated)
           end
         end
@@ -210,7 +208,7 @@ module Ukiryu
           klass.define_method("#{attr_name}=") do |value|
             return if value.nil?
 
-            validated = Type.validate(value, opt_def.type || :string, opt_def)
+            validated = Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
             instance_variable_set("@#{attr_name}", validated)
           end
         end
@@ -223,7 +221,7 @@ module Ukiryu
       def define_to_shell_method(klass, command_def)
         klass.define_method(:to_shell) do |shell_type: :bash|
           shell_type = shell_type.to_sym
-          shell_class = Shell.class_for(shell_type)
+          shell_class = Ukiryu::Shell.class_for(shell_type)
           shell_instance = shell_class.new
 
           args = []
@@ -237,7 +235,7 @@ module Ukiryu
             value = instance_variable_get("@#{attr_name}")
             next if value.nil? # Skip unset options
 
-            formatted = Formatter.format_option(opt_def, value, shell_instance)
+            formatted = Ukiryu::OptionsBuilder::Formatter.format_option(opt_def, value, shell_instance)
             Array(formatted).each { |a| args << a unless a.nil? || a.empty? }
           end
 
@@ -250,7 +248,7 @@ module Ukiryu
             value = flag_def.default if value.nil?
             next unless value
 
-            formatted = Formatter.format_flag(flag_def, shell_instance)
+            formatted = Ukiryu::OptionsBuilder::Formatter.format_flag(flag_def, shell_instance)
             Array(formatted).each { |f| args << f unless f.nil? || f.empty? }
           end
 
@@ -270,10 +268,10 @@ module Ukiryu
 
             if arg_def.variadic
               Array(value).each do |v|
-                args << Formatter.format_arg(v, arg_def, shell_instance)
+                args << Ukiryu::OptionsBuilder::Formatter.format_arg(v, arg_def, shell_instance)
               end
             else
-              args << Formatter.format_arg(value, arg_def, shell_instance)
+              args << Ukiryu::OptionsBuilder::Formatter.format_arg(value, arg_def, shell_instance)
             end
           end
 
@@ -283,7 +281,7 @@ module Ukiryu
             value = instance_variable_get("@#{attr_name}")
             next if value.nil?
 
-            formatted = Formatter.format_option(opt_def, value, shell_instance)
+            formatted = Ukiryu::OptionsBuilder::Formatter.format_option(opt_def, value, shell_instance)
             Array(formatted).each { |a| args << a unless a.nil? || a.empty? }
           end
 
@@ -294,10 +292,10 @@ module Ukiryu
             if value
               if last_arg.variadic
                 Array(value).each do |v|
-                  args << Formatter.format_arg(v, last_arg, shell_instance)
+                  args << Ukiryu::OptionsBuilder::Formatter.format_arg(v, last_arg, shell_instance)
                 end
               else
-                args << Formatter.format_arg(value, last_arg, shell_instance)
+                args << Ukiryu::OptionsBuilder::Formatter.format_arg(value, last_arg, shell_instance)
               end
             end
           end

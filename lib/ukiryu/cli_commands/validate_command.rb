@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 require 'thor'
-require_relative '../definition/definition_validator'
-require_relative '../tool'
-require_relative '../executor'
-require_relative '../shell'
 
 module Ukiryu
   module CliCommands
@@ -167,8 +163,6 @@ module Ukiryu
       #
       # This method runs executable validation against all tool definitions
       def test_all_executables
-        require_relative '../register_auto_manager'
-
         register_path = Ukiryu::RegisterAutoManager.register_path
         return say_error("Register not found: #{register_path}") unless Dir.exist?(register_path)
 
@@ -456,8 +450,6 @@ module Ukiryu
 
       # Validate all definitions in register
       def validate_all
-        require_relative '../register_auto_manager'
-
         register_path = Ukiryu::RegisterAutoManager.register_path
         return say_error("Register not found: #{register_path}") unless Dir.exist?(register_path)
 

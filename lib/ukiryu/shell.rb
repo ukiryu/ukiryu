@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'shell/base'
-
 module Ukiryu
   # Shell detection and management
   #
@@ -9,6 +7,8 @@ module Ukiryu
   # If shell cannot be determined, raises a clear error.
   module Shell
     # Use autoload for lazy loading of shell implementations
+    autoload :Base, 'ukiryu/shell/base'
+    autoload :UnixBase, 'ukiryu/shell/unix_base'
     autoload :Bash, 'ukiryu/shell/bash'
     autoload :Zsh, 'ukiryu/shell/zsh'
     autoload :Fish, 'ukiryu/shell/fish'

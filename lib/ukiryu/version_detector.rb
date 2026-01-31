@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'executor'
-require_relative 'models/version_info'
-require_relative 'man_page_parser'
-
 module Ukiryu
   # Version detector for external CLI tools
   #
@@ -69,14 +65,14 @@ module Ukiryu
         # Return nil if executable is not found
         return nil if executable.nil? || executable.empty?
 
-        shell ||= Shell.detect
+        shell ||= Ukiryu::Shell.detect
 
         # Normalize command to array
         command_args = command.is_a?(Array) ? command : [command]
 
         # DEBUG: Log timing to investigate timeout issues
         start_time = Time.now
-        result = Executor.execute(executable, command_args, shell: shell, allow_failure: true, timeout: timeout)
+        result = Ukiryu::Executor.execute(executable, command_args, shell: shell, allow_failure: true, timeout: timeout)
         elapsed = Time.now - start_time
         warn "[UKIRYU DEBUG] Version detection for #{File.basename(executable)} took #{elapsed.round(2)}s (expected <0.1s)" if elapsed > 1
 
@@ -126,7 +122,7 @@ module Ukiryu
       # @param timeout [Integer] timeout in seconds (default: 30)
       # @return [VersionInfo, nil] version info or nil if all methods fail
       def detect_with_methods(executable:, methods:, shell: nil, timeout: 30)
-        shell ||= Shell.detect
+        shell ||= Ukiryu::Shell.detect
 
         # Track available methods for VersionInfo
         available_methods = methods.map { |m| m[:type] }.uniq
@@ -152,14 +148,13 @@ module Ukiryu
             paths = method[:paths] || {}
 
             # Resolve man page path for current platform
-            require_relative 'platform'
-            platform = Platform.detect
+            platform = Ukiryu::Platform.detect
             man_path = paths[platform] || paths[platform.to_s]
 
             next unless man_path
 
             # Parse date from man page
-            date_str = ManPageParser.parse_date(man_path)
+            date_str = Ukiryu::ManPageParser.parse_date(man_path)
 
             next unless date_str
 

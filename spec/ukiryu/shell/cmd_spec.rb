@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../../lib/ukiryu/shell/cmd'
 
 RSpec.describe Ukiryu::Shell::Cmd do
   let(:shell) { described_class.new }

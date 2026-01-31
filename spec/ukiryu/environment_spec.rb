@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../lib/ukiryu/environment'
 
 RSpec.describe Ukiryu::Environment do
   describe '#initialize' do

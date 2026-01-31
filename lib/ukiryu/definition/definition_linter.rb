@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'lint_issue'
-
 module Ukiryu
   module Definition
     # Lint tool definitions for best practices

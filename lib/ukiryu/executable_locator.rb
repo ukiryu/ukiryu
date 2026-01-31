@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'executor'
-require_relative 'platform'
-require_relative 'models/search_paths'
-
 module Ukiryu
   # Executable locator for finding tool executables
   #
@@ -30,7 +26,7 @@ module Ukiryu
       # @param platform [Symbol] the platform (defaults to Runtime.platform)
       # @return [String, nil] the executable path or nil if not found
       def find(tool_name:, aliases: [], search_paths: [], platform: nil)
-        platform ||= Runtime.instance.platform
+        platform ||= Ukiryu::Runtime.instance.platform
 
         # Convert SearchPaths model to array if needed
         paths = normalize_search_paths(search_paths, platform)
@@ -57,7 +53,7 @@ module Ukiryu
         # Try with PATHEXT extensions (Windows executables)
         exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
 
-        search_paths = Platform.executable_search_paths
+        search_paths = Ukiryu::Platform.executable_search_paths
         search_paths.concat(additional_paths) if additional_paths
         search_paths.uniq!
 
@@ -128,7 +124,7 @@ module Ukiryu
       # @param command [String] the command name
       # @return [String, nil] the executable path or nil
       def find_via_system_command(command)
-        platform = Runtime.instance.platform
+        platform = Ukiryu::Runtime.instance.platform
 
         if platform == :windows
           execute_and_parse('where', ["#{command}.exe"])
@@ -146,11 +142,9 @@ module Ukiryu
       # @param args [Array<String>] arguments
       # @return [String, nil] stdout stripped or nil if failed
       def execute_and_parse(executable, args)
-        require_relative 'shell'
-
         # Detect shell for internal utility
-        shell_class = Shell.detect
-        result = Executor.execute(executable, args, shell: shell_class, allow_failure: true)
+        shell_class = Ukiryu::Shell.detect
+        result = Ukiryu::Executor.execute(executable, args, shell: shell_class, allow_failure: true)
         return nil unless result.success?
 
         # Take only the first line (where/which may return multiple matches)

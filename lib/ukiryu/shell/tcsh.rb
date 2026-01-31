@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative 'base'
+require 'open3'
+require 'timeout'
 
 module Ukiryu
   module Shell
@@ -109,8 +110,6 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command(executable, args, env, timeout, cwd = nil)
-        require_relative '../executor'
-        require_relative 'unix_base'
         require 'open3'
         require 'timeout'
 
@@ -156,7 +155,6 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command_with_stdin(executable, args, env, timeout, cwd, stdin_data)
-        require_relative '../executor'
         require 'open3'
         require 'timeout'
 

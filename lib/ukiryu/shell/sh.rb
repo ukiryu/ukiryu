@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'unix_base'
-
 module Ukiryu
   module Shell
     # POSIX sh shell implementation

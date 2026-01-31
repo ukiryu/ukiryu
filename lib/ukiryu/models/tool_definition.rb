@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require 'lutaml/model'
-require_relative 'platform_profile'
-require_relative 'version_detection'
-require_relative 'search_paths'
-require_relative 'components'
-require_relative 'invocation'
 
 module Ukiryu
   module Models
@@ -53,11 +48,8 @@ module Ukiryu
       # @param shell [Symbol] the shell
       # @return [PlatformProfile, nil] the compatible profile
       def compatible_profile(platform: nil, shell: nil)
-        require_relative '../platform'
-        require_relative '../shell'
-
-        platform ||= Platform.detect
-        shell ||= Shell.detect
+        platform ||= Ukiryu::Platform.detect
+        shell ||= Ukiryu::Shell.detect
         return nil unless platform && shell
 
         return nil if profiles.empty?

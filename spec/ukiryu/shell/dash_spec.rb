@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../../lib/ukiryu/shell/dash'
 require_relative 'unix_base_shared_examples'
 
 RSpec.describe Ukiryu::Shell::Dash do

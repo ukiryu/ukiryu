@@ -2,9 +2,6 @@
 
 require 'open3'
 require 'timeout'
-require_relative 'execution'
-require_relative 'shell'
-require_relative 'environment'
 
 module Ukiryu
   # Command execution with platform-specific methods
@@ -15,6 +12,9 @@ module Ukiryu
   # - Timeout handling
   # - Error detection and reporting
   module Executor
+    # Autoload Execution module for Result classes
+    autoload :Execution, 'ukiryu/execution'
+
     class << self
       # Execute a command with the given options
       #
@@ -45,7 +45,7 @@ module Ukiryu
         shell_class = if shell_arg.is_a?(Class)
                         shell_arg
                       else
-                        Shell.class_for(shell_arg.to_sym)
+                        Ukiryu::Shell.class_for(shell_arg.to_sym)
                       end
 
         shell_instance = shell_class.new
@@ -374,7 +374,7 @@ module Ukiryu
                 user_env
               else
                 # Hash: inherit from current ENV, then merge user's variables
-                Environment.from_env.merge(user_env.transform_values(&:to_s))
+                Ukiryu::Environment.from_env.merge(user_env.transform_values(&:to_s))
               end
 
         # Get shell-specific headless environment

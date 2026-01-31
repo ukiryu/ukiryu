@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../../lib/ukiryu/shell/tcsh'
 
 RSpec.describe Ukiryu::Shell::Tcsh do
   let(:shell) { described_class.new }

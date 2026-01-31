@@ -32,7 +32,6 @@ module ToolHelper
   # @param color [String] the color name (blue or red)
   def create_test_image(path, size: '100x100', color: 'blue')
     require 'open3'
-    require_relative '../lib/ukiryu/platform'
 
     # Copy fixture image instead of generating with ImageMagick
     # This works on all platforms including Windows ARM64 with limited ImageMagick builds
@@ -80,8 +79,6 @@ module ToolHelper
   # @param cmd [String] the command to check
   # @return [Boolean] true if the command exists
   def command_exists?(cmd)
-    require_relative '../lib/ukiryu/platform'
-
     if Ukiryu::Platform.windows?
       system("where #{cmd} >nul 2>&1")
     else

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../environment'
-
 module Ukiryu
   module Shell
     # Base class for shell implementations

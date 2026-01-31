@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require 'lutaml/model'
-require_relative 'option_definition'
-require_relative 'flag_definition'
-require_relative 'argument_definition'
-require_relative 'env_var_definition'
-require_relative 'exit_codes'
 
 module Ukiryu
   module Models
