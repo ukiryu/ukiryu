@@ -14,9 +14,6 @@ module Ukiryu
       # @param command_def [Models::CommandDefinition] the command definition
       # @return [Class] the generated options class
       def self.generate_options_class(tool_class, command_name, command_def)
-        require_relative '../options/base'
-        require_relative '../options_builder'
-
         # Capture tool class in closure
         tool_class_ref = tool_class
 
@@ -82,8 +79,6 @@ module Ukiryu
       # @param command_def [Models::CommandDefinition] the command definition
       # @return [Class] the generated action class
       def self.generate_action_class(tool_class, command_name, command_def)
-        require_relative '../action/base'
-
         class_name = "#{command_name.to_s.capitalize}Action"
 
         action_class = Class.new(::Ukiryu::Action::Base) do
@@ -115,8 +110,6 @@ module Ukiryu
       # @param command_def [Models::CommandDefinition] the command definition
       # @return [Class] the generated response class
       def self.generate_response_class(tool_class, command_name, command_def)
-        require_relative '../response/base'
-
         class_name = "#{command_name.to_s.capitalize}Response"
 
         response_class = Class.new(::Ukiryu::Response::Base) do

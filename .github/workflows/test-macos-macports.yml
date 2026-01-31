@@ -1,0 +1,110 @@
+name: macOS Tests (MacPorts)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-macos-macports:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-15-intel
+          - macos-15
+          - macos-26
+        macports-version: ['2.11.5', '2.12.0-rc1']
+        ruby-version: ['3.1', '3.4', '4.0']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # checkout schema repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/schema
+          path: schema
+
+      # checkout register repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/register
+          ref: v1
+          path: register
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Setup MacPorts
+        uses: ukiryu/setup-macports@main
+        id: macports
+        with:
+          macports-version: ${{ matrix.macports-version }}
+          cache: 'true'
+          install-ports: 'pandoc jq yq'
+
+      - name: Install additional tools via Homebrew
+        shell: bash
+        run: |
+          echo "Installing ImageMagick, ghostscript, ffmpeg, exiftool, and Inkscape via Homebrew..."
+          echo "These tools depend on shared-mime-info which has MacPorts infrastructure issues"
+          echo "Installing imagemagick ghostscript ffmpeg exiftool inkscape..."
+          brew install --quiet imagemagick ghostscript ffmpeg exiftool inkscape
+          echo "All tools installed successfully"
+
+      - name: Verify installations
+        shell: bash
+        run: |
+          echo "=== Verifying installations ==="
+          echo ""
+          echo "MacPorts version:"
+          port version
+          echo ""
+          echo "ImageMagick:"
+          # Check for both magick (v7) and convert (v6)
+          if command -v magick; then
+            echo "Found 'magick' command:"
+            magick --version
+          elif command -v convert; then
+            echo "Found 'convert' command:"
+            convert --version
+          else
+            echo "WARNING: Neither 'magick' nor 'convert' command found in PATH"
+            echo "Checking in /opt/local/bin directly:"
+            ls /opt/local/bin/magick /opt/local/bin/convert 2>&1 || true
+          fi
+          echo ""
+          echo "Ghostscript:"
+          gs --version
+          echo ""
+          echo "FFmpeg:"
+          ffmpeg --help | head -3
+          echo ""
+          echo "ExifTool:"
+          exiftool -ver
+          echo ""
+          echo "Pandoc:"
+          pandoc --version
+          echo ""
+          echo "jq:"
+          jq --version
+          echo ""
+          echo "yq:"
+          yq --version
+          echo ""
+          echo "Inkscape:"
+          inkscape --version
+
+      - name: Run tests
+        shell: bash
+        run: bundle exec rake spec

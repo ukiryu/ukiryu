@@ -12,17 +12,19 @@ search_paths:
   - /usr/bin/bzip2
   linux:
   - /usr/bin/bzip2
-timeout: 30
 profiles:
 - name: default
   platforms:
   - macos
   - linux
+  - windows
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: compress
     description: Compress files

@@ -1,10 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../config'
-require_relative '../shell'
-require_relative '../platform'
-require_relative '../runtime'
-
 module Ukiryu
   module CliCommands
     # Command to list system information
@@ -25,12 +20,10 @@ module Ukiryu
 
       # List all available shells on the system
       def list_shells
-        require_relative '../shell'
-
-        all_shells = Shell.all_valid
-        platform_shells = Shell.valid_for_platform
-        available_shells = platform_shells.select { |shell| Shell.available?(shell) }
-        not_installed_shells = platform_shells.reject { |shell| Shell.available?(shell) }
+        all_shells = Ukiryu::Shell.all_valid
+        platform_shells = Ukiryu::Shell.valid_for_platform
+        available_shells = platform_shells.select { |shell| Ukiryu::Shell.available?(shell) }
+        not_installed_shells = platform_shells.reject { |shell| Ukiryu::Shell.available?(shell) }
         not_supported_shells = all_shells - platform_shells
 
         say 'Available shells', :cyan
@@ -71,11 +64,11 @@ module Ukiryu
         end
 
         say ''
-        say "Platform: #{Platform.detect}", :dim
-        say "Current shell: #{Runtime.instance.shell}", :dim
+        say "Platform: #{Ukiryu::Platform.detect}", :dim
+        say "Current shell: #{Ukiryu::Runtime.instance.shell}", :dim
 
         # Show shell override status
-        config_shell = Config.shell
+        config_shell = config.shell
         return unless config_shell
 
         say "Shell override: #{config_shell} (set via --shell, UKIRYU_SHELL, or config)", :yellow

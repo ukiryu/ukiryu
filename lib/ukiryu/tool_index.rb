@@ -35,7 +35,8 @@ module Ukiryu
     def initialize(register_path: Ukiryu::Register.default_register_path)
       @register_path = register_path
       @interface_to_tools = {} # interface => [tool_names]
-      @alias_to_tool = {}      # alias => tool_name
+      @alias_to_tool = {}      # alias => [tool_names] (multiple tools can share an alias)
+      @compatibility_cache = {} # tool_name => tool_definition (for platform compatibility checks)
       @built = false
       @cache_key = nil # Register state for change detection
     end
@@ -72,12 +73,68 @@ module Ukiryu
 
     # Find tool by alias
     #
+    # When multiple tools have the same alias, returns the one most compatible
+    # with the current platform/shell.
+    #
     # @param alias_name [String] the alias to look up
     # @return [String, nil] the tool name or nil if not found
     def find_by_alias(alias_name)
       build_index_if_needed
 
-      @alias_to_tool[alias_name.to_sym]
+      candidates = @alias_to_tool[alias_name.to_sym]
+      return nil unless candidates
+
+      # If only one tool has this alias, return it directly
+      return candidates.first if candidates.one?
+
+      # Multiple tools have this alias - select by platform compatibility
+      runtime = Ukiryu::Runtime.instance
+      platform = runtime.platform
+      shell = runtime.shell
+
+      candidates.find do |tool_name|
+        tool_compatible?(tool_name, platform: platform, shell: shell)
+      end || candidates.first
+    end
+
+    # Check if a tool is compatible with the given platform and shell
+    #
+    # @param tool_name [String, Symbol] the tool name
+    # @param platform [Symbol] the platform (:macos, :linux, :windows)
+    # @param shell [Symbol] the shell (:bash, :zsh, :fish, etc.)
+    # @return [Boolean] true if tool has a compatible profile
+    def tool_compatible?(tool_name, platform:, shell:)
+      # Load tool definition to check profiles
+      tool_def = load_tool_definition_for_compatibility(tool_name)
+      return false unless tool_def
+
+      # Check if any profile matches platform/shell
+      tool_def.profiles&.any? do |profile|
+        profile_platforms = profile.platforms ? profile.platforms.map(&:to_sym) : []
+        profile_shells = profile.shells ? profile.shells.map(&:to_sym) : []
+
+        # Empty platforms/shells means universal compatibility
+        (profile_platforms.empty? || profile_platforms.include?(platform)) &&
+          (profile_shells.empty? || profile_shells.include?(shell))
+      end || false
+    end
+
+    # Load tool definition for compatibility checking
+    # Caches loaded definitions to avoid redundant parsing
+    #
+    # @param tool_name [String, Symbol] the tool name
+    # @return [Object, nil] the tool definition model
+    def load_tool_definition_for_compatibility(tool_name)
+      # Use a simple cache for compatibility checks
+      @compatibility_cache ||= {}
+      cache_key = tool_name.to_sym
+
+      @compatibility_cache[cache_key] ||= begin
+        yaml_content = load_yaml_for_tool(tool_name)
+        return nil unless yaml_content
+
+        Ukiryu::Models::ToolDefinition.from_yaml(yaml_content)
+      end
     end
 
     # Get all tools in the index
@@ -110,6 +167,7 @@ module Ukiryu
       @cache_key = nil
       @interface_to_tools = {}
       @alias_to_tool = {}
+      @compatibility_cache = {}
     end
 
     private
@@ -158,7 +216,7 @@ module Ukiryu
       @alias_to_tool.clear
 
       # Scan all tool directories for metadata
-      Dir.glob(File.join(tools_dir, '*', '*.yaml')).each do |file|
+      Dir.glob(File.join(tools_dir, '*', '*.yaml')).sort.each do |file|
         # Load only the top-level keys (metadata) without full parsing
         hash = YAML.safe_load(File.read(file), permitted_classes: [Symbol], aliases: true)
         next unless hash
@@ -167,17 +225,27 @@ module Ukiryu
         tool_sym = tool_name.to_sym
 
         # Index by interface (multiple tools can implement one interface)
-        implements = hash['implements']&.to_sym
-        if implements
-          @interface_to_tools[implements] ||= []
-          @interface_to_tools[implements] << tool_sym unless @interface_to_tools[implements].include?(tool_sym)
+        # v2: implements is an array, v1: implements is a string
+        implements_value = hash['implements']
+        if implements_value
+          interfaces = if implements_value.is_a?(Array)
+                         implements_value.map(&:to_sym)
+                       else
+                         [implements_value.to_sym]
+                       end
+
+          interfaces.each do |interface_sym|
+            @interface_to_tools[interface_sym] ||= []
+            @interface_to_tools[interface_sym] << tool_sym unless @interface_to_tools[interface_sym].include?(tool_sym)
+          end
         end
 
-        # Index by alias
+        # Index by alias (multiple tools can have the same alias)
         aliases = hash['aliases']
         if aliases.respond_to?(:each)
           aliases.each do |alias_name|
-            @alias_to_tool[alias_name.to_sym] = tool_sym
+            @alias_to_tool[alias_name.to_sym] ||= []
+            @alias_to_tool[alias_name.to_sym] << tool_sym unless @alias_to_tool[alias_name.to_sym].include?(tool_sym)
           end
         end
       rescue StandardError => e

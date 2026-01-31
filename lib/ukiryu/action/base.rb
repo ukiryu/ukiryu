@@ -38,8 +38,9 @@ module Ukiryu
       # Execute this action with options
       #
       # @param options [Hash, Options::Base] the options to use
+      # @param timeout [Integer] timeout in seconds (required)
       # @return [Response::Base] the execution response
-      def run(options = {})
+      def run(options = {}, timeout:)
         # If options is a hash, create an options object
         if options.is_a?(Hash)
           options_class = @tool.options_class_for(self.class.command_name)
@@ -49,7 +50,7 @@ module Ukiryu
         end
 
         # Execute with the tool
-        @tool.execute(self.class.command_name, options)
+        @tool.execute(self.class.command_name, options, timeout: timeout)
       end
 
       # Create an options object for this action

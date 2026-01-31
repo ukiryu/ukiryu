@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../definition'
-
 module Ukiryu
   module CliCommands
     # CLI commands for managing tool definitions
@@ -21,13 +19,13 @@ module Ukiryu
       desc 'list', 'List all discovered definitions'
       method_option :verbose, aliases: :v, desc: 'Show detailed information', type: :boolean, default: false
       def list
-        definitions = Definition::Discovery.discover
+        definitions = Ukiryu::Definition::Discovery.discover
 
         if definitions.empty?
           puts 'No definitions found.'
           puts
           puts 'Search paths:'
-          Definition::Discovery.search_paths.each do |path|
+          Ukiryu::Definition::Discovery.search_paths.each do |path|
             puts "  - #{path}"
           end
           return

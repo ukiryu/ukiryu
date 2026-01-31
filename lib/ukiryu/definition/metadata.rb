@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../models/tool_definition'
-
 module Ukiryu
   module Definition
     # Metadata about a discovered tool definition

@@ -5,11 +5,8 @@ display_name: GNU Ping (iputils)
 homepage: https://iputils.codeberg.page/
 version: '1.0'
 implements: ping
-search_paths:
-  linux:
-  - /usr/bin/ping
-  - /bin/ping
-timeout: 30
+aliases:
+- ping
 profiles:
 - name: default
   platforms:
@@ -19,6 +16,8 @@ profiles:
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: ping
     description: Ping a host
@@ -31,6 +30,7 @@ profiles:
     - name: count
       type: integer
       cli: -c
+      assignment_delimiter: auto
       description: Number of packets to send
     flags:
     - name: quiet

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'constraints'
-
 module Ukiryu
   module Validation
     # Validates option objects using constraint-based validation

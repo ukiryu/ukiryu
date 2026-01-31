@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'runtime'
-require_relative 'config'
-
 module Ukiryu
   # Simple thread-local storage for contexts
   #
@@ -81,14 +78,14 @@ module Ukiryu
       #
       # @return [ExecutionContext] a new context with runtime values
       def from_runtime
-        runtime = Runtime.instance
+        runtime = Ukiryu::Runtime.instance
         new(
           platform: runtime.platform,
           shell: runtime.shell,
-          register_path: Register.default_register_path,
-          timeout: Config.timeout,
-          debug: Config.debug,
-          metrics: Config.metrics
+          register_path: Ukiryu::Register.default_register_path,
+          timeout: Ukiryu::Config.timeout,
+          debug: Ukiryu::Config.debug,
+          metrics: Ukiryu::Config.metrics
         )
       end
 
@@ -164,7 +161,7 @@ module Ukiryu
     #
     # @return [Class] the shell class
     def shell_class
-      Shell.class_for(@shell)
+      Ukiryu::Shell.class_for(@shell)
     end
 
     # Check if running on a specific platform

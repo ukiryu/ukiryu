@@ -1,0 +1,32 @@
+# BusyBox bzip2 tool profile for testing
+ukiryu_schema: '1.0'
+name: bzip2_busybox
+display_name: BusyBox bzip2
+version: '1.0'
+implements: bzip2
+search_paths:
+  linux:
+  - /bin/bzip2
+  - /usr/bin/bzip2
+profiles:
+- name: default
+  platforms:
+  - linux
+  shells:
+  - bash
+  - sh
+  commands:
+    compress:
+      subcommand: ''
+      arguments:
+        - name: inputs
+          type: file
+          variadic: true
+          position: last
+    decompress:
+      subcommand: '-d'
+      arguments:
+        - name: inputs
+          type: file
+          variadic: true
+          position: last

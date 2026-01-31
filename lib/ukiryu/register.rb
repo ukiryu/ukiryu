@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require 'yaml'
-require_relative 'models/tool_metadata'
-require_relative 'models/validation_result'
-require_relative 'tool_index'
-require_relative 'schema_validator'
-require_relative 'register_auto_manager'
 
 module Ukiryu
   # YAML profile register loader
@@ -103,7 +98,7 @@ module Ukiryu
         end
 
         # If not found, try interface-based discovery using ToolIndex
-        index = ToolIndex.instance
+        index = Ukiryu::ToolIndex.instance
         index.find_by_interface(name.to_sym)
       end
 
@@ -165,7 +160,7 @@ module Ukiryu
         profile = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
         return Models::ValidationResult.invalid(name.to_s, ['Failed to parse YAML']) unless profile
 
-        errors = SchemaValidator.validate_profile(profile, options)
+        errors = Ukiryu::SchemaValidator.validate_profile(profile, options)
         if errors.empty?
           Models::ValidationResult.valid(name.to_s)
         else
@@ -198,7 +193,7 @@ module Ukiryu
         return @default_register_path if @default_register_path
 
         # Otherwise, use RegisterAutoManager (auto-clone if needed)
-        RegisterAutoManager.register_path
+        Ukiryu::RegisterAutoManager.register_path
       end
 
       # Scan tool versions and sort by Gem::Version

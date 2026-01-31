@@ -7,14 +7,10 @@ version: '1.0'
 version_detection:
   command: --version
   pattern: '(\d+\.\d+)'
-search_paths:
-  macos:
-  - /opt/homebrew/bin/gs
-  linux:
-  - /usr/bin/gs
-timeout: 90
+aliases:
+- gs
 profiles:
-- name: default
+- name: unix
   platforms:
   - macos
   - linux
@@ -46,3 +42,11 @@ profiles:
       cli: -dBATCH
     - name: no_pause
       cli: -dNOPAUSE
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  inherits: unix

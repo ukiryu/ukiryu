@@ -12,17 +12,19 @@ search_paths:
   - /opt/homebrew/bin/exiftool
   linux:
   - /usr/bin/exiftool
-timeout: 30
 profiles:
 - name: default
   platforms:
   - macos
   - linux
+  - windows
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: read
     description: Read metadata from files

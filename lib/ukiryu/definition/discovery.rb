@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'metadata'
-require_relative 'loader'
-
 module Ukiryu
   module Definition
     # Discover tool definitions in standard filesystem locations
@@ -225,7 +222,7 @@ module Ukiryu
         name = data['name']
         version = data['version'] || '1.0' # Default version
 
-        DefinitionMetadata.new(
+        Ukiryu::Definition::DefinitionMetadata.new(
           name: name,
           version: version,
           path: yaml_file,

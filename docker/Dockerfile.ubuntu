@@ -1,0 +1,64 @@
+# Dockerfile for Ubuntu Linux testing
+# Build: docker build -f docker/Dockerfile.ubuntu -t ukiryu-test:ubuntu .
+# Run: docker run --rm ukiryu-test:ubuntu
+
+FROM ubuntu:24.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Ruby and dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    ruby \
+    ruby-dev \
+    libz-dev \
+    curl \
+    software-properties-common \
+    # Shells (PowerShell skipped due to arm64 dependency issues)
+    bash \
+    zsh \
+    fish \
+    dash \
+    tcsh \
+    # Common CLI tools for testing
+    bzip2 \
+    gzip \
+    tar \
+    unzip \
+    zip \
+    grep \
+    sed \
+    gawk \
+    findutils \
+    wget \
+    jq \
+    ghostscript \
+    imagemagick \
+    ffmpeg \
+    exiftool \
+    libtiff-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install yq (mikefarah/yq)
+RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
+    chmod +x /usr/local/bin/yq
+
+# Install inkscape (if available)
+RUN apt-get install -y --no-install-recommends inkscape || echo "Inkscape not available, skipping"
+
+# Install bundler
+RUN gem install bundler --no-document
+
+WORKDIR /ukiryu
+
+# Copy the entire application first
+COPY . .
+
+# Install dependencies (regenerates Gemfile.lock for this environment)
+RUN bundle install
+
+# Run tests by default
+CMD ["bundle", "exec", "rspec"]

@@ -1,11 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'source'
-require_relative 'sources/file'
-require_relative 'sources/string'
-require_relative '../register'
-require_relative '../models/tool_definition'
-
 module Ukiryu
   module Definition
     # Loader for tool definitions from various sources

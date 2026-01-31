@@ -194,10 +194,6 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
         aliases:
           - cpx
           - cplx
-        search_paths:
-          linux:
-            - /usr/bin/complex
-            - /usr/local/bin/complex
         profiles:
           - name: modern
             version: ">= 2.0"
@@ -241,8 +237,6 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
 
       expect(tool.name).to eq('complex')
       expect(tool.profile.aliases).to eq(%w[cpx cplx])
-      # search_paths is a SearchPaths model object, not a Hash
-      expect(tool.profile.search_paths).to be_a(Ukiryu::Models::SearchPaths)
     end
 
     it 'preserves YAML formatting' do

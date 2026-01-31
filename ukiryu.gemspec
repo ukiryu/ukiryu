@@ -22,10 +22,12 @@ Gem::Specification.new do |spec|
   spec.bindir        = 'exe'
   spec.executables   = ['ukiryu']
   spec.require_paths = ['lib']
-  spec.files         = `git ls-files -z`.split("\x0").reject do |f|
-    f.match(%r{^spec/})
-  end
-  spec.test_files = `git ls-files -- {spec}/*`.split("\n")
+
+  # Use Dir.glob instead of git ls-files for CI compatibility
+  spec.files         = Dir.glob('{lib,exe,README.adoc,LICENSE,BSDL,*.md}/**/*')
+                          .reject { |f| File.directory?(f) || f.match?(%r{^spec/}) }
+  spec.test_files    = Dir.glob('spec/**/*')
+                          .reject { |f| File.directory?(f) }
   spec.required_ruby_version = '>= 2.7.0'
 
   # Core dependencies

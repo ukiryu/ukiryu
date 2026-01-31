@@ -3,26 +3,35 @@ ukiryu_schema: '1.0'
 name: ffmpeg
 display_name: FFmpeg
 homepage: https://ffmpeg.org/
+description: >-
+  FFmpeg is a complete, cross-platform solution to record, convert, and stream
+  audio and video. Supports virtually all audio/video codecs and container formats.
 version: '1.0'
 version_detection:
-  command: -version
+  description: >
+    Uses -h flag which outputs version information including the full
+    version string. The pattern captures major.minor version. Works on all
+    platforms including Alpine Linux.
+  command: -h
   pattern: 'ffmpeg version (\d+\.\d+)'
 search_paths:
   macos:
   - /opt/homebrew/bin/ffmpeg
   linux:
   - /usr/bin/ffmpeg
-timeout: 60
 profiles:
 - name: default
   platforms:
   - macos
   - linux
+  - windows
   shells:
   - bash
   - zsh
   - sh
   - fish
+  - powershell
+  - cmd
   commands:
   - name: convert
     description: Convert media files

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../errors'
-
 module Ukiryu
   module OptionsBuilder
     # Validation utilities for options classes
