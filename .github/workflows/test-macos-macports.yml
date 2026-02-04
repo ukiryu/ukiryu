@@ -46,7 +46,7 @@ jobs:
           bundler-cache: true
 
       - name: Setup MacPorts
-        uses: ukiryu/setup-macports@v1
+        uses: ukiryu/setup-macports@main
         id: macports
         with:
           macports-version: ${{ matrix.macports-version }}
