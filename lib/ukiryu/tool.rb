@@ -219,7 +219,8 @@ module Ukiryu
           cmd.drop(1),
           env: options[:env],
           shell: options[:shell] || Shell.detect,
-          timeout: 5
+          timeout: 5,
+          allow_failure: true # Don't raise on non-zero exit for detection
         )
         # Scrub stdout to handle invalid UTF-8 byte sequences
         result.success? ? result.stdout.scrub('') : nil
