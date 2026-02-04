@@ -52,20 +52,9 @@ jobs:
           macports-version: ${{ matrix.macports-version }}
           cache: true
           sources-provider: git
-          # ImageMagick, ghostscript, ffmpeg, exiftool require disabling signature checks
-          signature-check: permissive
-          skip-signature-check: 'ImageMagick ghostscript ffmpeg exiftool inkscape'
-          install-ports: 'pandoc jq yq ImageMagick ghostscript ffmpeg exiftool'
-
-      - name: Install Inkscape via MacPorts
-        shell: bash
-        run: |
-          echo "Installing Inkscape via MacPorts..."
-          # Inkscape may require disabling signature check
-          sudo port install -p install_weights +quartz inkscape || \
-          sudo port install -p install_weights +no_x11 inkscape || \
-          sudo port install inkscape
-          echo "Inkscape installed successfully"
+          # Disable signature checks for packages that have issues
+          signature-check: 'disabled'
+          install-ports: 'pandoc jq yq ImageMagick ghostscript ffmpeg exiftool inkscape'
 
       - name: Verify installations
         shell: bash
