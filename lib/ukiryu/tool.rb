@@ -211,7 +211,7 @@ module Ukiryu
       #
       # @param cmd [Array] command parts
       # @param options [Hash] options
-      # @return [String, nil] stdout or nil
+      # @return [String, nil] stdout or stderr (if command failed but has output) or nil
       def try_execute_command(cmd, options = {})
         require_relative 'executor'
         require_relative 'shell'
@@ -223,8 +223,16 @@ module Ukiryu
           timeout: 5,
           allow_failure: true # Don't raise on non-zero exit for detection
         )
-        # Scrub stdout to handle invalid UTF-8 byte sequences
-        result.success? ? result.stdout.scrub('') : nil
+        # Scrub stdout/stderr to handle invalid UTF-8 byte sequences
+        # If command succeeded, return stdout
+        # If command failed but has stderr output, return stderr (for BusyBox detection)
+        if result.success?
+          result.stdout.scrub('')
+        elsif !result.stderr.to_s.strip.empty?
+          result.stderr.scrub('')
+        else
+          nil
+        end
       rescue StandardError
         nil
       end
