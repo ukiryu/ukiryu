@@ -796,6 +796,10 @@ module Ukiryu
     def version
       return @version if @version
 
+      # Use profile version if available (from implementation detection)
+      profile_version = @profile.version if @profile.respond_to?(:version)
+      return profile_version if profile_version
+
       info = detect_version
       info&.to_s
     end
