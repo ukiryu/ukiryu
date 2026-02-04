@@ -46,21 +46,26 @@ jobs:
           bundler-cache: true
 
       - name: Setup MacPorts
-        uses: ukiryu/setup-macports@main
+        uses: ukiryu/setup-macports@v1
         id: macports
         with:
           macports-version: ${{ matrix.macports-version }}
-          cache: 'true'
-          install-ports: 'pandoc jq yq'
+          cache: true
+          sources-provider: git
+          # ImageMagick, ghostscript, ffmpeg, exiftool require disabling signature checks
+          signature-check: permissive
+          skip-signature-check: 'ImageMagick ghostscript ffmpeg exiftool inkscape'
+          install-ports: 'pandoc jq yq ImageMagick ghostscript ffmpeg exiftool'
 
-      - name: Install additional tools via Homebrew
+      - name: Install Inkscape via MacPorts
         shell: bash
         run: |
-          echo "Installing ImageMagick, ghostscript, ffmpeg, exiftool, and Inkscape via Homebrew..."
-          echo "These tools depend on shared-mime-info which has MacPorts infrastructure issues"
-          echo "Installing imagemagick ghostscript ffmpeg exiftool inkscape..."
-          brew install --quiet imagemagick ghostscript ffmpeg exiftool inkscape
-          echo "All tools installed successfully"
+          echo "Installing Inkscape via MacPorts..."
+          # Inkscape may require disabling signature check
+          sudo port install -p install_weights +quartz inkscape || \
+          sudo port install -p install_weights +no_x11 inkscape || \
+          sudo port install inkscape
+          echo "Inkscape installed successfully"
 
       - name: Verify installations
         shell: bash
@@ -71,39 +76,38 @@ jobs:
           port version
           echo ""
           echo "ImageMagick:"
-          # Check for both magick (v7) and convert (v6)
-          if command -v magick; then
+          # Check for both magick (v7) and convert (v6) in MacPorts prefix
+          if command -v /opt/local/bin/magick; then
             echo "Found 'magick' command:"
-            magick --version
-          elif command -v convert; then
+            /opt/local/bin/magick --version
+          elif command -v /opt/local/bin/convert; then
             echo "Found 'convert' command:"
-            convert --version
+            /opt/local/bin/convert --version
           else
-            echo "WARNING: Neither 'magick' nor 'convert' command found in PATH"
-            echo "Checking in /opt/local/bin directly:"
+            echo "WARNING: Neither 'magick' nor 'convert' command found in /opt/local/bin"
             ls /opt/local/bin/magick /opt/local/bin/convert 2>&1 || true
           fi
           echo ""
           echo "Ghostscript:"
-          gs --version
+          /opt/local/bin/gs --version
           echo ""
           echo "FFmpeg:"
-          ffmpeg --help | head -3
+          /opt/local/bin/ffmpeg --help | head -3
           echo ""
           echo "ExifTool:"
-          exiftool -ver
+          /opt/local/bin/exiftool -ver
           echo ""
           echo "Pandoc:"
-          pandoc --version
+          /opt/local/bin/pandoc --version
           echo ""
           echo "jq:"
-          jq --version
+          /opt/local/bin/jq --version
           echo ""
           echo "yq:"
-          yq --version
+          /opt/local/bin/yq --version
           echo ""
           echo "Inkscape:"
-          inkscape --version
+          /opt/local/bin/inkscape --version
 
       - name: Run tests
         shell: bash
