@@ -36,8 +36,8 @@ RSpec.describe Ukiryu::CliCommands::CommandsCommand do
       it 'exits with error for non-existent tool' do
         command = described_class.new(options)
 
-        # error! raises Thor::Error
-        expect { command.run('nonexistent_tool') }.to raise_error(Thor::Error)
+        # error! raises Ukiryu::Errors::ToolNotFoundError (more specific than Thor::Error)
+        expect { command.run('nonexistent_tool') }.to raise_error(Ukiryu::Errors::ToolNotFoundError)
       end
     end
   end

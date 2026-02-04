@@ -43,7 +43,7 @@ RSpec.describe Ukiryu::Definition::Sources::FileSource do
         file_path = File.join(temp_dir, 'nonexistent.yaml')
 
         expect { described_class.new(file_path) }.to raise_error(
-          Ukiryu::DefinitionNotFoundError,
+          Ukiryu::Errors::DefinitionNotFoundError,
           /Definition file not found: #{Regexp.escape(file_path)}/
         )
       end
@@ -70,7 +70,7 @@ RSpec.describe Ukiryu::Definition::Sources::FileSource do
         skip 'File permissions test skipped in container environment' if ENV['CI'] || File.exist?('/.dockerenv')
 
         expect { described_class.new(file_path) }.to raise_error(
-          Ukiryu::DefinitionLoadError,
+          Ukiryu::Errors::DefinitionLoadError,
           /not readable/
         )
       end
@@ -126,7 +126,7 @@ RSpec.describe Ukiryu::Definition::Sources::FileSource do
 
         # Second load should fail
         expect { source.load }.to raise_error(
-          Ukiryu::DefinitionLoadError,
+          Ukiryu::Errors::DefinitionLoadError,
           /has been modified since it was loaded/
         )
       end

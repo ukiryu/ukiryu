@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require_relative 'models/interface'
+require_relative 'models/implementation_index'
+require_relative 'models/implementation_version'
+require_relative 'register_auto_manager'
 
 module Ukiryu
   # YAML profile register loader
@@ -30,6 +34,7 @@ module Ukiryu
       end
 
       # Get all available tool names
+      # Only returns tools that have an index.yaml (new architecture)
       #
       # @return [Array<String>] list of tool names
       def tools
@@ -39,42 +44,45 @@ module Ukiryu
         tools_dir = File.join(register_path, 'tools')
         return [] unless Dir.exist?(tools_dir)
 
-        # List all directories in tools/
-        Dir.glob(File.join(tools_dir, '*')).select do |path|
-          File.directory?(path)
-        end.map do |path|
-          File.basename(path)
+        # List all directories that have an index.yaml file
+        Dir.glob(File.join(tools_dir, '*', 'index.yaml')).map do |index_file|
+          File.basename(File.dirname(index_file))
         end.sort
       end
 
-      # Get available versions for a tool (cached)
+      # Get available versions for a tool (cached) - DEPRECATED, kept for compatibility
       #
       # @param name [String, Symbol] the tool name
       # @param register_path [String, nil] the register path
-      # @return [Hash] mapping of version filename to Gem::Version
+      # @return [Hash] mapping of version filename to version string
       def list_versions(name, register_path: nil)
         register_path ||= effective_register_path
         return {} unless register_path
 
-        # Initialize cache
-        @version_cache ||= {}
-        @register_cache_key ||= register_path
+        # For new architecture, load the index and get versions
+        index = load_implementation_index(name, register_path: register_path)
+        return {} unless index
 
-        # Clear cache if register path changed
-        if @register_cache_key != register_path
-          @version_cache.clear
-          @register_cache_key = register_path
+        # Extract versions from all implementations
+        # Return a hash mapping version strings to full file paths
+        versions = {}
+        index.implementations.each do |impl|
+          impl_name = impl[:name] || impl['name']
+          impl_versions = impl[:versions] || impl['versions']
+          next unless impl_versions
+
+          impl_versions.each do |version_spec|
+            equals = version_spec[:equals] || version_spec['equals']
+            file = version_spec[:file] || version_spec['file']
+            if equals && file
+              # Build full path: tools/tool_name/implementation_name/file.yaml
+              full_path = File.join(register_path, 'tools', name.to_s, impl_name.to_s, file)
+              versions[full_path] = equals
+            end
+          end
         end
 
-        # Check cache
-        cache_key = name.to_sym
-        return @version_cache[cache_key].dup if @version_cache[cache_key]
-
-        # Build version list
-        versions = scan_tool_versions(name, register_path)
-        @version_cache[cache_key] = versions
-
-        versions.dup
+        versions
       end
 
       # Load tool metadata only (lightweight, without full parsing)
@@ -180,6 +188,70 @@ module Ukiryu
         end
       end
 
+      # Load an Interface by path (e.g., "gzip/1.0")
+      #
+      # @param path [String] the interface path (e.g., "gzip/1.0")
+      # @param options [Hash] loading options
+      # @option options [String] :register_path path to register
+      # @return [Models::Interface, nil] the interface or nil if not found
+      def load_interface(path, options = {})
+        register_path = options[:register_path] || effective_register_path
+        return nil unless register_path
+
+        file = File.join(register_path, 'interfaces', "#{path}.yaml")
+        return nil unless File.exist?(file)
+
+        yaml_content = File.read(file)
+        hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
+        return nil unless hash
+
+        Models::Interface.from_hash(symbolize_keys(hash))
+      end
+
+      # Load an ImplementationIndex by tool name
+      #
+      # @param tool_name [String, Symbol] the tool name
+      # @param options [Hash] loading options
+      # @option options [String] :register_path path to register
+      # @return [Models::ImplementationIndex, nil] the index or nil if not found
+      def load_implementation_index(tool_name, options = {})
+        register_path = options[:register_path] || effective_register_path
+        return nil unless register_path
+
+        file = File.join(register_path, 'tools', tool_name.to_s, 'index.yaml')
+        return nil unless File.exist?(file)
+
+        yaml_content = File.read(file)
+        hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
+        return nil unless hash
+
+        # Symbolize string keys recursively
+        symbolized_hash = symbolize_keys(hash)
+        Models::ImplementationIndex.from_hash(symbolized_hash)
+      end
+
+      # Load an ImplementationVersion by tool, implementation, and file path
+      #
+      # @param tool_name [String, Symbol] the tool name
+      # @param implementation_name [String, Symbol] the implementation name (e.g., "gnu")
+      # @param file_path [String] the file path relative to implementation directory
+      # @param options [Hash] loading options
+      # @option options [String] :register_path path to register
+      # @return [Models::ImplementationVersion, nil] the implementation version or nil if not found
+      def load_implementation_version(tool_name, implementation_name, file_path, options = {})
+        register_path = options[:register_path] || effective_register_path
+        return nil unless register_path
+
+        file = File.join(register_path, 'tools', tool_name.to_s, implementation_name.to_s, file_path)
+        return nil unless File.exist?(file)
+
+        yaml_content = File.read(file)
+        hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
+        return nil unless hash
+
+        Models::ImplementationVersion.from_hash(symbolize_keys(hash))
+      end
+
       private
 
       # Get the effective register path
@@ -193,7 +265,25 @@ module Ukiryu
         return @default_register_path if @default_register_path
 
         # Otherwise, use RegisterAutoManager (auto-clone if needed)
-        Ukiryu::RegisterAutoManager.register_path
+        # Use :: to reference top-level Ukiryu namespace
+        ::Ukiryu::RegisterAutoManager.register_path
+      end
+
+      # Recursively symbolize hash keys
+      #
+      # @param hash [Hash] the hash to symbolize
+      # @return [Hash] hash with symbolized keys
+      def symbolize_keys(hash)
+        hash.transform_keys { |k| k.to_s.to_sym }.transform_values do |value|
+          case value
+          when Hash
+            symbolize_keys(value)
+          when Array
+            value.map { |v| v.is_a?(Hash) ? symbolize_keys(v) : v }
+          else
+            value
+          end
+        end
       end
 
       # Scan tool versions and sort by Gem::Version

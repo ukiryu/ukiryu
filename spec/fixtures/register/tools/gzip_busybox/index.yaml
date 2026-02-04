@@ -1,0 +1,16 @@
+---
+ukiryu_schema: '1.0'
+name: gzip_busybox
+interface: gzip
+implementations:
+- name: default
+  display_name: Gzip Busybox
+  detection:
+    executable: gzip
+    command: ["--help"]
+    pattern: BusyBox
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml

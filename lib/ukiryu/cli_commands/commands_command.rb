@@ -10,8 +10,8 @@ module Ukiryu
       def run(tool_name)
         setup_register
 
-        # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
-        tool = Ukiryu::Tool.find_by(tool_name.to_sym)
+        # Use get for direct tool loading (find_by is being migrated)
+        tool = Ukiryu::Tool.get(tool_name.to_sym)
         error!("Tool not found: #{tool_name}\nAvailable tools: #{Ukiryu::Register.tools.sort.join(', ')}") unless tool
 
         tool_commands = tool.commands

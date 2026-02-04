@@ -117,7 +117,7 @@ RSpec.describe Ukiryu::ToolIndex do
         tools = index.all_tools
 
         expect(tools).to be_a(Hash)
-        # The ping interface should be mapped to either ping_bsd or ping_gnu
+        # With unified interface architecture, ping is exposed as :ping (not :ping/1.0 or :ping_bsd/1.0)
         expect(tools.keys).to include(:ping)
       end
     end

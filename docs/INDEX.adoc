@@ -25,13 +25,38 @@ It makes the following possible:
 The Ukiryu framework has the following components:
 
 * **Register**: A collection of tool profiles encoded in YAML, organized by tool
-name and version
+  name and version
 
 * **Schema**: A formal definition of the structure and types used in tool
-profiles
+  profiles
 
 * **Runtime**: A platform-adaptive Ruby library that provides a harmonized API
-interface for CLI commands.
+  interface for CLI commands
+
+
+// Error Namespace
+== Error Namespace
+
+All Ukiryu errors are organized under the `Ukiryu::Errors` namespace module:
+
+* `Ukiryu::Errors::Error` - Base error class for all Ukiryu exceptions
+* `Ukiryu::Errors::DefinitionError` - Base class for definition-related errors
+* `Ukiryu::Errors::DefinitionNotFoundError` - Definition file not found
+* `Ukiryu::Errors::DefinitionLoadError` - Failed to load/parse definition
+* `Ukiryu::Errors::DefinitionValidationError` - Definition validation failed
+* `Ukiryu::Errors::ToolNotFoundError` - Tool not found in register
+* `Ukiryu::Errors::ProfileNotFoundError` - No compatible profile found
+* `Ukiryu::Errors::ProfileLoadError` - Profile loading failed
+* `Ukiryu::Errors::ExecutableNotFoundError` - Tool executable not found
+* `Ukiryu::Errors::ExecutionError` - Command execution failed
+* `Ukiryu::Errors::TimeoutError` - Command timed out
+* `Ukiryu::Errors::ValidationError` - Type validation failed
+* `Ukiryu::Errors::UnknownShellError` - Unknown shell type
+* `Ukiryu::Errors::UnsupportedPlatformError` - Unsupported platform
+* `Ukiryu::Errors::VersionDetectionError` - Version detection failed
+* `Ukiryu::Errors::LoadError` - Legacy load error (deprecated)
+
+For detailed error handling information, see link:/reference/error-codes[Error Codes].
 
 
 == Origin

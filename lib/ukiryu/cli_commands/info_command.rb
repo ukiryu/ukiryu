@@ -42,7 +42,7 @@ module Ukiryu
               else
                 say "  [?] #{impl}", :white
               end
-            rescue Ukiryu::ToolNotFoundError, Ukiryu::ProfileNotFoundError
+            rescue Ukiryu::Errors::ToolNotFoundError, Ukiryu::Errors::ProfileNotFoundError
               # Tool exists but no compatible profile for this platform
               say "  [ ] #{impl}", :dim
             end

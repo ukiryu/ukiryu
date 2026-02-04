@@ -1,0 +1,16 @@
+---
+ukiryu_schema: '1.0'
+name: unzip
+interface: unzip
+implementations:
+- name: default
+  display_name: Unzip
+  detection:
+    pattern: unzip ([\d.]+)
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  - equals: '6.0'
+    file: 6.0.yaml
+  default: 6.0.yaml

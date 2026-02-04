@@ -86,10 +86,10 @@ module Ukiryu
         def parse_yaml(yaml_content, source)
           Models::ToolDefinition.from_yaml(yaml_content)
         rescue Psych::SyntaxError => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Invalid YAML in #{source}: #{e.message}"
         rescue StandardError => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Failed to parse definition from #{source}: #{e.message}"
         end
 
@@ -115,7 +115,7 @@ module Ukiryu
           return if errors.empty?
 
           message = "Profile validation failed:\n  - #{errors.join("\n  - ")}"
-          raise DefinitionValidationError, message if mode == :strict
+          raise Ukiryu::Errors::DefinitionValidationError, message if mode == :strict
 
           warn "[Ukiryu] #{message}"
         end

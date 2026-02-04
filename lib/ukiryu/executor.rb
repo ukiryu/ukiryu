@@ -2,6 +2,7 @@
 
 require 'open3'
 require 'timeout'
+require_relative 'errors'
 
 module Ukiryu
   # Command execution with platform-specific methods
@@ -75,7 +76,7 @@ module Ukiryu
                    end
         rescue Timeout::Error
           Time.now
-          raise TimeoutError, "Command timed out after #{timeout} seconds: #{executable}"
+          raise Ukiryu::Errors::TimeoutError, "Command timed out after #{timeout} seconds: #{executable}"
         ensure
           Thread.report_on_exception = original_setting
         end
@@ -108,7 +109,7 @@ module Ukiryu
 
         # Check exit status
         if result[:status] != 0 && !options[:allow_failure]
-          raise ExecutionError,
+          raise Ukiryu::Errors::ExecutionError,
                 format_error(executable, command, result)
         end
 
@@ -417,6 +418,8 @@ module Ukiryu
       # @param result [Hash] the execution result
       # @return [String] formatted error message
       def format_error(executable, command, result)
+        stdout = result[:stdout]&.strip || ''
+        stderr = result[:stderr]&.strip || ''
         <<~ERROR.chomp
           Command failed: #{executable}
 
@@ -424,10 +427,10 @@ module Ukiryu
           Exit status: #{result[:status]}
 
           STDOUT:
-          #{result[:stdout].strip}
+          #{stdout}
 
           STDERR:
-          #{result[:stderr].strip}
+          #{stderr}
         ERROR
       end
     end

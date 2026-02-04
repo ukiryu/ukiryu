@@ -2,22 +2,19 @@
 # Build: docker build -f docker/Dockerfile.ubuntu -t ukiryu-test:ubuntu .
 # Run: docker run --rm ukiryu-test:ubuntu
 
-FROM ubuntu:24.04
+FROM ruby:3.3-slim
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Ruby and dependencies
+# Install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     git \
-    ruby \
-    ruby-dev \
     libz-dev \
     curl \
-    software-properties-common \
-    # Shells (PowerShell skipped due to arm64 dependency issues)
+    # Shells
     bash \
     zsh \
     fish \
@@ -40,25 +37,28 @@ RUN apt-get update && \
     ffmpeg \
     exiftool \
     libtiff-tools \
+    iputils-ping \
+    inkscape \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yq (mikefarah/yq)
-RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
+# Install yq (mikefarah/yq) with architecture detection
+RUN ARCH=$(uname -m) && \
+    YQ_ARCH=amd64 && \
+    if [ "$ARCH" = "aarch64" ]; then YQ_ARCH=arm64; fi && \
+    wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}" && \
     chmod +x /usr/local/bin/yq
-
-# Install inkscape (if available)
-RUN apt-get install -y --no-install-recommends inkscape || echo "Inkscape not available, skipping"
-
-# Install bundler
-RUN gem install bundler --no-document
 
 WORKDIR /ukiryu
 
 # Copy the entire application first
 COPY . .
 
-# Install dependencies (regenerates Gemfile.lock for this environment)
-RUN bundle install
+# Install Bundler 2.6.9 explicitly (to match Gemfile.lock)
+RUN gem install bundler -v '2.6.9' --no-document
+
+# Install dependencies (regenerate Gemfile.lock for this Ruby version)
+RUN rm -f Gemfile.lock && bundle install
 
 # Run tests by default
-CMD ["bundle", "exec", "rspec"]
+# Remove host Gemfile.lock to avoid Ruby version conflicts, then run tests
+CMD bash -c "rm -f /ukiryu/Gemfile.lock && cd /ukiryu && bundle install && bundle exec rspec"

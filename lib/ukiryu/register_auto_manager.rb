@@ -2,6 +2,7 @@
 
 require 'git'
 require 'fileutils'
+require 'pathname'
 
 module Ukiryu
   # Manages automatic register cloning and updates
@@ -25,7 +26,8 @@ module Ukiryu
       #
       # Checks in order:
       # 1. Environment variable UKIRYU_REGISTER
-      # 2. User's local clone (~/.ukiryu/register)
+      # 2. Development register (../../register relative to gem lib)
+      # 3. User's local clone (~/.ukiryu/register)
       #
       # @return [String, nil] the register path, or nil if unavailable
       def register_path
@@ -33,7 +35,13 @@ module Ukiryu
         env_path = ENV['UKIRYU_REGISTER']
         return env_path if env_path && Dir.exist?(env_path)
 
-        # 2. Use user's local clone, create if needed
+        # 2. Check development register (../../../register relative to this file)
+        # Use Pathname for reliable path calculation
+        this_file = Pathname.new(__FILE__).realpath
+        dev_path = this_file.parent.parent.parent.parent + 'register'
+        return dev_path.to_s if dev_path.exist?
+
+        # 3. Use user's local clone, create if needed
         ensure_user_clone
       end
 
@@ -273,6 +281,12 @@ module Ukiryu
         # Check environment variable
         env_path = ENV['UKIRYU_REGISTER']
         return env_path if env_path && Dir.exist?(env_path)
+
+        # Check development register (../../../register relative to this file)
+        # Use Pathname for reliable path calculation
+        this_file = Pathname.new(__FILE__).realpath
+        dev_path = this_file.parent.parent.parent.parent + 'register'
+        return dev_path.to_s if dev_path.exist?
 
         # Check user clone
         expanded = expand_path(DEFAULT_DIR)

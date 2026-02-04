@@ -30,7 +30,7 @@ module Ukiryu
 
           # Load the tool definition as a lutaml-model
           tool_definition = load_tool_definition(tool_name)
-          raise Ukiryu::ToolNotFoundError, "Tool not found: #{tool_name}" unless tool_definition
+          raise Ukiryu::Errors::ToolNotFoundError, "Tool not found: #{tool_name}" unless tool_definition
 
           # Get the compatible platform profile
           platform_profile = tool_definition.compatible_profile

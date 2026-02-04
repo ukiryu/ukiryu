@@ -1,0 +1,50 @@
+---
+ukiryu_schema: '1.0'
+name: inkscape
+version: '1.0'
+display_name: Inkscape Interface
+actions:
+- name: export
+  description: Export document to different format (legacy)
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: output
+        type: file
+      - name: format
+        type: symbol
+      - name: dpi
+        type: integer
+      - name: width
+        type: integer
+      - name: height
+        type: integer
+      flags:
+      - name: plain
+        type: boolean
+      - name: text_to_path
+        type: boolean
+- name: query
+  description: Query document dimensions (legacy)
+  signature:
+    inputs:
+      inputs:
+      - name: input
+        type: file
+        required: true
+      flags:
+      - name: width
+        type: boolean
+      - name: height
+        type: boolean
+      - name: x
+        type: boolean
+      - name: "y"
+        type: boolean
+aliases:
+- inkscapecom
+- ink

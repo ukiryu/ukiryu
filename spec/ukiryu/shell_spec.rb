@@ -109,7 +109,7 @@ RSpec.describe Ukiryu::Shell do
     it 'raises UnknownShellError for invalid shells' do
       expect do
         described_class.class_for(:invalid)
-      end.to raise_error(Ukiryu::UnknownShellError, /Unknown shell: invalid/)
+      end.to raise_error(Ukiryu::Errors::UnknownShellError, /Unknown shell: invalid/)
     end
   end
 end

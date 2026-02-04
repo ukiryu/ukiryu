@@ -192,19 +192,36 @@ test_platform() {
         RESULTS[$platform]="FAILED"
         TIMES[$platform]="${duration}s"
         print_error "Tests failed (${duration}s)"
-        echo "Check log: /tmp/docker-test-${platform}.log"
-        
-        # Show summary of failures
-        echo -e "\n${YELLOW}Failure summary:${NC}"
-        grep -E "Failure/Error:|Failures:|expected" /tmp/docker-test-${platform}.log | head -20 || true
+        echo -e "\n${YELLOW}Full RSpec output:${NC}"
+        cat /tmp/docker-test-${platform}.log
     fi
 
     # Cleanup
     docker rm -f "$container_name" &>/dev/null || true
 }
 
+# Function to check if Docker is available and running
+check_docker() {
+    if ! command -v docker &>/dev/null; then
+        print_error "Docker not found. Please install Docker Desktop:"
+        echo "  https://www.docker.com/products/docker-desktop/"
+        exit 1
+    fi
+
+    if ! docker info &>/dev/null; then
+        print_error "Docker daemon is not running. Please start Docker Desktop:"
+        echo "  - macOS: Open Docker Desktop from Applications"
+        echo "  - Linux: sudo systemctl start docker"
+        echo "  - Windows: Start Docker Desktop from Start Menu"
+        exit 1
+    fi
+}
+
 # Main execution
 main() {
+    # Check Docker availability first
+    check_docker
+
     print_header "Ukiryu Multi-Platform Docker Test Runner"
 
     echo -e "Testing platforms: ${BLUE}${PLATFORMS[*]}${NC}"

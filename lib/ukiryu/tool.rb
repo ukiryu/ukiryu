@@ -43,15 +43,476 @@ module Ukiryu
         ToolCache.cache
       end
 
-      # Get a tool by name (traditional API)
+      # Try loading a tool using the new ImplementationIndex architecture
+      # Returns nil if the tool doesn't use the new architecture
+      #
+      # @param name [String, Symbol] the tool name
+      # @param options [Hash] loading options
+      # @return [Tool, nil] the tool instance or nil if not using new architecture
+      def load_with_implementation_index(name, options = {})
+        require_relative 'version_scheme_resolver'
+        require_relative 'models/implementation_index'
+        require_relative 'models/interface'
+        require_relative 'models/implementation_version'
+
+        # Try to load ImplementationIndex
+        index = Register.load_implementation_index(name, options)
+        return nil unless index
+
+        # Load Interface
+        interface = Register.load_interface(index.interface, options)
+        return nil unless interface
+
+        # Detect implementation and version
+        impl_spec = detect_implementation_and_version(index, name, options)
+        return nil unless impl_spec
+
+        # Load ImplementationVersion
+        impl_version = Register.load_implementation_version(
+          name,
+          impl_spec[:implementation_name],
+          impl_spec[:file],
+          options
+        )
+        return nil unless impl_version
+
+        # Convert to old ToolDefinition format for compatibility
+        profile = convert_to_tool_definition(
+          name,
+          interface,
+          impl_version,
+          impl_spec[:implementation_name],
+          options
+        )
+        return nil unless profile
+
+        # Create tool instance
+        new(profile, options)
+      end
+
+      # Detect implementation and version from ImplementationIndex
+      #
+      # @param index [Models::ImplementationIndex] the implementation index
+      # @param tool_name [String] the tool name for executable lookup
+      # @param options [Hash] options including platform and shell
+      # @return [Hash, nil] hash with :implementation_name, :version, :file or nil
+      def detect_implementation_and_version(index, tool_name, options = {})
+        # Try each implementation in order
+        index.implementations.each do |impl|
+          # Run detection command
+          detection = impl[:detection] || impl['detection']
+          detection_result = run_detection_command(detection, tool_name, options)
+          next unless detection_result
+
+          # Extract version using pattern
+          # If pattern has no capture group, detection_result is returned but we should use default version
+          pattern = detection[:pattern] || detection['pattern']
+          version = extract_version_from_pattern(detection_result, pattern)
+
+          # If detection succeeded but no version was extracted, check if pattern matched
+          # If pattern was just a presence check (no capture group), use nil version with default spec
+          if version.nil?
+            # Check if pattern matched at all (presence check)
+            has_pattern = detection_result.match?(Regexp.new(pattern)) if pattern
+            # If pattern didn't match, skip this implementation
+            next unless has_pattern
+            # Pattern matched but no version - will use default version spec below
+          end
+
+          # Resolve versionian scheme
+          require_relative 'version_scheme_resolver'
+          version_scheme = impl[:version_scheme] || impl['version_scheme']
+          scheme = VersionSchemeResolver.resolve(version_scheme)
+
+          # Find matching version spec
+          # If version is nil (presence check only), use implementation default
+          if version.nil?
+            versions = impl[:versions] || impl['versions']
+            # Prefer implementation-level default, then version-level default, then last version
+            impl_default = impl[:default] || impl['default']
+            version_spec = if impl_default
+                            # Find version spec matching the implementation default
+                            versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
+                          else
+                            versions.find { |v| v[:default] || v['default'] } || versions.last
+                          end
+            return {
+              implementation_name: impl[:name] || impl['name'],
+              version: nil,
+              file: version_spec[:file] || version_spec['file'] || impl_default
+            }
+          end
+
+          # Find matching version spec for detected version
+          versions = impl[:versions] || impl['versions']
+          version_spec = find_matching_version_spec(versions, version, scheme)
+
+          if version_spec
+            return {
+              implementation_name: impl[:name] || impl['name'],
+              version: version,
+              file: version_spec[:file] || version_spec['file']
+            }
+          end
+        end
+
+        # If no implementation matched, use the first one's default
+        return nil if index.implementations.empty?
+
+        impl = index.implementations.first
+        versions = impl[:versions] || impl['versions']
+        # Prefer implementation-level default, then version-level default, then last version
+        impl_default = impl[:default] || impl['default']
+        default_spec = if impl_default
+                        # Find version spec matching the implementation default
+                        versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
+                      else
+                        versions.find { |v| v[:default] || v['default'] } || versions.last
+                      end
+        {
+          implementation_name: impl[:name] || impl['name'],
+          version: nil,
+          file: default_spec[:file] || default_spec['file'] || impl_default
+        }
+      end
+
+      # Run detection command for an implementation
+      #
+      # @param detection [Hash] detection configuration
+      # @param tool_name [String] the tool name for executable lookup
+      # @param options [Hash] options
+      # @return [String, nil] command output or nil
+      def run_detection_command(detection, tool_name, options = {})
+        command = detection[:command] || detection['command']
+        return nil unless command
+
+        cmd = Array(command)
+
+        # Support multiple executables for detection (e.g., 'convert' and 'magick' for ImageMagick)
+        executables = detection[:executables] || detection['executables']
+        if executables
+          # Try each executable until one succeeds
+          Array(executables).each do |executable|
+            full_cmd = [executable] + cmd
+            result = try_execute_command(full_cmd, options)
+            return result if result
+          end
+          nil
+        else
+          # Use the executable from detection config, or fall back to tool_name
+          executable = detection[:executable] || detection['executable'] || options[:executable] || tool_name.to_s
+          full_cmd = [executable] + cmd
+          try_execute_command(full_cmd, options)
+        end
+      end
+
+      # Try executing a command and return stdout on success
+      #
+      # @param cmd [Array] command parts
+      # @param options [Hash] options
+      # @return [String, nil] stdout or nil
+      def try_execute_command(cmd, options = {})
+        require_relative 'executor'
+        require_relative 'shell'
+        result = Executor.execute(
+          cmd.first,
+          cmd.drop(1),
+          env: options[:env],
+          shell: options[:shell] || Shell.detect,
+          timeout: 5
+        )
+        # Scrub stdout to handle invalid UTF-8 byte sequences
+        result.success? ? result.stdout.scrub('') : nil
+      rescue StandardError
+        nil
+      end
+
+      # Extract version from command output using pattern
+      #
+      # @param output [String] command output
+      # @param pattern [String] regex pattern
+      # @return [String, nil] extracted version or nil
+      def extract_version_from_pattern(output, pattern)
+        return nil unless output && pattern
+
+        # Scrub output to handle invalid UTF-8 byte sequences
+        scrubbed_output = output.scrub('')
+        match = scrubbed_output.match(Regexp.new(pattern))
+        return nil unless match
+
+        # Return capture group if present, otherwise nil (presence check)
+        match[1]
+      end
+
+      # Find matching version spec using versionian
+      #
+      # @param versions [Array<Hash>] version specs
+      # @param detected_version [String] detected version
+      # @param scheme [Versionian::VersionScheme] versionian scheme
+      # @return [Hash, nil] matching version spec or nil
+      def find_matching_version_spec(versions, detected_version, scheme)
+        require 'versionian'
+
+        versions.each do |version_spec|
+          range_type = version_spec[:equals] ? :equals :
+                       version_spec[:before] ? :before :
+                       version_spec[:after] ? :after :
+                       version_spec[:between] ? :between : nil
+
+          next unless range_type
+
+          range = case range_type
+                  when :equals
+                    boundary = version_spec[:equals] || version_spec['equals']
+                    Versionian::VersionRange.new(:equals, scheme, version: boundary)
+                  when :before
+                    boundary = version_spec[:before] || version_spec['before']
+                    Versionian::VersionRange.new(:before, scheme, version: boundary)
+                  when :after
+                    boundary = version_spec[:after] || version_spec['after']
+                    Versionian::VersionRange.new(:after, scheme, version: boundary)
+                  when :between
+                    between = version_spec[:between] || version_spec['between']
+                    from = between[:from] || between['from']
+                    to = between[:to] || between['to']
+                    Versionian::VersionRange.new(:between, scheme, from: from, to: to)
+                  end
+
+          return version_spec if range&.matches?(detected_version)
+        end
+        nil
+      end
+
+      # Convert ImplementationVersion to ToolDefinition for compatibility
+      #
+      # @param tool_name [String] tool name
+      # @param interface [Models::Interface] interface
+      # @param impl_version [Models::ImplementationVersion] implementation version
+      # @param implementation_name [String] implementation name
+      # @param options [Hash] options
+      # @return [ToolDefinition] converted tool definition
+      def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, options = {})
+        require_relative 'models/tool_definition'
+        require_relative 'models/platform_profile'
+
+        # Select compatible execution profile
+        profile = impl_version.compatible_profile(
+          platform: options[:platform] || Platform.detect,
+          shell: options[:shell] || Shell.detect
+        )
+
+        return nil unless profile
+
+        # Build ToolDefinition from execution profile
+        # Note: implements must be an array for the v2 model
+        # Only append implementation name for non-default implementations
+        specific_tool_name = if implementation_name && implementation_name != 'default'
+                               "#{tool_name}_#{implementation_name}"
+                             else
+                               tool_name
+                             end
+        Models::ToolDefinition.new(
+          name: specific_tool_name,
+          version: impl_version.version,
+          display_name: impl_version.display_name || "#{interface.name} #{implementation_name} #{impl_version.version}",
+          implements: Array(interface.name), # v2: expects array
+          profiles: [convert_profile_to_platform_profile(profile, interface.actions)],
+          version_detection: impl_version.version_detection, # Extract from implementation
+          aliases: impl_version.aliases || []
+        )
+      end
+
+      # Convert ExecutionProfile to hash format for ToolDefinition
+      #
+      # @param profile [Models::ExecutionProfile, Hash] execution profile
+      # @param actions [Array<Hash>] interface actions
+      # @return [Hash] profile hash
+      def convert_profile_to_hash(profile, actions)
+        # Handle both Hash and ExecutionProfile objects
+        if profile.is_a?(Hash)
+          # Use the actions parameter (interface.actions), not profile[:actions]
+          actions_hash = actions || {}
+          # Convert actions hash to array format expected by ToolDefinition
+          commands_array = convert_actions_to_array(actions_hash)
+          {
+            'name' => profile[:name] || profile['name'],
+            'display_name' => profile[:display_name] || profile['display_name'],
+            'platforms' => profile[:platforms] || profile['platforms'],
+            'shells' => profile[:shells] || profile['shells'],
+            'option_style' => profile[:option_style] || profile['option_style'],
+            'executable_name' => profile[:executable_name] || profile['executable_name'],
+            'commands' => commands_array
+          }
+        else
+          actions_hash = actions || {}
+          commands_array = convert_actions_to_array(actions_hash)
+          {
+            'name' => profile.name,
+            'display_name' => profile.display_name,
+            'platforms' => profile.platforms,
+            'shells' => profile.shells,
+            'option_style' => profile.option_style,
+            'executable_name' => profile.executable_name,
+            'commands' => commands_array
+          }
+        end
+      end
+
+      # Convert ExecutionProfile to PlatformProfile object for ToolDefinition
+      #
+      # @param profile [Models::ExecutionProfile, Hash] execution profile
+      # @param actions [Array<Hash>] interface actions
+      # @return [PlatformProfile] platform profile object
+      def convert_profile_to_platform_profile(profile, actions)
+        require_relative 'models/platform_profile'
+        require_relative 'models/command_definition'
+
+        # Handle both Hash and ExecutionProfile objects
+        if profile.is_a?(Hash)
+          profile_data = profile
+          profile_commands = profile[:commands] || profile['commands'] || []
+        else
+          profile_data = {
+            name: profile.name,
+            display_name: profile.display_name,
+            platforms: profile.platforms,
+            shells: profile.shells,
+            option_style: profile.option_style
+          }
+          profile_commands = profile.commands || []
+        end
+
+        # Convert interface actions to command definitions hash (by name)
+        interface_commands_hash = {}
+        convert_actions_to_array(actions || []).each do |cmd|
+          cmd_name = cmd[:name] || cmd['name']
+          interface_commands_hash[cmd_name] = cmd
+        end
+
+        # Build command definitions by merging interface and profile data
+        command_definitions = (profile_commands || []).map do |cmd_hash|
+          cmd_name = cmd_hash[:name] || cmd_hash['name']
+          # Merge profile command data with interface action data
+          interface_cmd = interface_commands_hash[cmd_name]
+          merged_cmd_hash = if interface_cmd
+                              # Deep merge: profile data takes precedence
+                              deep_merge_hashes(interface_cmd, cmd_hash)
+                            else
+                              cmd_hash
+                            end
+          convert_hash_to_command_definition(merged_cmd_hash)
+        end
+
+        # Create PlatformProfile
+        Models::PlatformProfile.new(
+          **profile_data,
+          commands: command_definitions
+        )
+      end
+
+      # Deep merge two hashes (second hash takes precedence)
+      #
+      # @param base [Hash] base hash
+      # @param override [Hash] override hash (takes precedence)
+      # @return [Hash] merged hash
+      def deep_merge_hashes(base, override)
+        base.merge(override) do |_key, old_val, new_val|
+          if old_val.is_a?(Hash) && new_val.is_a?(Hash)
+            deep_merge_hashes(old_val, new_val)
+          elsif new_val.nil?
+            old_val
+          else
+            new_val
+          end
+        end
+      end
+
+      # Convert hash to CommandDefinition object
+      #
+      # @param cmd_hash [Hash] command definition hash
+      # @return [CommandDefinition] command definition object
+      def convert_hash_to_command_definition(cmd_hash)
+        require_relative 'models/command_definition'
+
+        # Create CommandDefinition from hash
+        Models::CommandDefinition.new(
+          name: cmd_hash['name'] || cmd_hash[:name],
+          description: cmd_hash['description'] || cmd_hash[:description],
+          usage: cmd_hash['usage'] || cmd_hash[:usage],
+          subcommand: cmd_hash['subcommand'] || cmd_hash[:subcommand],
+          belongs_to: cmd_hash['belongs_to'] || cmd_hash[:belongs_to],
+          cli_flag: cmd_hash['cli_flag'] || cmd_hash[:cli_flag],
+          aliases: cmd_hash['aliases'] || cmd_hash[:aliases] || [],
+          use_env_vars: cmd_hash['use_env_vars'] || cmd_hash[:use_env_vars] || [],
+          implements: cmd_hash['implements'] || cmd_hash[:implements] || [],
+          options: cmd_hash['options'] || cmd_hash[:options],
+          flags: cmd_hash['flags'] || cmd_hash[:flags],
+          arguments: cmd_hash['arguments'] || cmd_hash[:arguments],
+          post_options: cmd_hash['post_options'] || cmd_hash[:post_options],
+          env_vars: cmd_hash['env_vars'] || cmd_hash[:env_vars],
+          exit_codes: cmd_hash['exit_codes'] || cmd_hash[:exit_codes]
+        )
+      end
+
+      # Convert actions hash to array format
+      #
+      # @param actions_data [Hash, Array] actions hash with command names as keys,
+      #   or array of command definitions
+      # @return [Array<Hash>] array of command definitions
+      def convert_actions_to_array(actions_data)
+        return [] if actions_data.nil? || actions_data.empty?
+
+        # Handle both Hash (old format) and Array (new format from Interface)
+        if actions_data.is_a?(Hash)
+          actions_data.map do |command_name, command_def|
+            # command_def is already a hash, just add the name if not present
+            command_def = command_def.to_h
+            command_def['name'] ||= command_name.to_s
+            command_def
+          end
+        else
+          # Array format - convert to hash and ensure name is set
+          actions_data.map do |command_def|
+            command_def = command_def.to_h
+            # Flatten signature if present (interface format)
+            if command_def[:signature] || command_def['signature']
+              signature = command_def[:signature] || command_def['signature']
+              # Merge signature contents into command_def, excluding the signature key itself
+              signature.each do |key, value|
+                # Handle nested structure: signature[:inputs] contains inputs/options/flags
+                if key == :inputs || key == 'inputs'
+                  # If value is a hash, merge its contents directly
+                  if value.is_a?(Hash)
+                    value.each do |nested_key, nested_value|
+                      # Rename 'inputs' to 'arguments' for CommandDefinition compatibility
+                      target_key = case nested_key.to_s
+                                   when 'inputs' then 'arguments'
+                                   else nested_key.to_s
+                                   end
+                      command_def[target_key.to_sym] = nested_value unless nested_key == :signature || nested_key == 'signature'
+                    end
+                  else
+                    command_def[key] = value
+                  end
+                else
+                  command_def[key] = value unless key == :signature || key == 'signature'
+                end
+              end
+              command_def.delete(:signature)
+              command_def.delete('signature')
+            end
+            command_def
+          end
+        end
+      end
+
+      # Get a tool by name using the new ImplementationIndex architecture
       #
       # @param name [String] the tool name
       # @param options [Hash] initialization options
       # @option options [String] :register_path path to tool profiles
       # @option options [Symbol] :platform platform to use
       # @option options [Symbol] :shell shell to use
-      # @option options [String] :version specific version to use
-      # @option options [Boolean] :skip_version_detection skip version-aware profile selection
       # @return [Tool] the tool instance
       def get(name, options = {})
         # Check cache first
@@ -59,58 +520,9 @@ module Ukiryu
         cached = tools_cache[cache_key]
         return cached if cached
 
-        # Load profile from register
-        profile = load_profile(name, options)
-        raise ToolNotFoundError, "Tool not found: #{name}" unless profile
-
-        # Create tool instance
-        tool = new(profile, options)
-
-        # Version-aware profile selection: if detected version doesn't match profile version
-        # and profile has a modern_threshold, reload with appropriate version profile
-        if !options[:skip_version_detection] && tool.available? && tool.executable
-          detected_version = tool.version
-          profile_version = profile.version
-          version_detection = profile.version_detection
-
-          # Check if we need to reload with a different profile version
-          # Only proceed with version-aware reload if both versions are numeric
-          if detected_version && profile_version && version_detection&.modern_threshold && profile_version.match?(/^\d/) && detected_version.match?(/^\d/)
-            require 'rubygems/version'
-            # Extract version number (handle "6.9.11-60 Q16 x86_64" format)
-            detected_str = detected_version.split(' ')[0]
-            detected = Gem::Version.create(detected_str)
-            threshold = Gem::Version.new(version_detection.modern_threshold)
-            Gem::Version.new(profile_version)
-
-            # If profile version is modern (>= threshold) but detected version is legacy (< threshold)
-            # or vice versa, reload with the appropriate profile
-            modern = profile_is_modern?(profile_version, version_detection)
-            if (modern == true && detected < threshold) ||
-               (modern == false && detected >= threshold)
-              # Determine appropriate version to load
-              # For legacy versions, load the specific detected version (e.g., "6.9")
-              # For modern versions, load the latest
-              if detected >= threshold
-                target_version = 'latest'
-              else
-                # Extract major.minor from detected version (e.g., "6.9" from "6.9.12-98")
-                version_parts = detected_str.split('.')
-                target_version = "#{version_parts[0]}.#{version_parts[1]}"
-              end
-
-              # Reload with correct version
-              options_with_version = options.merge(version: target_version, skip_version_detection: true)
-              profile = load_profile(name, options_with_version)
-              raise ToolNotFoundError, "Tool not found: #{name}" unless profile
-
-              tool = new(profile, options_with_version)
-
-              # Update cache_key to match the new version
-              cache_key = cache_key_for(name, options_with_version)
-            end
-          end
-        end
+        # Load using ImplementationIndex architecture
+        tool = load_with_implementation_index(name, options)
+        raise Ukiryu::Errors::ToolNotFoundError, "Tool not found: #{name}" unless tool
 
         tools_cache[cache_key] = tool
         tool
@@ -239,7 +651,7 @@ module Ukiryu
         search_paths.each do |base_path|
           Dir.glob(File.join(base_path, tool_name.to_s, '*.yaml')).each do |file|
             return load(file, options)
-          rescue DefinitionLoadError, DefinitionNotFoundError
+          rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionNotFoundError
             # Try next file
             next
           end
@@ -348,7 +760,7 @@ module Ukiryu
 
       # Find compatible profile
       @command_profile = find_command_profile
-      raise ProfileNotFoundError, "No compatible profile for #{name}" unless @command_profile
+      raise Ukiryu::Errors::ProfileNotFoundError, "No compatible profile for #{name}" unless @command_profile
 
       # Find executable
       @executable = find_executable
@@ -601,6 +1013,16 @@ module Ukiryu
 
       # Skip version comparison for non-numeric versions (e.g., "generic")
       return nil unless profile_version.match?(/^\d/)
+
+      # Handle date-based versions (YYYY.MM.DD format used by some tools like ping_gnu)
+      # These are release dates, not semantic versions
+      # Compare by converting both to comparable formats
+      if profile_version.match?(/^\d{4}\.\d{2}\.\d{2}$/) && version_detection.modern_threshold.match?(/^\d{8}$/)
+        # Convert YYYY.MM.DD to YYYYMMDD for direct comparison
+        profile_date = profile_version.gsub('.', '')
+        threshold_date = version_detection.modern_threshold
+        return profile_date >= threshold_date
+      end
 
       profile_ver = Gem::Version.new(profile_version)
       threshold = Gem::Version.new(version_detection.modern_threshold)

@@ -19,8 +19,10 @@ module Ukiryu
       #
       # @return [String, nil] the executable path or nil if not found
       def find_executable
+        # Use executable_name from command profile, falling back to profile name
+        executable_name = @command_profile.executable_name || @profile.name
         result = ::Ukiryu::ExecutableLocator.find_with_info(
-          tool_name: @profile.name,
+          tool_name: executable_name,
           aliases: @profile.aliases || [],
           platform: @platform
         )

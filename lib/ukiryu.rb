@@ -24,24 +24,12 @@ module Ukiryu
   # Definition and models namespaces
   autoload :Definition, 'ukiryu/definition'
   autoload :Models, 'ukiryu/models'
+  autoload :Errors, 'ukiryu/errors'
 
   # Base classes for nested modules
   autoload :OptionsBase, 'ukiryu/options/base'
   autoload :ResponseBase, 'ukiryu/response/base'
   autoload :ActionBase, 'ukiryu/action/base'
-
-  # Error classes - autoload (triggered when exception is raised)
-  autoload :Error, 'ukiryu/errors'
-  autoload :ToolNotFoundError, 'ukiryu/errors'
-  autoload :ProfileNotFoundError, 'ukiryu/errors'
-  autoload :ExecutionError, 'ukiryu/errors'
-  autoload :TimeoutError, 'ukiryu/errors'
-  autoload :DefinitionNotFoundError, 'ukiryu/errors'
-  autoload :DefinitionLoadError, 'ukiryu/errors'
-  autoload :DefinitionValidationError, 'ukiryu/errors'
-  autoload :ValidationError, 'ukiryu/errors'
-  autoload :UnknownShellError, 'ukiryu/errors'
-  autoload :UnknownPlatformError, 'ukiryu/errors'
 
   # CLI (optional, only load if thor is available)
   begin

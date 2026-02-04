@@ -45,7 +45,7 @@ module Ukiryu
         tool = Ukiryu::Tool.get(identifier, platform: platform, shell: shell)
         say 'Match type: Exact name match', :green
         tool
-      rescue Ukiryu::ToolNotFoundError
+      rescue Ukiryu::Errors::ToolNotFoundError
         nil
       end
 

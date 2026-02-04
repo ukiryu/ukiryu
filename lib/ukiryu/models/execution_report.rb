@@ -99,7 +99,7 @@ module Ukiryu
         runtime = ::Ukiryu::Runtime.instance
         begin
           ::Ukiryu::Shell.detect
-        rescue ::Ukiryu::UnknownShellError
+        rescue ::Ukiryu::Errors::UnknownShellError
           'unknown'
         end
 

@@ -10,6 +10,7 @@ module Ukiryu
     #   profile = PlatformProfile.new(
     #     name: 'default',
     #     platforms: [:macos, :linux],
+    #     executable_name: 'ping',
     #     commands: [CommandDefinition.new(...)]
     #   )
     class PlatformProfile < Lutaml::Model::Serializable
@@ -18,6 +19,7 @@ module Ukiryu
       attribute :platforms, :string, collection: true, default: []
       attribute :shells, :string, collection: true, default: []
       attribute :option_style, :string, default: 'single_dash_space'
+      attribute :executable_name, :string
       attribute :commands, Ukiryu::Models::CommandDefinition, collection: true, initialize_empty: true
       attribute :inherits, :string
       attribute :routing_data, :hash, default: {} # Raw routing from YAML
@@ -31,6 +33,7 @@ module Ukiryu
         map_element 'platforms', to: :platforms
         map_element 'shells', to: :shells
         map_element 'option_style', to: :option_style
+        map_element 'executable_name', to: :executable_name
         map_element 'commands', to: :commands
         map_element 'inherits', to: :inherits
         map_element 'routing', to: :routing_data

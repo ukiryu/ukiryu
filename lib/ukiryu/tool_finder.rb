@@ -51,7 +51,7 @@ module Ukiryu
             )
           end
           return tool
-        rescue Ukiryu::ToolNotFoundError, Ukiryu::ProfileNotFoundError
+        rescue Ukiryu::Errors::ToolNotFoundError, Ukiryu::Errors::ProfileNotFoundError
           # Continue to search by interface/alias
         end
 
@@ -63,7 +63,7 @@ module Ukiryu
             tool = Ukiryu::Tool.get(tool_name.to_s, options)
             # Return tool only if it's available (executable found)
             return tool if tool.available?
-          rescue Ukiryu::ToolNotFoundError, Ukiryu::ProfileNotFoundError
+          rescue Ukiryu::Errors::ToolNotFoundError, Ukiryu::Errors::ProfileNotFoundError
             # Tool indexed but not available, continue to next
           end
         end
@@ -73,7 +73,7 @@ module Ukiryu
         if alias_tool_name
           begin
             return Ukiryu::Tool.get(alias_tool_name.to_s, options)
-          rescue Ukiryu::ToolNotFoundError, Ukiryu::ProfileNotFoundError
+          rescue Ukiryu::Errors::ToolNotFoundError, Ukiryu::Errors::ProfileNotFoundError
             # Alias indexed but tool not available, continue
           end
         end
@@ -176,48 +176,76 @@ module Ukiryu
         all_tools = Ukiryu::Register.tools
 
         all_tools.each do |tool_name|
-          tool_def = Ukiryu::Tools::Generator.load_tool_definition(tool_name)
-          next unless tool_def
+          # Try new architecture first (uses index.yaml)
+          tool = nil
+          begin
+            tool = Ukiryu::Tool.get(tool_name, options.merge(platform: platform, shell: shell))
+          rescue Ukiryu::Errors::ToolNotFoundError
+            # Fall back to old architecture
+            tool_def = Ukiryu::Tools::Generator.load_tool_definition(tool_name)
+            next unless tool_def
 
-          # Check if tool matches by interface
-          # v2: implements is an array, check if interface is in the array
-          # v1: implements is a string, check for equality
-          implements_value = tool_def.implements
-          interface_match = if implements_value.is_a?(Array)
-                             implements_value.map(&:to_sym).include?(identifier.to_sym)
-                           else
-                             implements_value == identifier.to_s
-                           end
+            # Check if tool matches by interface
+            # v2: implements is an array, check if interface is in the array
+            # v1: implements is a string, check for equality
+            implements_value = tool_def.implements
+            interface_match = if implements_value.is_a?(Array)
+                               implements_value.map(&:to_sym).include?(identifier.to_sym)
+                             else
+                               implements_value == identifier.to_s
+                             end
 
-          # Check if tool matches by alias
-          alias_match = tool_def.aliases&.include?(identifier)
+            # Check if tool matches by alias
+            alias_match = tool_def.aliases&.include?(identifier)
 
-          next unless alias_match || interface_match
+            next unless alias_match || interface_match
 
-          # Check if tool is compatible with current platform/shell
-          profile = tool_def.compatible_profile(platform: platform, shell: shell)
-          next unless profile
+            # Check if tool is compatible with current platform/shell
+            profile = tool_def.compatible_profile(platform: platform, shell: shell)
+            next unless profile
 
-          # Create tool instance
-          cache_key = Ukiryu::ToolCache.cache_key_for(tool_name, options)
-          cached = Ukiryu::ToolCache.cache[cache_key]
+            # Create tool instance
+            cache_key = Ukiryu::ToolCache.cache_key_for(tool_name, options)
+            cached = Ukiryu::ToolCache.cache[cache_key]
 
-          if cached
-            if logger.debug_enabled?
-              logger.debug_section_tool_resolution(
-                identifier: identifier,
-                platform: platform,
-                shell: shell,
-                all_tools: all_tools,
-                selected_tool: tool_name,
-                executable: cached.executable
-              )
+            if cached
+              if logger.debug_enabled?
+                logger.debug_section_tool_resolution(
+                  identifier: identifier,
+                  platform: platform,
+                  shell: shell,
+                  all_tools: all_tools,
+                  selected_tool: tool_name,
+                  executable: cached.executable
+                )
+              end
+              return cached
             end
-            return cached
+
+            tool = Ukiryu::Tool.new(tool_def, options.merge(platform: platform, shell: shell))
+            Ukiryu::ToolCache.set(cache_key, tool)
           end
 
-          tool = Ukiryu::Tool.new(tool_def, options.merge(platform: platform, shell: shell))
-          Ukiryu::ToolCache.set(cache_key, tool)
+          next unless tool
+
+          # For new architecture, check if tool matches by interface or alias
+          # Get the profile which has implements and aliases
+          profile = tool.profile
+          next unless profile
+
+          implements_value = profile.implements
+          interface_match = if implements_value.is_a?(Array)
+                             implements_value.map(&:to_sym).include?(identifier.to_sym)
+                           elsif implements_value
+                             implements_value.to_sym == identifier.to_sym
+                           else
+                             false
+                           end
+
+          aliases_value = profile.aliases
+          alias_match = aliases_value&.include?(identifier)
+
+          next unless alias_match || interface_match
 
           if logger.debug_enabled?
             logger.debug_section_tool_resolution(

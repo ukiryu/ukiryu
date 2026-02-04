@@ -91,7 +91,7 @@ module Ukiryu
         # Load the definition to get metadata
         begin
           metadata = Definition::Loader.load_from_file(source_path, validation: :strict)
-        rescue DefinitionLoadError, DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           warn "Error: Failed to load definition: #{e.message}"
           exit 1
         end
@@ -242,7 +242,7 @@ module Ukiryu
           puts 'Validation: ✓ Valid'
           puts "Display Name: #{tool_def.display_name}" if tool_def.display_name
           puts "Homepage: #{tool_def.homepage}" if tool_def.homepage
-        rescue DefinitionLoadError, DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           puts 'Validation: ✗ Invalid'
           puts "Error: #{e.message}"
         end

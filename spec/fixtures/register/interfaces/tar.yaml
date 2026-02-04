@@ -1,0 +1,82 @@
+---
+ukiryu_schema: '1.0'
+name: tar
+version: '1.0'
+display_name: tar archive interface
+description: |
+  Interface for tar archive creation, extraction, and listing tools.
+  Defines the contract for tar-compatible implementations.
+commands:
+- name: create
+  display_name: Create archive
+  description: Create a tar archive from files/directories
+  required: true
+  arguments:
+  - name: inputs
+    type: file
+    variadic: true
+    min: 1
+    required: true
+    description: Files/directories to archive
+  options:
+  - name: file
+    type: file
+    required: true
+    description: Archive file name
+  - name: directory
+    type: string
+    description: Change to directory before processing
+  flags:
+  - name: verbose
+    description: Verbose mode
+  - name: gzip
+    description: Compress with gzip
+  - name: bzip2
+    description: Compress with bzip2
+- name: extract
+  display_name: Extract archive
+  description: Extract files from a tar archive
+  required: true
+  arguments:
+  - name: inputs
+    type: file
+    variadic: false
+    min: 0
+    required: false
+    description: Specific files to extract (empty = all)
+  options:
+  - name: file
+    type: file
+    required: true
+    description: Archive file name
+  - name: directory
+    type: string
+    description: Change to directory before processing
+  flags:
+  - name: verbose
+    description: Verbose mode
+  - name: gzip
+    description: Archive is gzipped
+  - name: bzip2
+    description: Archive is bzipped
+  - name: keep_old
+    description: Keep existing files (don't overwrite)
+- name: list
+  display_name: List archive
+  description: List contents of a tar archive
+  required: true
+  arguments:
+  - name: inputs
+    type: file
+    variadic: false
+    min: 0
+    required: false
+    description: Specific files to list (empty = all)
+  options:
+  - name: file
+    type: file
+    required: true
+    description: Archive file name
+  flags:
+  - name: verbose
+    description: Verbose mode

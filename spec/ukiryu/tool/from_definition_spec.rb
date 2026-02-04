@@ -81,14 +81,14 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
       invalid_yaml = 'name: test\n  invalid: [unclosed'
 
       expect { described_class.from_definition(invalid_yaml) }.to raise_error(
-        Ukiryu::DefinitionLoadError,
+        Ukiryu::Errors::DefinitionLoadError,
         /Invalid YAML/
       )
     end
 
     it 'raises DefinitionLoadError for empty string' do
       expect { described_class.from_definition('') }.to raise_error(
-        Ukiryu::DefinitionLoadError,
+        Ukiryu::Errors::DefinitionLoadError,
         /cannot be empty/
       )
     end
@@ -97,7 +97,7 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
       invalid_yaml = 'name: test\n# Missing: version, profiles'
 
       expect { described_class.from_definition(invalid_yaml) }.to raise_error(
-        Ukiryu::DefinitionLoadError
+        Ukiryu::Errors::DefinitionLoadError
       )
     end
 

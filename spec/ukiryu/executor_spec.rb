@@ -59,7 +59,7 @@ RSpec.describe Ukiryu::Executor do
         # Use a command that will definitely timeout
         expect do
           executor.execute('sleep', ['10'], timeout: 0.01, shell: shell_symbol)
-        end.to raise_error(Ukiryu::TimeoutError, /Command timed out after 0\.01 seconds/)
+        end.to raise_error(Ukiryu::Errors::TimeoutError, /Command timed out after 0\.01 seconds/)
       end
     end
 
@@ -165,11 +165,11 @@ RSpec.describe Ukiryu::Executor do
         if Ukiryu::Platform.windows?
           expect do
             executor.execute('cmd', ['/c', 'exit 1'], shell: :cmd, timeout: 30)
-          end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Command failed/)
         else
           expect do
             executor.execute('sh', ['-c', 'exit 1'], shell: shell_symbol, timeout: 30)
-          end.to raise_error(Ukiryu::ExecutionError, /Command failed/)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Command failed/)
         end
       end
 
@@ -180,11 +180,11 @@ RSpec.describe Ukiryu::Executor do
           # Must explicitly set shell to :cmd to avoid PowerShell formatting
           expect do
             executor.execute('cmd', ['/c', 'echo error 1>&2 && exit 1'], shell: :cmd, timeout: 30)
-          end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /STDERR:\s*error/)
         else
           expect do
             executor.execute('sh', ['-c', 'echo error >&2; exit 1'], shell: shell_symbol, timeout: 30)
-          end.to raise_error(Ukiryu::ExecutionError, /STDERR:\s*error/)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /STDERR:\s*error/)
         end
       end
     end
@@ -193,7 +193,7 @@ RSpec.describe Ukiryu::Executor do
       it 'includes executable name in error message' do
         expect do
           executor.execute('false', [], shell: shell_symbol, timeout: 30)
-        end.to raise_error(Ukiryu::ExecutionError, /Command failed: false/)
+        end.to raise_error(Ukiryu::Errors::ExecutionError, /Command failed: false/)
       end
 
       it 'includes exit status in error message' do
@@ -201,11 +201,11 @@ RSpec.describe Ukiryu::Executor do
         if Ukiryu::Platform.windows?
           expect do
             executor.execute('powershell', ['-Command', 'exit 42'], shell: :powershell, timeout: 90)
-          end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Exit status: 42/)
         else
           expect do
             executor.execute('sh', ['-c', 'exit 42'], shell: shell_symbol, timeout: 90)
-          end.to raise_error(Ukiryu::ExecutionError, /Exit status: 42/)
+          end.to raise_error(Ukiryu::Errors::ExecutionError, /Exit status: 42/)
         end
       end
     end

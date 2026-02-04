@@ -1,0 +1,14 @@
+---
+ukiryu_schema: '1.0'
+name: ghostscript
+interface: gs
+implementations:
+- name: default
+  display_name: Ghostscript
+  detection:
+    pattern: ghostscript ([\d.]+)
+  version_scheme: semantic
+  versions:
+  - equals: '10.0'
+    file: 10.0.yaml
+  default: 10.0.yaml

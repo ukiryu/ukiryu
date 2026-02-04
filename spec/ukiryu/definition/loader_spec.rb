@@ -57,7 +57,7 @@ RSpec.describe Ukiryu::Definition::Loader do
       source = Ukiryu::Definition::Sources::StringSource.new(invalid_yaml)
 
       expect { described_class.load_from_source(source) }.to raise_error(
-        Ukiryu::DefinitionLoadError,
+        Ukiryu::Errors::DefinitionLoadError,
         /Invalid YAML/
       )
     end
@@ -75,7 +75,7 @@ RSpec.describe Ukiryu::Definition::Loader do
         source = Ukiryu::Definition::Sources::StringSource.new(missing_fields_yaml)
 
         expect { described_class.load_from_source(source) }.to raise_error(
-          Ukiryu::DefinitionValidationError,
+          Ukiryu::Errors::DefinitionValidationError,
           /Missing 'name' field/
         )
       end
@@ -84,7 +84,7 @@ RSpec.describe Ukiryu::Definition::Loader do
         source = Ukiryu::Definition::Sources::StringSource.new(missing_fields_yaml)
 
         expect { described_class.load_from_source(source, validation: :strict) }.to raise_error(
-          Ukiryu::DefinitionValidationError
+          Ukiryu::Errors::DefinitionValidationError
         )
       end
 
@@ -106,7 +106,7 @@ RSpec.describe Ukiryu::Definition::Loader do
         source = Ukiryu::Definition::Sources::StringSource.new(invalid_schema_yaml)
 
         expect { described_class.load_from_source(source, validation: :strict) }.to raise_error(
-          Ukiryu::DefinitionValidationError,
+          Ukiryu::Errors::DefinitionValidationError,
           /Invalid ukiryu_schema format/
         )
       end
@@ -134,7 +134,7 @@ RSpec.describe Ukiryu::Definition::Loader do
 
     it 'raises DefinitionNotFoundError for non-existent file' do
       expect { described_class.load_from_file('nonexistent.yaml') }.to raise_error(
-        Ukiryu::DefinitionNotFoundError
+        Ukiryu::Errors::DefinitionNotFoundError
       )
     end
 
@@ -155,13 +155,13 @@ RSpec.describe Ukiryu::Definition::Loader do
 
     it 'raises DefinitionLoadError for invalid YAML string' do
       expect { described_class.load_from_string(invalid_yaml) }.to raise_error(
-        Ukiryu::DefinitionLoadError
+        Ukiryu::Errors::DefinitionLoadError
       )
     end
 
     it 'raises DefinitionLoadError for empty string' do
       expect { described_class.load_from_string('') }.to raise_error(
-        Ukiryu::DefinitionLoadError,
+        Ukiryu::Errors::DefinitionLoadError,
         /cannot be empty/
       )
     end

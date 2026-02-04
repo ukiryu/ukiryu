@@ -48,7 +48,7 @@ module Ukiryu
         shell ||= Ukiryu::Shell.detect
         return nil unless platform && shell
 
-        return nil if profiles.empty?
+        return nil if profiles.nil? || profiles.empty?
 
         profiles.find do |p|
           p.is_a?(PlatformProfile) && p.compatible?(platform.to_sym, shell.to_sym)

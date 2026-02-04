@@ -52,6 +52,8 @@ RSpec.configure do |config|
 
   # Reset singleton state before each test to prevent pollution
   config.before(:each) do
+    Ukiryu::Config.reset!
+    Ukiryu::Register.reset_version_cache
     Ukiryu::ToolIndex.reset
     Ukiryu::Tool.clear_cache
     Ukiryu::Runtime.instance.reset!

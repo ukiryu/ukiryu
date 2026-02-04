@@ -1,0 +1,58 @@
+---
+ukiryu_schema: '1.0'
+name: ghostscript
+display_name: Ghostscript
+homepage: https://www.ghostscript.com/
+version: '1.0'
+aliases:
+- gs
+version_detection:
+  command: "--version"
+  pattern: "(\\d+\\.\\d+)"
+search_paths:
+implements: ghostscript/1.0
+profiles:
+- name: unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  option_style: single_dash_space
+  executable_name: ghostscript
+  commands:
+  - name: convert
+    description: Convert between file formats
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+    options:
+    - name: device
+      type: string
+      cli: "-sDEVICE"
+      assignment_delimiter: equals
+    - name: output
+      type: file
+      cli: "-sOutputFile"
+      assignment_delimiter: equals
+    flags:
+    - name: quiet
+      cli: "-q"
+    - name: batch
+      cli: "-dBATCH"
+    - name: no_pause
+      cli: "-dNOPAUSE"
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: ghostscript
+  commands: []

@@ -1,0 +1,104 @@
+---
+ukiryu_schema: '1.0'
+name: ffmpeg
+version: '1.0'
+display_name: Ffmpeg Interface
+actions:
+- name: convert
+  description: Convert media files between formats
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        required:
+      - name: output
+        type: file
+        required: true
+      options:
+      - name: input
+        type: file
+      - name: codec
+        type: string
+      - name: video_codec
+        type: string
+      - name: audio_codec
+        type: string
+      - name: subtitle_codec
+        type: string
+      - name: bitrate
+        type: string
+      - name: video_bitrate
+        type: string
+      - name: audio_bitrate
+        type: string
+      - name: frame_rate
+        type: string
+      - name: size
+        type: string
+      - name: video_size
+        type: string
+      - name: video_filter
+        type: string
+      - name: filter_complex
+        type: string
+      - name: audio_filter
+        type: string
+      - name: start_time
+        type: string
+      - name: end_time
+        type: string
+      - name: duration
+        type: string
+      - name: map
+        type: string
+      - name: format
+        type: string
+      - name: input_format
+        type: string
+      - name: quality
+        type: integer
+      - name: video_quality
+        type: integer
+      - name: audio_quality
+        type: integer
+      - name: preset
+        type: string
+      - name: tune
+        type: string
+      - name: aspect
+        type: string
+      - name: audio_channels
+        type: integer
+      - name: audio_sample_rate
+        type: integer
+      - name: pix_fmt
+        type: string
+      - name: threads
+        type: integer
+      - name: bufsize
+        type: string
+      - name: metadata
+        type: string
+      flags:
+      - name: overwrite
+        type: boolean
+      - name: no_overwrite
+        type: boolean
+      - name: quiet
+        type: boolean
+      - name: verbose
+        type: boolean
+      - name: hide_banner
+        type: boolean
+      - name: stream_copy
+        type: boolean
+      - name: no_audio
+        type: boolean
+      - name: no_video
+        type: boolean
+      - name: no_subtitle
+        type: boolean
+aliases:
+- ffmpeg
+- ff

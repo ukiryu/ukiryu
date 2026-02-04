@@ -1,0 +1,16 @@
+---
+ukiryu_schema: '1.0'
+name: ping_gnu
+interface: ping
+implementations:
+- name: default
+  display_name: Ping Gnu
+  detection:
+    executable: ping
+    command: ["-V"]
+    pattern: "ping from iputils"
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml

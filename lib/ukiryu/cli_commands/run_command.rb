@@ -278,13 +278,13 @@ module Ukiryu
           logger.debug_section_structured_response(response) if config.debug && logger
 
           response
-        rescue Ukiryu::ToolNotFoundError => e
+        rescue Ukiryu::Errors::ToolNotFoundError => e
           Models::ErrorResponse.from_message("Ukiryu::Tool not found: #{e.message}")
-        rescue Ukiryu::ProfileNotFoundError => e
+        rescue Ukiryu::Errors::ProfileNotFoundError => e
           Models::ErrorResponse.from_message("Profile not found: #{e.message}")
-        rescue Ukiryu::ExecutionError => e
+        rescue Ukiryu::Errors::ExecutionError => e
           Models::ErrorResponse.from_message(e.message)
-        rescue Ukiryu::TimeoutError => e
+        rescue Ukiryu::Errors::TimeoutError => e
           Models::ErrorResponse.from_message("Command timed out: #{e.message}")
         rescue ArgumentError => e
           # Output full backtrace for debugging

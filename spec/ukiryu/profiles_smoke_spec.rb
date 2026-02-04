@@ -62,29 +62,9 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     # - Debian/Ubuntu/macOS use GNU bzip2 (full implementation)
 
     let(:tool) do
-      # Get all available tools and select one with valid version
-      # Prefer GNU tools if both have valid versions
-      gnu_tool = Ukiryu::Tool.find_by(:bzip2_gnu)
-      busybox_tool = Ukiryu::Tool.find_by(:bzip2_busybox)
-
-      # Collect available tools with their versions
-      available_tools = []
-      available_tools << [gnu_tool, gnu_tool&.version] if gnu_tool&.available?
-      available_tools << [busybox_tool, busybox_tool&.version] if busybox_tool&.available?
-
-      # Prefer tools with valid versions, then prefer GNU over BusyBox
-      selected = available_tools.select { |_, version| version&.match?(/\d[\d.]+/) }
-      if selected.empty?
-        # Fallback to any available tool
-        selected = available_tools
-      end
-
-      # Sort by version validity and tool type (GNU preferred over BusyBox)
-      selected = selected.sort_by { |tool, _| tool.name.include?('_gnu') ? 0 : 1 }
-      selected&.first&.first || begin
-        generic_tool = Ukiryu::Tool.find_by(:bzip2)
-        generic_tool&.available? ? generic_tool : nil
-      end
+      # Use the interface - the system will resolve to the correct implementation
+      # (GNU on most systems, BusyBox on Alpine, etc.)
+      Ukiryu::Tool.find_by(:bzip2)
     end
 
     it 'detects version' do
@@ -126,34 +106,10 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'gzip' do
-    # gzip has separate implementations: GNU and BusyBox
-    # - Alpine Linux uses BusyBox gzip (minimal implementation)
-    # - Debian/Ubuntu/macOS use GNU gzip (full implementation)
-
+    # gzip uses the unified interface - system resolves to correct implementation
+    # (GNU on most systems, BusyBox on Alpine)
     let(:tool) do
-      # Get all available tools and select one with valid version
-      # Prefer GNU tools if both have valid versions
-      gnu_tool = Ukiryu::Tool.find_by(:gzip_gnu)
-      busybox_tool = Ukiryu::Tool.find_by(:gzip_busybox)
-
-      # Collect available tools with their versions
-      available_tools = []
-      available_tools << [gnu_tool, gnu_tool&.version] if gnu_tool&.available?
-      available_tools << [busybox_tool, busybox_tool&.version] if busybox_tool&.available?
-
-      # Prefer tools with valid versions, then prefer GNU over BusyBox
-      selected = available_tools.select { |_, version| version&.match?(/\d[\d.]+/) }
-      if selected.empty?
-        # Fallback to any available tool
-        selected = available_tools
-      end
-
-      # Sort by version validity and tool type (GNU preferred over BusyBox)
-      selected = selected.sort_by { |tool, _| tool.name.include?('_gnu') ? 0 : 1 }
-      selected&.first&.first || begin
-        generic_tool = Ukiryu::Tool.find_by(:gzip)
-        generic_tool&.available? ? generic_tool : nil
-      end
+      Ukiryu::Tool.find_by(:gzip)
     end
 
     it 'detects version' do
@@ -449,11 +405,15 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
   end
 
   describe 'ping_bsd' do
-    let(:tool) { Ukiryu::Tool.find_by(:ping_bsd) }
+    let(:tool) { Ukiryu::Tool.find_by(:ping) }
 
     it 'pings localhost' do
       skip 'ping_bsd is BSD-only (not available on Linux or Windows)' if Ukiryu::Platform.linux? || Ukiryu::Platform.windows?
       expect(tool).to be_available
+
+      # Verify we got the BSD implementation on BSD systems
+      skip 'Not on BSD platform' unless Ukiryu::Platform.macos? || Ukiryu::Platform.freebsd?
+      expect(tool.name).to eq('ping_bsd')
 
       result = tool.execute(:ping,
                             host: 'localhost',
@@ -543,7 +503,7 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
         test_file = File.join(tmpdir, 'test-smoke-yq.yaml')
         File.write(test_file, "foo:\n  bar: baz\n")
 
-        result = tool.execute(:eval,
+        result = tool.execute(:eval_all,
                               expression: '.foo.bar',
                               inputs: [test_file],
                               raw_output: true,

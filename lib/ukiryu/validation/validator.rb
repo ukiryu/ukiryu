@@ -40,7 +40,7 @@ module Ukiryu
         end
         true
       rescue Validation::ValidationIssue => e
-        raise Ukiryu::ValidationError, e.message
+        raise Ukiryu::Errors::ValidationError, e.message
       end
 
       # Check if validation would pass without raising errors
@@ -49,7 +49,7 @@ module Ukiryu
       def valid?
         validate!
         true
-      rescue Ukiryu::ValidationError
+      rescue Ukiryu::Errors::ValidationError
         false
       end
 

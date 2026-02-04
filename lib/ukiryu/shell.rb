@@ -188,7 +188,7 @@ module Ukiryu
         when :cmd
           Cmd
         else
-          raise UnknownShellError, "Unknown shell: #{name}"
+          raise Ukiryu::Errors::UnknownShellError, "Unknown shell: #{name}"
         end
       end
 
@@ -248,7 +248,7 @@ module Ukiryu
           else
             # Unknown shell in ENV - check if executable
             unless File.executable?(shell_env)
-              raise UnknownShellError,
+              raise Ukiryu::Errors::UnknownShellError,
                     unknown_shell_error_msg("Unknown shell in SHELL: #{shell_env}")
             end
 
@@ -259,7 +259,7 @@ module Ukiryu
           # SHELL not set - try fallback methods
           detected = detect_shell_from_shells_file || detect_shell_from_path
           unless detected
-            raise UnknownShellError, unknown_shell_error_msg(
+            raise Ukiryu::Errors::UnknownShellError, unknown_shell_error_msg(
               'Unable to detect shell: SHELL not set and no common shells found in PATH'
             )
           end

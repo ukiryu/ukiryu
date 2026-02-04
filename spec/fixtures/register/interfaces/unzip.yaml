@@ -1,0 +1,48 @@
+---
+ukiryu_schema: '1.0'
+name: unzip
+version: '1.0'
+display_name: Unzip Interface
+actions:
+- name: extract
+  description: Extract zip archives
+  signature:
+    inputs:
+      inputs:
+      - name: zipfile
+        type: file
+        required: true
+      - name: files
+        type: string
+        required:
+      options:
+      - name: list
+        type:
+      - name: test
+        type:
+      - name: quiet
+        type:
+      - name: verbose
+        type:
+      - name: directory
+        type:
+      - name: create_dirs
+        type:
+      - name: overwrite
+        type:
+      - name: never_overwrite
+        type:
+      - name: auto_overwrite
+        type:
+      - name: junk_paths
+        type:
+      - name: restore_perms
+        type:
+      - name: lowercase
+        type:
+      - name: encrypt
+        type:
+      - name: unicode
+        type:
+aliases:
+- unzip

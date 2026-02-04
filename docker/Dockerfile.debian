@@ -2,21 +2,19 @@
 # Build: docker build -f docker/Dockerfile.debian -t ukiryu-test:debian .
 # Run: docker run --rm ukiryu-test:debian
 
-FROM debian:bookworm
+FROM ruby:3.3-slim
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Ruby and dependencies
+# Install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     git \
-    ruby \
-    ruby-dev \
     libz-dev \
     curl \
-    # Shells (PowerShell skipped due to potential dependency issues)
+    # Shells
     bash \
     zsh \
     fish \
@@ -39,25 +37,31 @@ RUN apt-get update && \
     ffmpeg \
     exiftool \
     libtiff-tools \
+    iputils-ping \
+    inkscape \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yq (mikefarah/yq)
-RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
+# Install yq (mikefarah/yq) with architecture detection
+RUN ARCH=$(uname -m) && \
+    YQ_ARCH=amd64 && \
+    if [ "$ARCH" = "aarch64" ]; then YQ_ARCH=arm64; fi && \
+    wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}" && \
     chmod +x /usr/local/bin/yq
-
-# Install inkscape (if available)
-RUN apt-get install -y --no-install-recommends inkscape || echo "Inkscape not available, skipping"
-
-# Install newer bundler
-RUN gem install bundler --no-document
 
 WORKDIR /ukiryu
 
 # Copy the entire application first
 COPY . .
 
-# Remove Gemfile.lock and install dependencies (generates fresh lock file)
+# Install dependencies (regenerate Gemfile.lock for this Ruby version)
 RUN rm -f Gemfile.lock && bundle install
 
-# Run tests by default
-CMD ["bundle", "exec", "rspec"]
+# Create entrypoint script
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'cd /ukiryu' >> /entrypoint.sh && \
+    echo 'rm -f Gemfile.lock' >> /entrypoint.sh && \
+    echo 'bundle install' >> /entrypoint.sh && \
+    echo 'bundle exec rspec' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

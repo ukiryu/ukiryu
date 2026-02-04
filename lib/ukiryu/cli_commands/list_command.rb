@@ -32,7 +32,7 @@ module Ukiryu
             # Regular standalone tool
             standalone_tools << name
           end
-        rescue Ukiryu::Error
+        rescue Ukiryu::Errors::Error
           # If we can't load metadata, treat as standalone
           standalone_tools << name
         end
@@ -46,7 +46,7 @@ module Ukiryu
             version_info = tool.version ? "v#{tool.version}" : 'version unknown'
             available = tool.available? ? '[✓]' : '[✗]'
             say "    #{available.ljust(4)} #{impl_name.ljust(20)} #{version_info}", tool.available? ? :green : :red
-          rescue Ukiryu::Error => e
+          rescue Ukiryu::Errors::Error => e
             say "    [?] #{impl_name.ljust(20)} error: #{e.message}", :red
           end
         end
@@ -57,7 +57,7 @@ module Ukiryu
           version_info = tool.version ? "v#{tool.version}" : 'version unknown'
           available = tool.available? ? '[✓]' : '[✗]'
           say "  #{available.ljust(4)} #{name.ljust(20)} #{version_info}", tool.available? ? :green : :red
-        rescue Ukiryu::Error => e
+        rescue Ukiryu::Errors::Error => e
           say "  [?] #{name.ljust(20)} error: #{e.message}", :red
         end
       end

@@ -106,9 +106,9 @@ module Ukiryu
           # Load raw YAML hash for validation
           definition = YAML.safe_load(File.read(file_path), permitted_classes: [Symbol, Date, Time])
           validate(definition, schema_path: schema_path)
-        rescue Ukiryu::DefinitionNotFoundError
+        rescue Ukiryu::Errors::DefinitionNotFoundError
           Ukiryu::Definition::ValidationResult.failure(["File not found: #{file_path}"])
-        rescue Ukiryu::DefinitionLoadError, Ukiryu::DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           Ukiryu::Definition::ValidationResult.failure([e.message])
         rescue Errno::ENOENT
           Ukiryu::Definition::ValidationResult.failure(["File not found: #{file_path}"])

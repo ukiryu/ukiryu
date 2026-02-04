@@ -150,7 +150,7 @@ module Ukiryu
               end
             end
           end
-        rescue Ukiryu::ToolNotFoundError => e
+        rescue Ukiryu::Errors::ToolNotFoundError => e
           say "✗ Tool not found: #{e.message}", :red
           exit 1
         rescue StandardError => e
@@ -225,7 +225,7 @@ module Ukiryu
               say "  #{relative_path.ljust(35)} ⊘ (not installed)", :dim
               skipped += 1
             end
-          rescue Ukiryu::ToolNotFoundError
+          rescue Ukiryu::Errors::ToolNotFoundError
             say "  #{relative_path.ljust(35)} ✗ (tool not found)", :yellow
             skipped += 1
           rescue StandardError => e
@@ -440,7 +440,7 @@ module Ukiryu
         else
           { success: true, message: "Command executed (exit code: #{result.exit_status})" }
         end
-      rescue Ukiryu::ExecutionError => e
+      rescue Ukiryu::Errors::ExecutionError => e
         if e.result.stderr.include?('unrecognized') || e.result.stderr.include?('unknown')
           { success: false, message: 'Command not recognized by tool' }
         else

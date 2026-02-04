@@ -27,13 +27,20 @@ module Ukiryu
       def reset
         @instance = nil
       end
+
+      # Get all tools in the index (class method delegating to instance)
+      #
+      # @return [Hash{Symbol => Array<String>}] mapping of interface to tool names
+      def all_tools
+        instance.all_tools
+      end
     end
 
     # Initialize the index
     #
-    # @param register_path [String] the path to the tool register
-    def initialize(register_path: Ukiryu::Register.default_register_path)
-      @register_path = register_path
+    # @param register_path [String, nil] the path to the tool register
+    def initialize(register_path: nil)
+      @register_path = register_path || Ukiryu::Register.default_register_path
       @interface_to_tools = {} # interface => [tool_names]
       @alias_to_tool = {}      # alias => [tool_names] (multiple tools can share an alias)
       @compatibility_cache = {} # tool_name => tool_definition (for platform compatibility checks)
@@ -216,41 +223,66 @@ module Ukiryu
       @alias_to_tool.clear
 
       # Scan all tool directories for metadata
-      Dir.glob(File.join(tools_dir, '*', '*.yaml')).sort.each do |file|
-        # Load only the top-level keys (metadata) without full parsing
-        hash = YAML.safe_load(File.read(file), permitted_classes: [Symbol], aliases: true)
-        next unless hash
+      # New structure: tools/{tool-name}/{variant}/{version}.yaml
+      # Fallback: tools/{tool-name}/{version}.yaml (legacy structure)
+      tool_dirs = Dir.glob(File.join(tools_dir, '*')).select { |d| File.directory?(d) }.sort
 
-        tool_name = File.basename(File.dirname(file))
+      tool_dirs.each do |tool_dir|
+        tool_name = File.basename(tool_dir)
         tool_sym = tool_name.to_sym
 
-        # Index by interface (multiple tools can implement one interface)
-        # v2: implements is an array, v1: implements is a string
-        implements_value = hash['implements']
-        if implements_value
-          interfaces = if implements_value.is_a?(Array)
-                         implements_value.map(&:to_sym)
-                       else
-                         [implements_value.to_sym]
-                       end
+        # Find YAML files in the tool directory (check both structures)
+        yaml_files = []
 
-          interfaces.each do |interface_sym|
-            @interface_to_tools[interface_sym] ||= []
-            @interface_to_tools[interface_sym] << tool_sym unless @interface_to_tools[interface_sym].include?(tool_sym)
+        # Check for variant subdirectories (new structure: tools/ping_bsd/default/1.0.yaml)
+        variant_dirs = Dir.glob(File.join(tool_dir, '*')).select { |d| File.directory?(d) }
+        variant_dirs.each do |variant_dir|
+          Dir.glob(File.join(variant_dir, '*.yaml')).sort.each do |file|
+            yaml_files << file
           end
         end
 
-        # Index by alias (multiple tools can have the same alias)
-        aliases = hash['aliases']
-        if aliases.respond_to?(:each)
-          aliases.each do |alias_name|
-            @alias_to_tool[alias_name.to_sym] ||= []
-            @alias_to_tool[alias_name.to_sym] << tool_sym unless @alias_to_tool[alias_name.to_sym].include?(tool_sym)
+        # Fallback: direct YAML files in tool directory (legacy structure)
+        if yaml_files.empty?
+          Dir.glob(File.join(tool_dir, '*.yaml')).sort.each do |file|
+            yaml_files << file
+          end
+        end
+
+        # Process each YAML file (use the latest/highest version file)
+        yaml_files.each do |file|
+          # Load only the top-level keys (metadata) without full parsing
+          hash = YAML.safe_load(File.read(file), permitted_classes: [Symbol], aliases: true)
+          next unless hash
+
+          # Index by interface (multiple tools can implement one interface)
+          # v2: implements is an array, v1: implements is a string
+          implements_value = hash['implements']
+          if implements_value
+            interfaces = if implements_value.is_a?(Array)
+                           implements_value.map(&:to_sym)
+                         else
+                           [implements_value.to_sym]
+                         end
+
+            interfaces.each do |interface_sym|
+              @interface_to_tools[interface_sym] ||= []
+              @interface_to_tools[interface_sym] << tool_sym unless @interface_to_tools[interface_sym].include?(tool_sym)
+            end
+          end
+
+          # Index by alias (multiple tools can have the same alias)
+          aliases = hash['aliases']
+          if aliases.respond_to?(:each)
+            aliases.each do |alias_name|
+              @alias_to_tool[alias_name.to_sym] ||= []
+              @alias_to_tool[alias_name.to_sym] << tool_sym unless @alias_to_tool[alias_name.to_sym].include?(tool_sym)
+            end
           end
         end
       rescue StandardError => e
         # Skip files that can't be parsed
-        warn "Warning: Failed to parse #{file}: #{e.message}"
+        warn "Warning: Failed to parse #{tool_name}: #{e.message}"
       end
 
       @cache_key = build_cache_key
@@ -279,11 +311,32 @@ module Ukiryu
       current_path = register_path
       return nil unless current_path
 
-      # Search for version files
-      pattern = File.join(current_path, 'tools', tool_name.to_s, '*.yaml')
-      files = Dir.glob(pattern).sort
+      tool_dir = File.join(current_path, 'tools', tool_name.to_s)
+      return nil unless Dir.exist?(tool_dir)
 
-      # Return the latest version
+      # Search for version files in both structures:
+      # New: tools/{tool-name}/{variant}/{version}.yaml
+      # Legacy: tools/{tool-name}/{version}.yaml
+
+      # First check for variant subdirectories (new structure)
+      variant_dirs = Dir.glob(File.join(tool_dir, '*')).select { |d| File.directory?(d) }
+
+      variant_dirs.each do |variant_dir|
+        # Prefer 'default' variant if present
+        next unless File.basename(variant_dir) == 'default'
+
+        files = Dir.glob(File.join(variant_dir, '*.yaml')).sort
+        return File.read(files.last) if files.any?
+      end
+
+      # Fall back to any variant directory
+      variant_dirs.each do |variant_dir|
+        files = Dir.glob(File.join(variant_dir, '*.yaml')).sort
+        return File.read(files.last) if files.any?
+      end
+
+      # Fallback: direct YAML files in tool directory (legacy structure)
+      files = Dir.glob(File.join(tool_dir, '*.yaml')).sort
       files.last ? File.read(files.last) : nil
     rescue StandardError
       nil

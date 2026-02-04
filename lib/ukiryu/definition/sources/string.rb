@@ -73,7 +73,7 @@ module Ukiryu
           end
 
           if content.empty?
-            raise DefinitionLoadError,
+            raise Ukiryu::Errors::DefinitionLoadError,
                   'Definition content cannot be empty'
           end
 

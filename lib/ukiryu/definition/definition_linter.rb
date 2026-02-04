@@ -232,9 +232,9 @@ module Ukiryu
           definition = YAML.safe_load(File.read(file_path), permitted_classes: [Symbol, Date, Time],
                                                             symbolize_names: true)
           lint(definition, rules: rules)
-        rescue Ukiryu::DefinitionNotFoundError
+        rescue Ukiryu::Errors::DefinitionNotFoundError
           LintResult.new([LintIssue.error("File not found: #{file_path}")])
-        rescue Ukiryu::DefinitionLoadError, Ukiryu::DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           LintResult.new([LintIssue.error(e.message)])
         rescue Errno::ENOENT
           LintResult.new([LintIssue.error("File not found: #{file_path}")])

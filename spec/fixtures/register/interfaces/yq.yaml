@@ -1,0 +1,94 @@
+---
+ukiryu_schema: '1.0'
+name: yq
+version: '1.0'
+display_name: Yq Interface
+actions:
+- name: eval
+  description: Apply expression to each document in sequence
+  signature:
+    inputs:
+      inputs:
+      - name: expression
+        type: string
+        required: true
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: format
+        type: string
+      - name: input_format
+        type: string
+      - name: output
+        type: file
+      - name: separator
+        type: string
+      - name: doc_separator
+        type: string
+      - name: front_matter
+        type: string
+      - name: select
+        type: string
+      flags:
+      - name: zero_input
+        type: boolean
+      - name: raw_output
+        type: boolean
+      - name: raw_output_mode
+        type: boolean
+      - name: unescaped
+        type: boolean
+      - name: yaml_output
+        type: boolean
+      - name: colors_output
+        type: boolean
+      - name: json_flags
+        type: boolean
+      - name: parse_only
+        type: boolean
+      - name: exit_status
+        type: boolean
+      - name: verbose
+        type: boolean
+      - name: quiet
+        type: boolean
+      - name: help
+        type: boolean
+- name: eval_all
+  description: Evaluate expression on all documents at once
+  signature:
+    inputs:
+      inputs:
+      - name: expression
+        type: string
+        required: true
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: format
+        type: string
+      - name: input_format
+        type: string
+      - name: output
+        type: file
+- name: eval_in_place
+  description: Evaluate expression and update file in place
+  signature:
+    inputs:
+      inputs:
+      - name: expression
+        type: string
+        required: true
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: format
+        type: string
+      flags:
+      - name: in_place
+        type: boolean
+aliases:
+- yq

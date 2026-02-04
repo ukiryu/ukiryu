@@ -1,0 +1,14 @@
+---
+ukiryu_schema: '1.0'
+name: pdf2ps
+interface: pdf2ps
+implementations:
+- name: default
+  display_name: Pdf2ps
+  detection:
+    pattern: pdf2ps ([\d.]+)
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml
