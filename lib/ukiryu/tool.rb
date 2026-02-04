@@ -82,6 +82,7 @@ module Ukiryu
           interface,
           impl_version,
           impl_spec[:implementation_name],
+          impl_spec[:version], # Pass detected version
           options
         )
         return nil unless profile
@@ -292,7 +293,7 @@ module Ukiryu
       # @param implementation_name [String] implementation name
       # @param options [Hash] options
       # @return [ToolDefinition] converted tool definition
-      def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, options = {})
+      def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, detected_version, options = {})
         require_relative 'models/tool_definition'
         require_relative 'models/platform_profile'
 
@@ -312,10 +313,12 @@ module Ukiryu
                              else
                                tool_name
                              end
+        # Use detected version if available, otherwise fall back to YAML version
+        version = detected_version || impl_version.version
         Models::ToolDefinition.new(
           name: specific_tool_name,
-          version: impl_version.version,
-          display_name: impl_version.display_name || "#{interface.name} #{implementation_name} #{impl_version.version}",
+          version: version,
+          display_name: impl_version.display_name || "#{interface.name} #{implementation_name} #{version}",
           implements: Array(interface.name), # v2: expects array
           profiles: [convert_profile_to_platform_profile(profile, interface.actions)],
           version_detection: impl_version.version_detection, # Extract from implementation
