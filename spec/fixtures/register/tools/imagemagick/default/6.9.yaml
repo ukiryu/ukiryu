@@ -45,7 +45,7 @@ profiles:
   - fish
   - sh
   option_style: single_dash_space
-  executable_name: imagemagick
+  executable_name: convert
   commands:
   - description: Convert between image formats and apply transformations
     usage: convert [options] input_file output_file
@@ -178,3 +178,13 @@ profiles:
       assignment_delimiter: none
       description: Strip image of all profiles
     name: mogrify
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: convert
+  inherits: unix
