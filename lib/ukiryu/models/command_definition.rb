@@ -21,6 +21,7 @@ module Ukiryu
       attribute :subcommand, :string
       attribute :belongs_to, :string  # Parent command this action belongs to
       attribute :cli_flag, :string    # CLI flag for this action (e.g., '-d' for delete)
+      attribute :standalone_executable, :boolean, default: false # DEPRECATED: Use invocation.type instead
       attribute :aliases, :string, collection: true, default: []
       attribute :use_env_vars, :string, collection: true, default: []
       attribute :implements, :string, collection: true, default: [] # v2: interfaces this command implements
@@ -47,6 +48,7 @@ module Ukiryu
         map_element 'use_env_vars', to: :use_env_vars
         map_element 'belongs_to', to: :belongs_to
         map_element 'cli_flag', to: :cli_flag
+        map_element 'standalone_executable', to: :standalone_executable
         map_element 'aliases', to: :aliases
         map_element 'implements', to: :implements # v2: implements mapping (no collection: true in yaml)
       end
@@ -122,6 +124,14 @@ module Ukiryu
       # @return [Boolean] true if has subcommand
       def has_subcommand?
         !subcommand.nil? && !subcommand.empty?
+      end
+
+      # Check if this command should use a standalone executable
+      # (for ImageMagick v6 style where identify/mogrify are separate commands)
+      #
+      # @return [Boolean] true if standalone_executable is true
+      def standalone_executable?
+        standalone_executable == true
       end
 
       # Clear all indexes

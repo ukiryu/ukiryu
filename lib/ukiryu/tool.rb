@@ -454,6 +454,7 @@ module Ukiryu
           subcommand: cmd_hash['subcommand'] || cmd_hash[:subcommand],
           belongs_to: cmd_hash['belongs_to'] || cmd_hash[:belongs_to],
           cli_flag: cmd_hash['cli_flag'] || cmd_hash[:cli_flag],
+          standalone_executable: cmd_hash['standalone_executable'] || cmd_hash[:standalone_executable] || false,
           aliases: cmd_hash['aliases'] || cmd_hash[:aliases] || [],
           use_env_vars: cmd_hash['use_env_vars'] || cmd_hash[:use_env_vars] || [],
           implements: cmd_hash['implements'] || cmd_hash[:implements] || [],
@@ -960,8 +961,8 @@ module Ukiryu
 
                                # Use command-specific executable if profile explicitly allows it
                                # This is determined by checking if the command has standalone_executable: true
-                               allows_standalone = if command.respond_to?(:standalone_executable)
-                                                   command.standalone_executable == true
+                               allows_standalone = if command.respond_to?(:standalone_executable?)
+                                                   command.standalone_executable?
                                                  else
                                                    false
                                                  end
