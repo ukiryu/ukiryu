@@ -50,6 +50,7 @@ profiles:
   commands:
   - description: Convert between image formats and apply transformations
     usage: magick [input-options] input-file [processing-options] output-file
+    subcommand: convert
     arguments:
     - name: inputs
       type: file

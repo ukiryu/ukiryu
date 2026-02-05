@@ -107,7 +107,20 @@ module Ukiryu
 
         # If not found, try interface-based discovery using ToolIndex
         index = Ukiryu::ToolIndex.instance
-        index.find_by_interface(name.to_sym)
+
+        # Try exact interface name first
+        result = index.find_by_interface(name.to_sym)
+        return result if result
+
+        # Try interface name with common version suffix (e.g., imagemagick/1.0)
+        # This handles tools where the interface is defined with version suffix
+        name_str = name.to_s
+        [:"#{name_str}/1.0", :"#{name_str}/1", :"v#{name_str}/1.0"].each do |versioned_interface|
+          result = index.find_by_interface(versioned_interface)
+          return result if result
+        end
+
+        nil
       end
 
       # Load tool YAML file content (for lutaml-model parsing)

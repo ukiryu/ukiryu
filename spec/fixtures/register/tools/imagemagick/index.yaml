@@ -1,7 +1,7 @@
 ---
 ukiryu_schema: '1.0'
 name: imagemagick
-interface: imagemagick/1.0
+interface: imagemagick
 implementations:
 - name: default
   display_name: Imagemagick
@@ -12,7 +12,7 @@ implementations:
   version_scheme: semantic
   versions:
   - after: "7.0"
-    file: default/7.1.yaml
+    file: 7.1.yaml
   - after: "6.0"
-    file: default/6.9.yaml
-  default: default/6.9.yaml
+    file: 6.9.yaml
+  default: 6.9.yaml
