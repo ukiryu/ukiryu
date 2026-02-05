@@ -1,8 +1,8 @@
-# Dockerfile for Ubuntu Linux testing
-# Build: docker build -f docker/Dockerfile.ubuntu -t ukiryu-test:ubuntu .
-# Run: docker run --rm ukiryu-test:ubuntu
+# Dockerfile for Debian Trixie testing
+# Build: docker build -f docker/Dockerfile.debian-trixie -t ukiryu-test:debian-trixie .
+# Run: docker run --rm ukiryu-test:debian-trixie
 
-FROM ruby:3.3-slim
+FROM ruby:3.4-slim-trixie
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -50,15 +50,18 @@ RUN ARCH=$(uname -m) && \
 
 WORKDIR /ukiryu
 
-# Copy the entire application first
+# Copy the entire application
 COPY . .
 
-# Install Bundler 2.6.9 explicitly (to match Gemfile.lock)
-RUN gem install bundler -v '2.6.9' --no-document
-
-# Install dependencies (regenerate Gemfile.lock for this Ruby version)
+# Install dependencies
 RUN rm -f Gemfile.lock && bundle install
 
-# Run tests by default
-# Remove host Gemfile.lock to avoid Ruby version conflicts, then run tests
-CMD bash -c "rm -f /ukiryu/Gemfile.lock && cd /ukiryu && bundle install && bundle exec rspec"
+# Create entrypoint script
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'cd /ukiryu' >> /entrypoint.sh && \
+    echo 'rm -f Gemfile.lock' >> /entrypoint.sh && \
+    echo 'bundle install' >> /entrypoint.sh && \
+    echo 'bundle exec rspec' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,8 +1,8 @@
-# Dockerfile for Debian Linux testing
-# Build: docker build -f docker/Dockerfile.debian -t ukiryu-test:debian .
-# Run: docker run --rm ukiryu-test:debian
+# Dockerfile for Debian Bookworm testing
+# Build: docker build -f docker/Dockerfile.debian-bookworm -t ukiryu-test:debian-bookworm .
+# Run: docker run --rm ukiryu-test:debian-bookworm
 
-FROM ruby:3.3-slim
+FROM ruby:3.4-slim-bookworm
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -50,10 +50,10 @@ RUN ARCH=$(uname -m) && \
 
 WORKDIR /ukiryu
 
-# Copy the entire application first
+# Copy the entire application
 COPY . .
 
-# Install dependencies (regenerate Gemfile.lock for this Ruby version)
+# Install dependencies
 RUN rm -f Gemfile.lock && bundle install
 
 # Create entrypoint script

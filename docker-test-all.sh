@@ -4,7 +4,7 @@
 # Developer script to run ukiryu tests across multiple Docker platforms
 # Usage: ./docker-test-all.sh [options] [platforms]
 #
-# Platforms: alpine ubuntu debian (default: all)
+# Platforms: alpine ubuntu-22 ubuntu-24 debian-bookworm debian-trixie (default: all)
 #
 # Options:
 #   --build, -b        Force rebuild Docker images
@@ -14,10 +14,10 @@
 #   --help, -h         Show this help
 #
 # Examples:
-#   ./docker-test-all.sh                    # Test all platforms
-#   ./docker-test-all.sh alpine ubuntu      # Test only alpine and ubuntu
-#   ./docker-test-all.sh --build            # Rebuild and test all
-#   ./docker-test-all.sh -v debian          # Verbose test on debian
+#   ./docker-test-all.sh                          # Test all platforms
+#   ./docker-test-all.sh alpine ubuntu-22        # Test only alpine and ubuntu 22
+#   ./docker-test-all.sh --build                  # Rebuild and test all
+#   ./docker-test-all.sh -v debian-bookworm       # Verbose test on debian bookworm
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UKIRYU_DIR="$(cd "$SCRIPT_DIR" && pwd)"
@@ -28,9 +28,27 @@ if [ -z "$REGISTER_DIR" ] || [ ! -d "$REGISTER_DIR" ]; then
     REGISTER_DIR="$(cd "$SCRIPT_DIR/../register" && pwd 2>/dev/null || echo "/Users/mulgogi/src/ukiryu/register")"
 fi
 
-# Default platforms to test
-PLATFORMS=("alpine" "ubuntu" "debian")
+# Default platforms to test (all platforms)
+PLATFORMS=("alpine" "ubuntu-22" "ubuntu-24" "debian-bookworm" "debian-trixie")
 PLATFORMS_SPECIFIED=false
+
+# Platform name mapping (script name -> Dockerfile suffix)
+declare -A PLATFORM_DOCKERFILES=(
+    ["alpine"]="alpine"
+    ["ubuntu-22"]="ubuntu-22.04"
+    ["ubuntu-24"]="ubuntu-24.04"
+    ["debian-bookworm"]="debian-bookworm"
+    ["debian-trixie"]="debian-trixie"
+)
+
+# Platform name mapping (script name -> display name)
+declare -A PLATFORM_DISPLAY=(
+    ["alpine"]="Alpine"
+    ["ubuntu-22"]="Ubuntu 22.04"
+    ["ubuntu-24"]="Ubuntu 24.04"
+    ["debian-bookworm"]="Debian Bookworm"
+    ["debian-trixie"]="Debian Trixie"
+)
 
 # Parse arguments
 BUILD=false
@@ -62,7 +80,7 @@ while [[ $# -gt 0 ]]; do
       sed -n '/^# Usage:/,/^$/p' "$0" | sed 's/^# //g' | sed 's/^#//g'
       exit 0
       ;;
-    alpine|ubuntu|debian)
+    alpine|ubuntu-22|ubuntu-24|debian-bookworm|debian-trixie)
       # If first platform argument, reset to only that platform
       if [ "$PLATFORMS_SPECIFIED" = false ]; then
         PLATFORMS=("$1")
@@ -103,9 +121,10 @@ print_header() {
 # Function to print platform header
 print_platform_header() {
     local platform=$1
+    local display_name="${PLATFORM_DISPLAY[$platform]}"
     echo ""
     echo -e "${MAGENTA}══════════════════════════════════════════${NC}"
-    echo -e "${MAGENTA}Testing Platform: ${BLUE}${platform^}${NC}"
+    echo -e "${MAGENTA}Testing Platform: ${BLUE}${display_name}${NC}"
     echo -e "${MAGENTA}══════════════════════════════════════════${NC}"
 }
 
@@ -127,9 +146,11 @@ print_warning() {
 # Function to test a single platform
 test_platform() {
     local platform=$1
-    local image_name="ukiryu-test:${platform}"
-    local dockerfile="$UKIRYU_DIR/docker/Dockerfile.${platform}"
-    local container_name="ukiryu-${platform}-test-runner"
+    local dockerfile_suffix="${PLATFORM_DOCKERFILES[$platform]}"
+    local display_name="${PLATFORM_DISPLAY[$platform]}"
+    local image_name="ukiryu-test:${dockerfile_suffix}"
+    local dockerfile="$UKIRYU_DIR/docker/Dockerfile.${dockerfile_suffix}"
+    local container_name="ukiryu-${dockerfile_suffix}-test-runner"
 
     print_platform_header "$platform"
 
@@ -224,7 +245,11 @@ main() {
 
     print_header "Ukiryu Multi-Platform Docker Test Runner"
 
-    echo -e "Testing platforms: ${BLUE}${PLATFORMS[*]}${NC}"
+    local display_platforms=()
+    for p in "${PLATFORMS[@]}"; do
+        display_platforms+=("${PLATFORM_DISPLAY[$p]}")
+    done
+    echo -e "Testing platforms: ${BLUE}${display_platforms[*]}${NC}"
     echo "Build mode: $([ "$BUILD" = true ] && echo "Force rebuild" || echo "Fast (use existing)")"
     echo ""
 
@@ -248,12 +273,13 @@ main() {
     for platform in "${PLATFORMS[@]}"; do
         local result="${RESULTS[$platform]:-SKIPPED}"
         local time="${TIMES[$platform]:-N/A}"
-        
+        local display_name="${PLATFORM_DISPLAY[$platform]}"
+
         if [ "$result" = "PASSED" ]; then
-            echo -e "${GREEN}✓${NC} ${platform^}: ${GREEN}${result}${NC} (${time})"
+            echo -e "${GREEN}✓${NC} ${display_name}: ${GREEN}${result}${NC} (${time})"
             ((passed++))
         else
-            echo -e "${RED}✗${NC} ${platform^}: ${RED}${result}${NC} (${time})"
+            echo -e "${RED}✗${NC} ${display_name}: ${RED}${result}${NC} (${time})"
             ((failed++))
         fi
     done
