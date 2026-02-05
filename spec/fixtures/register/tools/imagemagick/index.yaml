@@ -12,7 +12,7 @@ implementations:
   version_scheme: semantic
   versions:
   - after: "7.0"
-    file: 7.1.yaml
+    file: default/7.1.yaml
   - after: "6.0"
-    file: 6.9.yaml
-  default: 6.9.yaml
+    file: default/6.9.yaml
+  default: default/6.9.yaml
