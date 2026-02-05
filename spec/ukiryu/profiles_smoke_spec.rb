@@ -499,6 +499,10 @@ RSpec.describe 'Ukiryu Tool Profiles Smoke Tests' do
     it 'evaluates YAML expression' do
       expect(tool).to be_available
 
+      # Skip for jq wrapper impostor which doesn't support yq's eval subcommand
+      result = `yq --version 2>&1`
+      skip 'jq wrapper impostor detected (not mikefarah/yq)' if result.strip == 'yq 0.0.0'
+
       Dir.mktmpdir do |tmpdir|
         test_file = File.join(tmpdir, 'test-smoke-yq.yaml')
         File.write(test_file, "foo:\n  bar: baz\n")
