@@ -218,3 +218,13 @@ profiles:
       type: hash
       pattern: key:\s*value
     name: query
+- name: modern_windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: double_dash_equals
+  executable_name: inkscape
+  inherits: modern_unix

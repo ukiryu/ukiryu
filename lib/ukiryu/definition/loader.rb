@@ -31,6 +31,9 @@ module Ukiryu
           validation_mode = options[:validation] || :strict
           validate_profile(profile, validation_mode) if validation_mode != :none
 
+          # Resolve profile inheritance (merges parent commands into child profiles)
+          profile.resolve_inheritance!
+
           # Cache the profile
           profile_cache[cache_key] = profile
 

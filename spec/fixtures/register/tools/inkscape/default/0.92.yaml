@@ -152,3 +152,13 @@ profiles:
       default: false
       assignment_delimiter: none
     name: query
+- name: legacy_windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: double_dash_equals
+  executable_name: inkscape
+  inherits: legacy_unix
