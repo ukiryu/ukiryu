@@ -30,11 +30,11 @@ timeout = 20
 # Retry failed requests
 retry = 3
 
-# Verbose output
-verbose = true
+# Verbose output (use string format for lychee compatibility)
+verbose = "true"
 
-# Don't show progress
-no_progress = true
+# Don't show progress (use string format for lychee compatibility)
+no_progress = "true"
 
 # Accept 200 and 404 status codes
 accept = [200, 404]
@@ -42,8 +42,8 @@ accept = [200, 404]
 # Exclude private/internal domains
 # exclude_private = true
 
-# Skip mailto: and tel: links
-skip_missing = true
+# Skip mailto: and tel: links (use string format for lychee compatibility)
+skip_missing = "true"
 
-# Enforce HTTPS (will downgrade http to https if supported)
-enforce_https = false
+# Enforce HTTPS (use string format for lychee compatibility)
+enforce_https = "false"
