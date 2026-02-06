@@ -5,6 +5,14 @@ module Ukiryu
   #
   # Provides EXPLICIT shell detection with no fallbacks.
   # If shell cannot be determined, raises a clear error.
+  #
+  # Shell types are grouped by platform compatibility:
+  # - `unix` - All Unix-like shells (bash, zsh, fish, sh, dash, tcsh, ash, csh, ksh, + future shells)
+  # - `windows` - cmd.exe only
+  # - `powershell` - PowerShell Core on all platforms
+  #
+  # Individual shell names are still supported for backward compatibility
+  # and are mapped to their appropriate platform group.
   module Shell
     # Use autoload for lazy loading of shell implementations
     autoload :Base, 'ukiryu/shell/base'
@@ -18,12 +26,35 @@ module Ukiryu
     autoload :PowerShell, 'ukiryu/shell/powershell'
     autoload :Cmd, 'ukiryu/shell/cmd'
 
-    # All supported shell types
-    VALID_SHELLS = %i[bash zsh fish sh dash tcsh powershell cmd].freeze
+    # Platform-grouped shell types (new schema v1)
+    PLATFORM_GROUPS = %i[unix windows powershell].freeze
 
-    # Platform-specific shell mappings
-    UNIX_SHELLS = %i[bash zsh fish sh dash tcsh].freeze
-    WINDOWS_SHELLS = %i[powershell cmd bash].freeze
+    # Individual shell types (backward compatibility)
+    INDIVIDUAL_SHELLS = %i[bash zsh fish sh dash tcsh powershell cmd].freeze
+
+    # All valid shell types (platform groups + individual shells for backward compatibility)
+    VALID_SHELLS = (PLATFORM_GROUPS + INDIVIDUAL_SHELLS).freeze
+
+    # Map individual shells to their platform groups
+    SHELL_TO_PLATFORM = {
+      bash: :unix,
+      zsh: :unix,
+      fish: :unix,
+      sh: :unix,
+      dash: :unix,
+      tcsh: :unix,
+      # ash, csh, ksh, nushell, elvish, etc. would also map to :unix
+      powershell: :powershell,
+      pwsh: :powershell,
+      cmd: :windows
+    }.freeze
+
+    # Reverse map: platform groups to individual shells
+    PLATFORM_TO_SHELLS = {
+      unix: %i[bash zsh fish sh dash tcsh],
+      windows: %i[cmd],
+      powershell: %i[powershell pwsh]
+    }.freeze
 
     class << self
       # Get or set the current shell (for explicit configuration)
@@ -37,18 +68,37 @@ module Ukiryu
         VALID_SHELLS.include?(shell_sym&.to_sym)
       end
 
-      # Get list of all valid shells
+      # Get list of all valid shells (platform groups + individual shells)
       #
       # @return [Array<Symbol>] list of valid shell symbols
       def all_valid
         VALID_SHELLS.dup
       end
 
-      # Get shells valid for current platform
+      # Get shells valid for current platform (returns platform groups)
       #
-      # @return [Array<Symbol>] list of valid shells for current platform
+      # @return [Array<Symbol>] list of valid shell groups for current platform
       def valid_for_platform
-        Platform.windows? ? WINDOWS_SHELLS.dup : UNIX_SHELLS.dup
+        if Platform.windows?
+          %i[windows powershell unix] # Windows can run all three types
+        else
+          %i[unix powershell] # Unix can run Unix shells and PowerShell Core
+        end
+      end
+
+      # Get the platform group for a given shell
+      #
+      # @param shell_sym [Symbol] the shell symbol
+      # @return [Symbol] the platform group (:unix, :windows, :powershell)
+      # @raise [ArgumentError] if shell is not valid
+      def platform_group_for(shell_sym)
+        return shell_sym if PLATFORM_GROUPS.include?(shell_sym)
+
+        unless SHELL_TO_PLATFORM.key?(shell_sym)
+          raise ArgumentError, "Unknown shell: #{shell_sym}. Valid shells: #{VALID_SHELLS.join(', ')}"
+        end
+
+        SHELL_TO_PLATFORM[shell_sym]
       end
 
       # Get shell executable path for the given shell name
@@ -81,24 +131,30 @@ module Ukiryu
         end
       end
 
-      # Convert string to shell symbol
+      # Convert string to shell symbol or platform group
       #
       # @param str [String] the shell name string
-      # @return [Symbol] the shell symbol
+      # @return [Symbol] the shell symbol or platform group
       # @raise [ArgumentError] if shell name is invalid
       def from_string(str)
         shell_sym = str.to_s.downcase.to_sym
         return shell_sym if valid?(shell_sym)
 
         raise ArgumentError,
-              "Invalid shell: #{str}. Valid shells: #{VALID_SHELLS.join(', ')}"
+              "Invalid shell: #{str}. Valid: platform groups (#{PLATFORM_GROUPS.join(', ')}) or individual shells (#{INDIVIDUAL_SHELLS.join(', ')})"
       end
 
       # Check if a shell is available on the system
       #
-      # @param shell_sym [Symbol] the shell to check
-      # @return [Boolean] true if shell is available
+      # @param shell_sym [Symbol] the shell or platform group to check
+      # @return [Boolean] true if shell/platform group is available
       def available?(shell_sym)
+        # Platform groups
+        return unix_shell_available? if shell_sym == :unix
+        return powershell_available? if shell_sym == :powershell
+        return Platform.windows? if shell_sym == :windows
+
+        # Individual shells (backward compatibility)
         return false unless valid?(shell_sym)
 
         case shell_sym
@@ -114,10 +170,8 @@ module Ukiryu
           shell_available_on_unix?('dash')
         when :tcsh
           shell_available_on_unix?('tcsh')
-        when :powershell
+        when :pwsh
           powershell_available?
-        when :cmd
-          Platform.windows? # cmd is only available on Windows
         else
           false
         end
@@ -164,13 +218,25 @@ module Ukiryu
         @shell_class = nil
       end
 
-      # Get shell class by name
+      # Get shell class by name or platform group
       #
-      # @param name [Symbol] the shell name
+      # For platform groups, returns the most appropriate shell class:
+      # - :unix → Bash (most common Unix shell)
+      # - :windows → Cmd
+      # - :powershell → PowerShell
+      #
+      # @param name [Symbol] the shell name or platform group
       # @return [Class] the shell class
       # @raise [UnknownShellError] if shell class not found
       def class_for(name)
+        # Platform groups map to their representative shell classes
         case name
+        when :unix
+          Bash # Most common Unix shell, all Unix shells share the same quoting rules
+        when :windows
+          Cmd
+        when :powershell
+          PowerShell
         when :bash
           Bash
         when :zsh
@@ -183,7 +249,7 @@ module Ukiryu
           Dash
         when :tcsh
           Tcsh
-        when :powershell
+        when :pwsh
           PowerShell
         when :cmd
           Cmd
@@ -315,14 +381,20 @@ module Ukiryu
 
           Unable to detect shell automatically.
 
-          Supported shells:
-            Unix/macOS/Linux: bash, zsh, fish, sh, dash, tcsh
-            Windows: powershell, cmd, bash (Git Bash/MSYS)
+          Supported shell types:
+            Platform groups:
+              - unix (all Unix-like shells: bash, zsh, fish, sh, dash, tcsh, + future shells)
+              - windows (cmd.exe)
+              - powershell (PowerShell Core on all platforms)
+
+            Individual shells (backward compatibility):
+              Unix/macOS/Linux: bash, zsh, fish, sh, dash, tcsh
+              Windows: powershell, cmd, bash (Git Bash/MSYS)
 
           Please configure explicitly:
 
             Ukiryu.configure do |config|
-              config.default_shell = :bash  # or :zsh, :dash, :tcsh, :powershell, :cmd
+              config.default_shell = :bash      # or :zsh, :unix, :powershell, :cmd, etc.
             end
 
           Current environment:
@@ -330,6 +402,16 @@ module Ukiryu
             SHELL: #{ENV['SHELL']}
             PSModulePath: #{ENV['PSModulePath']}
         ERROR
+      end
+
+      # Check if a Unix shell is available on the system
+      #
+      # @return [Boolean] true if any Unix shell is available
+      def unix_shell_available?
+        return false if Platform.windows?
+
+        # Check for any Unix shell in PATH
+        PLATFORM_TO_SHELLS[:unix].any? { |shell| system("which #{shell} > /dev/null 2>&1") }
       end
 
       # Check if a Unix shell is available on the system
