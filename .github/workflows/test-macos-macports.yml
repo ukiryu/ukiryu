@@ -52,6 +52,8 @@ jobs:
           macports-version: ${{ matrix.macports-version }}
           cache: true
           sources-provider: git
+          # Disable clonefile (fails with permission denied on GHA runners)
+          prefer-copy: true
           # Disable signature checks for packages that have issues
           signature-check: 'disabled'
           install-ports: 'pandoc jq yq ImageMagick ghostscript ffmpeg exiftool inkscape'
