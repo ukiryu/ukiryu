@@ -171,6 +171,9 @@ module Ukiryu
 
         yaml_files = Dir.glob(File.join(tools_dir, '*', '*.yaml')).sort
 
+        # Skip index.yaml files - they are metadata files that list implementations
+        yaml_files = yaml_files.reject { |f| File.basename(f) == 'index.yaml' }
+
         say '', :clear
         say "Testing #{yaml_files.length} tool executable(s)...", :cyan
 
@@ -458,6 +461,9 @@ module Ukiryu
 
         results = {}
         yaml_files = Dir.glob(File.join(tools_dir, '*', '*.yaml')).sort
+
+        # Skip index.yaml files - they are metadata files that list implementations
+        yaml_files = yaml_files.reject { |f| File.basename(f) == 'index.yaml' }
 
         say "Validating #{yaml_files.length} tool definitions...", :cyan
         say '', :clear
