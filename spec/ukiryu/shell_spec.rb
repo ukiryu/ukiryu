@@ -37,20 +37,20 @@ RSpec.describe Ukiryu::Shell do
     context 'on Unix-like systems' do
       before { allow(Ukiryu::Platform).to receive(:windows?).and_return(false) }
 
-      it 'returns Unix shells' do
+      it 'returns Unix-compatible platform groups' do
         shells = described_class.valid_for_platform
 
-        expect(shells).to include(:bash, :zsh, :fish, :sh)
+        expect(shells).to include(:unix, :powershell)
       end
     end
 
     context 'on Windows' do
       before { allow(Ukiryu::Platform).to receive(:windows?).and_return(true) }
 
-      it 'returns Windows shells' do
+      it 'returns Windows-compatible platform groups' do
         shells = described_class.valid_for_platform
 
-        expect(shells).to include(:powershell, :cmd, :bash)
+        expect(shells).to include(:windows, :powershell, :unix)
       end
     end
   end
