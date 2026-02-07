@@ -56,7 +56,15 @@ jobs:
           prefer-copy: true
           # Disable signature checks for packages that have issues
           signature-check: 'disabled'
-          install-ports: 'pandoc jq yq ImageMagick ghostscript ffmpeg exiftool inkscape'
+          install-ports: 'pandoc jq yq ghostscript ffmpeg exiftool inkscape'
+
+      - name: Install ImageMagick (with shared-mime-info workaround)
+        shell: bash
+        run: |
+          echo "Installing shared-mime-info separately first..."
+          sudo /opt/local/bin/port install shared-mime-info || echo "shared-mime-info already installed or failed"
+          echo "Installing ImageMagick..."
+          sudo /opt/local/bin/port install ImageMagick
 
       - name: Verify installations
         shell: bash
