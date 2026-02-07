@@ -6,7 +6,6 @@ homepage: https://imagemagick.org/
 version: '7.1'
 aliases:
 - magick
-- convert
 - im
 version_detection:
   command: "-version"
