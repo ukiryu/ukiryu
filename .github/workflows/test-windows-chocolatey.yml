@@ -61,6 +61,26 @@ jobs:
           ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
 
+      # Prepend ImageMagick to PATH to prefer magick.exe over Windows convert.exe
+      - name: Add ImageMagick to PATH
+        shell: pwsh
+        run: |
+          # ImageMagick installs to Program Files, add to front of PATH
+          $imPath = "C:\Program Files\ImageMagick-7.1.2-Q16-HDRI"
+          if (Test-Path $imPath) {
+            echo "Adding ImageMagick to PATH: $imPath"
+            echo "$imPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          } else {
+            # Try to find any ImageMagick installation
+            $imDirs = Get-ChildItem "C:\Program Files*" -Filter "ImageMagick*" -Directory -ErrorAction SilentlyContinue
+            if ($imDirs) {
+              $imDirs | ForEach-Object {
+                echo "Adding ImageMagick to PATH: $($_.FullName)"
+                echo "$($_.FullName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              }
+            }
+          }
+
       - name: Install ImageMagick (chocolatey)
         run: |
           Write-Host "Installing ImageMagick via chocolatey..."
@@ -113,6 +133,17 @@ jobs:
           Write-Host "Installing Inkscape via chocolatey..."
           choco install inkscape -y --allow-downgrade
 
+      # Configure Inkscape for headless operation
+      - name: Configure Inkscape for headless
+        shell: pwsh
+        run: |
+          # Set INKSCAPE_DIR environment variable for tests
+          $inkscapePath = "C:\Program Files\Inkscape\bin"
+          if (Test-Path $inkscapePath) {
+            echo "INKSCAPE_DIR=$inkscapePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Host "Inkscape found at: $inkscapePath"
+          }
+
       - name: Refresh PATH
         run: |
           $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -123,20 +154,43 @@ jobs:
         run: |
           Write-Host "=== Verifying installations ==="
           Write-Host ""
-          Write-Host "ImageMagick:"
-          magick --version
+          Write-Host "PATH order check:"
+          $env:Path -split ';' | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" }
+          Write-Host ""
+          Write-Host "ImageMagick (magick):"
+          $magickPath = Get-Command magick -ErrorAction SilentlyContinue
+          if ($magickPath) {
+            Write-Host "  Found: $($magickPath.Source)"
+            & magick --version | Select-Object -First 3
+          } else {
+            Write-Host "  WARNING: magick not found"
+          }
+          Write-Host ""
+          Write-Host "Checking for convert.exe (should NOT be Windows system32):"
+          $convertPath = Get-Command convert -ErrorAction SilentlyContinue
+          if ($convertPath) {
+            if ($convertPath.Source -like "*System32*") {
+              Write-Host "  WARNING: Found Windows convert.exe at: $($convertPath.Source)"
+              Write-Host "  This is NOT ImageMagick - tests may fail!"
+            } else {
+              Write-Host "  Found ImageMagick convert at: $($convertPath.Source)"
+            }
+          } else {
+            Write-Host "  convert.exe not found (expected for ImageMagick 7+)"
+          }
           Write-Host ""
           Write-Host "Ghostscript (Windows uses gswin64c/gswin32c):"
           $gsFound = $false
           @('gswin64c', 'gswin32c', 'gs') | ForEach-Object {
-            if (Get-Command $_ -ErrorAction SilentlyContinue) {
-              Write-Host "Found: $_"
-              & $_ --version
+            $gsCmd = Get-Command $_ -ErrorAction SilentlyContinue
+            if ($gsCmd) {
+              Write-Host "  Found: $($gsCmd.Source)"
+              & $_ --version | Select-Object -First 3
               $gsFound = $true
             }
           }
           if (-not $gsFound) {
-            Write-Host "WARNING: Ghostscript executable not found in PATH"
+            Write-Host "  WARNING: Ghostscript executable not found in PATH"
           }
           Write-Host ""
           Write-Host "FFmpeg:"
