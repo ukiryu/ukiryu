@@ -416,18 +416,28 @@ module Ukiryu
         end
 
         # Build command definitions by merging interface and profile data
-        command_definitions = (profile_commands || []).map do |cmd_hash|
-          # Command name may be specified as 'name' or 'subcommand' field
-          cmd_name = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
-          # Merge profile command data with interface action data
-          interface_cmd = interface_commands_hash[cmd_name]
-          merged_cmd_hash = if interface_cmd
-                              # Deep merge: profile data takes precedence
-                              deep_merge_hashes(interface_cmd, cmd_hash)
-                            else
-                              cmd_hash
-                            end
-          convert_hash_to_command_definition(merged_cmd_hash)
+        # If profile has commands, merge them with interface actions
+        # If profile has no commands, use interface actions directly
+        if profile_commands.nil? || profile_commands.empty?
+          # No profile commands - use interface actions directly
+          command_definitions = interface_commands_hash.map do |cmd_name, cmd_hash|
+            convert_hash_to_command_definition(cmd_hash)
+          end
+        else
+          # Profile has commands - merge with interface actions
+          command_definitions = profile_commands.map do |cmd_hash|
+            # Command name may be specified as 'name' or 'subcommand' field
+            cmd_name = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
+            # Merge profile command data with interface action data
+            interface_cmd = interface_commands_hash[cmd_name]
+            merged_cmd_hash = if interface_cmd
+                                # Deep merge: profile data takes precedence
+                                deep_merge_hashes(interface_cmd, cmd_hash)
+                              else
+                                cmd_hash
+                              end
+            convert_hash_to_command_definition(merged_cmd_hash)
+          end
         end
 
         # Create PlatformProfile
