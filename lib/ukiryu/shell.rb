@@ -264,18 +264,18 @@ module Ukiryu
       #
       # @return [Symbol] detected shell
       def detect_windows_shell
-        # Git Bash / MSYS check - MUST come before SHELL check
-        # because MSYS2 sets SHELL to Unix shell paths which causes
-        # invalid windows/zsh combinations
+        # PowerShell check - PREFER PowerShell over Bash on Windows
+        # This ensures proper executable discovery on Windows CI with MSYS2
+        return :powershell if ENV['PSModulePath']
+
+        # Git Bash / MSYS check - only use Bash if PowerShell is not available
+        # This prevents Bash alias detection from interfering with Windows executables
         if ENV['MSYSTEM'] || ENV['MINGW_PREFIX']
           return :bash
         end
 
         # WSL check
         return :bash if ENV['WSL_DISTRO']
-
-        # PowerShell check
-        return :powershell if ENV['PSModulePath']
 
         # Default to cmd on Windows
         :cmd
