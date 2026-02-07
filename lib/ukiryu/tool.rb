@@ -417,7 +417,8 @@ module Ukiryu
 
         # Build command definitions by merging interface and profile data
         command_definitions = (profile_commands || []).map do |cmd_hash|
-          cmd_name = cmd_hash[:name] || cmd_hash['name']
+          # Command name may be specified as 'name' or 'subcommand' field
+          cmd_name = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
           # Merge profile command data with interface action data
           interface_cmd = interface_commands_hash[cmd_name]
           merged_cmd_hash = if interface_cmd
