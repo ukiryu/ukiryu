@@ -323,7 +323,17 @@ module Ukiryu
                              end
         # Use detected version if available, otherwise fall back to YAML version
         version = detected_version || impl_version.version
-        Models::ToolDefinition.new(
+        # Build ToolDefinition from execution profile
+        # Note: implements must be an array for the v2 model
+        # Only append implementation name for non-default implementations
+        specific_tool_name = if implementation_name && implementation_name != 'default'
+                               "#{tool_name}_#{implementation_name}"
+                             else
+                               tool_name
+                             end
+        # Use detected version if available, otherwise fall back to YAML version
+        version = detected_version || impl_version.version
+        tool_def = Models::ToolDefinition.new(
           name: specific_tool_name,
           version: version,
           display_name: impl_version.display_name || "#{interface.name} #{implementation_name} #{version}",
@@ -332,6 +342,10 @@ module Ukiryu
           version_detection: impl_version.version_detection, # Extract from implementation
           aliases: impl_version.aliases || []
         )
+
+        # Resolve profile inheritance after creation
+        tool_def.resolve_inheritance!
+        tool_def
       end
 
       # Convert ExecutionProfile to hash format for ToolDefinition
