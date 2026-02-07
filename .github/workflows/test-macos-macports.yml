@@ -61,22 +61,28 @@ jobs:
       - name: Verify installations
         shell: bash
         run: |
+          # Add ImageMagick7 bin directory to PATH for verification
+          echo "/opt/local/lib/ImageMagick7/bin" >> $GITHUB_PATH
+
           echo "=== Verifying installations ==="
           echo ""
           echo "MacPorts version:"
           port version
           echo ""
           echo "ImageMagick:"
-          # Check for both magick (v7) and convert (v6) in MacPorts prefix
-          if command -v /opt/local/bin/magick; then
+          # ImageMagick7 installs to /opt/local/lib/ImageMagick7/bin
+          if command -v /opt/local/lib/ImageMagick7/bin/magick; then
+            echo "Found 'magick' command in ImageMagick7 location:"
+            /opt/local/lib/ImageMagick7/bin/magick --version
+          elif command -v /opt/local/bin/magick; then
             echo "Found 'magick' command:"
             /opt/local/bin/magick --version
           elif command -v /opt/local/bin/convert; then
             echo "Found 'convert' command:"
             /opt/local/bin/convert --version
           else
-            echo "WARNING: Neither 'magick' nor 'convert' command found in /opt/local/bin"
-            ls /opt/local/bin/magick /opt/local/bin/convert 2>&1 || true
+            echo "WARNING: Neither 'magick' nor 'convert' command found"
+            ls /opt/local/lib/ImageMagick7/bin/magick /opt/local/bin/magick /opt/local/bin/convert 2>&1 || true
           fi
           echo ""
           echo "Ghostscript:"
@@ -102,4 +108,7 @@ jobs:
 
       - name: Run tests
         shell: bash
-        run: bundle exec rake spec
+        run: |
+          # Add ImageMagick7 bin directory to PATH for tests
+          echo "/opt/local/lib/ImageMagick7/bin" >> $GITHUB_PATH
+          bundle exec rake spec
