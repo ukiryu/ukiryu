@@ -344,7 +344,29 @@ module Ukiryu
         )
 
         # Resolve profile inheritance after creation
+        # Debug logging for Ruby 3.4+ CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG] Before resolve_inheritance!"
+          $stderr.puts "[UKIRYU DEBUG] tool_def.profiles.size: #{tool_def.profiles.size}"
+          tool_def.profiles.each do |prof|
+            prof_name = prof.name if prof.respond_to?(:name)
+            prof_commands = prof.commands if prof.respond_to?(:commands)
+            $stderr.puts "[UKIRYU DEBUG] Profile: #{prof_name}, commands: #{prof_commands&.size || 0}"
+          end
+        end
+
         tool_def.resolve_inheritance!
+
+        # Debug logging for Ruby 3.4+ CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG] After resolve_inheritance!"
+          tool_def.profiles.each do |prof|
+            prof_name = prof.name if prof.respond_to?(:name)
+            prof_commands = prof.commands if prof.respond_to?(:commands)
+            $stderr.puts "[UKIRYU DEBUG] Profile: #{prof_name}, commands: #{prof_commands&.size || 0}"
+          end
+        end
+
         tool_def
       end
 
