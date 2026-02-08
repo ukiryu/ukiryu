@@ -1,0 +1,16 @@
+---
+ukiryu_schema: '1.0'
+name: bzip2_gnu
+interface: bzip2
+implementations:
+- name: default
+  display_name: Bzip2 Gnu
+  detection:
+    executable: bzip2
+    command: ["--help"]
+    pattern: bzip2 ([\d.]+)
+  version_scheme: semantic
+  versions:
+  - equals: '1.0'
+    file: 1.0.yaml
+  default: 1.0.yaml

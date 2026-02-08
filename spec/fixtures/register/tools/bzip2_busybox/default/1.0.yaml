@@ -1,0 +1,55 @@
+---
+ukiryu_schema: '1.0'
+name: bzip2_busybox
+display_name: BusyBox bzip2
+homepage:
+version: '1.0'
+aliases: []
+version_detection:
+search_paths:
+  linux:
+  - "/bin/bzip2"
+  - "/usr/bin/bzip2"
+implements: bzip2_busybox/1.0
+profiles:
+- name: default
+  platforms:
+  - linux
+  shells:
+  - bash
+  - sh
+  option_style: single_dash_space
+  executable_name: bzip2
+  commands:
+  - name: compress
+    description: Compress files
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: File(s) to compress
+    flags:
+    - name: keep
+      cli: "-k"
+      description: Keep input files
+      default: false
+  - name: decompress
+    description: Decompress files
+    flags:
+    - name: keep
+      cli: "-k"
+      description: Keep input files
+      default: false
+    - name: decompress
+      cli: "-d"
+      description: Decompress mode
+      default: true
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: File(s) to decompress

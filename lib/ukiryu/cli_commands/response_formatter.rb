@@ -65,9 +65,11 @@ module Ukiryu
       def format_yaml_response(response, config)
         yaml_content = response.to_yaml
 
-        # Determine if we should use colors:
-        # - Config.use_color can be true, false, or nil (auto-detect)
-        # - Auto-detect: only use colors if TTY and colors are not disabled via config/NO_COLOR
+        # Determine if we should use colors
+        # Config handles environment (NO_COLOR) and TTY detection properly
+        # When config.use_color is nil, it means "auto-detect based on TTY"
+        # But Docker's pseudo-TTY makes TTY detection unreliable
+        # So we also check if NO_COLOR was set (via config.colors_disabled?)
         use_colors = if config.use_color.nil?
                        $stdout.tty? && !config.colors_disabled?
                      else

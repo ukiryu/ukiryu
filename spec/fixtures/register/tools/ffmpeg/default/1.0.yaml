@@ -1,0 +1,60 @@
+---
+ukiryu_schema: '1.0'
+name: ffmpeg
+display_name: FFmpeg
+homepage: https://ffmpeg.org/
+version: '1.0'
+aliases: []
+version_detection:
+  description: 'Uses -h flag which outputs version information including the full
+    version string. The pattern captures major.minor version. Works on all platforms
+    including Alpine Linux.
+
+    '
+  command: "-h"
+  pattern: ffmpeg version (\d+\.\d+)
+search_paths:
+  macos:
+  - "/opt/homebrew/bin/ffmpeg"
+  linux:
+  - "/usr/bin/ffmpeg"
+implements: ffmpeg/1.0
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  - windows
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: ffmpeg
+  commands:
+  - name: convert
+    description: Convert media files
+    arguments:
+    - name: inputs
+      type: file
+      required: true
+      position: last
+    options:
+    - name: codec
+      type: string
+      cli: "-c:v"
+    - name: video_codec
+      type: string
+      cli: "-vcodec"
+    - name: audio_codec
+      type: string
+      cli: "-acodec"
+    - name: format
+      type: string
+      cli: "-f"
+    - name: duration
+      type: string
+      cli: "-t"

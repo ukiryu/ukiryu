@@ -81,14 +81,14 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
       invalid_yaml = 'name: test\n  invalid: [unclosed'
 
       expect { described_class.from_definition(invalid_yaml) }.to raise_error(
-        Ukiryu::DefinitionLoadError,
+        Ukiryu::Errors::DefinitionLoadError,
         /Invalid YAML/
       )
     end
 
     it 'raises DefinitionLoadError for empty string' do
       expect { described_class.from_definition('') }.to raise_error(
-        Ukiryu::DefinitionLoadError,
+        Ukiryu::Errors::DefinitionLoadError,
         /cannot be empty/
       )
     end
@@ -97,7 +97,7 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
       invalid_yaml = 'name: test\n# Missing: version, profiles'
 
       expect { described_class.from_definition(invalid_yaml) }.to raise_error(
-        Ukiryu::DefinitionLoadError
+        Ukiryu::Errors::DefinitionLoadError
       )
     end
 
@@ -194,10 +194,6 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
         aliases:
           - cpx
           - cplx
-        search_paths:
-          linux:
-            - /usr/bin/complex
-            - /usr/local/bin/complex
         profiles:
           - name: modern
             version: ">= 2.0"
@@ -241,8 +237,6 @@ RSpec.describe Ukiryu::Tool, '.from_definition' do
 
       expect(tool.name).to eq('complex')
       expect(tool.profile.aliases).to eq(%w[cpx cplx])
-      # search_paths is a SearchPaths model object, not a Hash
-      expect(tool.profile.search_paths).to be_a(Ukiryu::Models::SearchPaths)
     end
 
     it 'preserves YAML formatting' do

@@ -1,0 +1,189 @@
+---
+ukiryu_schema: '1.0'
+name: imagemagick
+display_name: ImageMagick
+homepage: https://imagemagick.org
+version: '6.9'
+aliases:
+- imagemagick
+version_detection:
+  command: "-version"
+  pattern: 'Version: ImageMagick ([\d.]+)'
+  modern_threshold: '7.0'
+search_paths:
+  macos:
+  - "/opt/homebrew/bin/convert"
+  - "/usr/local/bin/convert"
+  - "/opt/local/bin/convert"
+  - "/opt/homebrew/bin/identify"
+  - "/usr/local/bin/identify"
+  - "/opt/local/bin/identify"
+  - "/opt/homebrew/bin/mogrify"
+  - "/usr/local/bin/mogrify"
+  - "/opt/local/bin/mogrify"
+  linux:
+  - "/usr/bin/convert"
+  - "/usr/local/bin/convert"
+  - "/usr/bin/identify"
+  - "/usr/local/bin/identify"
+  - "/usr/bin/mogrify"
+  - "/usr/local/bin/mogrify"
+  windows:
+  - C:/Program Files/ImageMagick-*/convert.exe
+  - C:/Program Files/ImageMagick-*/identify.exe
+  - C:/Program Files/ImageMagick-*/mogrify.exe
+implements: imagemagick/1.0
+profiles:
+- name: unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - fish
+  - sh
+  option_style: single_dash_space
+  executable_name: convert
+  commands:
+  - description: Convert between image formats and apply transformations
+    usage: convert [options] input_file output_file
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: 99
+      description: Input file(s) to convert
+    - name: output
+      type: file
+      position: last
+      description: Output file
+    options:
+    - name: resize
+      type: string
+      cli: "-resize"
+      format: single_dash_space
+      description: Resize image
+    - name: quality
+      type: integer
+      cli: "-quality"
+      format: single_dash_space
+      range:
+      - 1
+      - 100
+      description: JPEG/MIFF/PNG compression level
+    - name: strip
+      type: boolean
+      cli: "-strip"
+      format: single_dash_space
+      description: Strip image of all profiles and comments
+    - name: flatten
+      type: boolean
+      cli: "-flatten"
+      format: single_dash_space
+      description: Flatten a sequence of images
+    - name: negate
+      type: boolean
+      cli: "-negate"
+      format: single_dash_space
+      description: Negate the colors
+    - name: flip
+      type: boolean
+      cli: "-flip"
+      format: single_dash_space
+      description: Flip image vertically
+    - name: flop
+      type: boolean
+      cli: "-flop"
+      format: single_dash_space
+      description: Flop image horizontally
+    - name: grayscale
+      type: boolean
+      cli: "-grayscale"
+      format: single_dash_space
+      description: Convert image to grayscale
+    - name: blur
+      type: string
+      cli: "-blur"
+      format: single_dash_space
+      description: Blur image
+    - name: sharpen
+      type: string
+      cli: "-sharpen"
+      format: single_dash_space
+      description: Sharpen image
+    - name: rotate
+      type: float
+      cli: "-rotate"
+      format: single_dash_space
+      description: Rotate image by degrees
+    name: convert
+  - description: Describe the format and characteristics of image files
+    usage: identify [options] input-file
+    standalone_executable: true
+    arguments:
+    - name: input
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: Input file(s) to identify
+    options:
+    - name: format
+      type: string
+      cli: "-format"
+      description: Output formatted image characteristics
+      assignment_delimiter: space
+    - name: verbose
+      type: boolean
+      cli: "-verbose"
+      description: Print detailed information
+      default: false
+      assignment_delimiter: none
+    - name: ping
+      type: boolean
+      cli: "-ping"
+      description: Efficiently determine image attributes
+      default: false
+      assignment_delimiter: none
+    name: identify
+  - description: Process image files (overwrites original file)
+    usage: mogrify [options] input-file
+    standalone_executable: true
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: Input file(s) to modify in place
+    options:
+    - name: resize
+      type: string
+      cli: "-resize"
+      description: Resize image
+    - name: quality
+      type: integer
+      cli: "-quality"
+      range:
+      - 1
+      - 100
+      description: JPEG/MIFF/PNG compression level
+    - name: strip
+      type: boolean
+      cli: "-strip"
+      default: false
+      assignment_delimiter: none
+      description: Strip image of all profiles
+    name: mogrify
+- name: windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: convert
+  inherits: unix

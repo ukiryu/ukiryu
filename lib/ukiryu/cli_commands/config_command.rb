@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative '../config'
-require_relative '../register_auto_manager'
 require 'yaml'
 require 'fileutils'
 
@@ -54,7 +51,6 @@ module Ukiryu
           'Shell' => format_config_value(config.shell, '(auto-detect)'),
           'Format' => format_config_value(config.format),
           'Output' => format_config_value(config.output, '(stdout)'),
-          'Search paths' => format_config_value(config.search_paths, '(not set)'),
           'Use color' => format_config_value(config.use_color)
         }
 
@@ -94,7 +90,6 @@ module Ukiryu
           'UKIRYU_SHELL' => ENV['UKIRYU_SHELL'],
           'UKIRYU_FORMAT' => ENV['UKIRYU_FORMAT'],
           'UKIRYU_OUTPUT' => ENV['UKIRYU_OUTPUT'],
-          'UKIRYU_SEARCH_PATHS' => ENV['UKIRYU_SEARCH_PATHS'],
           'UKIRYU_USE_COLOR' => ENV['UKIRYU_USE_COLOR']
         }
 
@@ -123,10 +118,9 @@ module Ukiryu
                 when :shell then config.shell
                 when :format then config.format
                 when :output then config.output
-                when :search_paths then config.search_paths
                 when :use_color then config.use_color
                 else
-                  error! "Unknown config key: #{key}\nValid keys: register, timeout, debug, dry_run, metrics, shell, format, output, search_paths, use_color"
+                  error! "Unknown config key: #{key}\nValid keys: register, timeout, debug, dry_run, metrics, shell, format, output, use_color"
                 end
 
         say "#{key}: #{format_config_value(value, '(not set)')}", :white
@@ -211,7 +205,6 @@ module Ukiryu
         when :format then config.format = value
         when :output then config.output = value
         when :register then config.register = value
-        when :search_paths then config.search_paths = value
         when :use_color then config.use_color = value
         end
       end
@@ -229,7 +222,7 @@ module Ukiryu
       #
       # @return [String] formatted register display
       def format_register_display
-        info = RegisterAutoManager.register_info
+        info = Ukiryu::RegisterAutoManager.register_info
 
         case info[:status]
         when :ok

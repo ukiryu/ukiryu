@@ -1,13 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative 'response_formatter'
-require_relative '../tool'
-require_relative '../executor'
-require_relative '../logger'
-require_relative '../models/success_response'
-require_relative '../models/error_response'
-require_relative '../models/execution_report'
 require 'yaml'
 
 module Ukiryu
@@ -67,12 +59,14 @@ module Ukiryu
 
         begin
           request = YAML.safe_load(File.read(file_path), permitted_classes: [Symbol])
-          validate_request!(request)
-          request
         rescue Psych::SyntaxError => e
           error! "Invalid YAML in request file: #{e.message}"
         rescue StandardError => e
           error! "Error loading request file: #{e.message}"
+        else
+          # Validate request structure (raises RuntimeError for invalid structure)
+          validate_request!(request)
+          request
         end
       end
 
@@ -107,14 +101,14 @@ module Ukiryu
                            end
 
         begin
-          # Stage: Tool Resolution
+          # Stage: Ukiryu::Tool Resolution
           execution_report.tool_resolution.start! if collect_metrics
 
           # Get tool - try find_by first for interface-based discovery, fallback to get
-          tool = Tool.find_by(tool_name.to_sym) || Tool.get(tool_name.to_sym)
-          return Models::ErrorResponse.from_message("Tool not available: #{tool_name}") unless tool
+          tool = Ukiryu::Tool.find_by(tool_name.to_sym) || Ukiryu::Tool.get(tool_name.to_sym)
+          return Models::ErrorResponse.from_message("Ukiryu::Tool not available: #{tool_name}") unless tool
 
-          return Models::ErrorResponse.from_message("Tool found but not executable: #{tool_name}") unless tool.available?
+          return Models::ErrorResponse.from_message("Ukiryu::Tool found but not executable: #{tool_name}") unless tool.available?
 
           execution_report.tool_resolution.finish! if collect_metrics
 
@@ -138,7 +132,9 @@ module Ukiryu
           execution_report.execution.start! if collect_metrics
 
           # Execute command
-          result = tool.execute(command_name.to_sym, options)
+          # Use config.timeout with fallback to 90 seconds
+          timeout = config.timeout || 90
+          result = tool.execute(command_name.to_sym, options, timeout: timeout)
 
           execution_report.execution.finish! if collect_metrics
 
@@ -182,13 +178,13 @@ module Ukiryu
           logger.debug_section_structured_response(response) if config.debug && logger
 
           response
-        rescue Ukiryu::ToolNotFoundError => e
-          Models::ErrorResponse.from_message("Tool not found: #{e.message}")
-        rescue Ukiryu::ProfileNotFoundError => e
+        rescue Ukiryu::Errors::ToolNotFoundError => e
+          Models::ErrorResponse.from_message("Ukiryu::Tool not found: #{e.message}")
+        rescue Ukiryu::Errors::ProfileNotFoundError => e
           Models::ErrorResponse.from_message("Profile not found: #{e.message}")
-        rescue Ukiryu::ExecutionError => e
+        rescue Ukiryu::Errors::ExecutionError => e
           Models::ErrorResponse.from_message(e.message)
-        rescue Ukiryu::TimeoutError => e
+        rescue Ukiryu::Errors::TimeoutError => e
           Models::ErrorResponse.from_message("Command timed out: #{e.message}")
         rescue ArgumentError => e
           # Output full backtrace for debugging

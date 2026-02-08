@@ -1,0 +1,77 @@
+---
+ukiryu_schema: '1.0'
+name: imagemagick
+display_name: ImageMagick
+homepage: https://imagemagick.org/
+version: '6.0'
+aliases:
+- convert
+version_detection:
+  command: "-version"
+  pattern: Version:\s+ImageMagick\s+(6\.\d+\.\d+[\w.-]*)
+search_paths:
+  macos:
+  - "/usr/local/bin/convert"
+  linux:
+  - "/usr/bin/convert"
+  - "/usr/local/bin/convert"
+  windows:
+  - C:/Program Files/ImageMagick*/convert.exe
+implements: imagemagick/1.0
+profiles:
+- name: default
+  platforms:
+  - macos
+  - linux
+  - windows
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: imagemagick
+  commands:
+  - name: convert
+    subcommand: convert
+    description: Convert between image formats
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+    - name: output
+      type: file
+      position: last
+      required: true
+    options:
+    - name: resize
+      type: string
+      cli: "-resize"
+    - name: quality
+      type: integer
+      cli: "-quality"
+    flags:
+    - name: strip
+      cli: "-strip"
+  - name: identify
+    subcommand: identify
+    standalone_executable: true
+    description: Identify image attributes
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+  - name: mogrify
+    subcommand: mogrify
+    standalone_executable: true
+    description: Process multiple images
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+    options:
+    - name: resize
+      type: string
+      cli: "-resize"

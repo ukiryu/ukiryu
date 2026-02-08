@@ -1,0 +1,184 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://github.com/ukiryu/ukiryu/schemas/v1/implementation_index.schema.yaml
+title: ImplementationIndex
+description: Schema for tool implementation index with routing and version matching
+type: object
+required:
+  - ukiryu_schema
+  - name
+  - interface
+  - implementations
+properties:
+  ukiryu_schema:
+    type: string
+    pattern: '^1\.0$'
+    description: Schema version for validation
+  name:
+    type: string
+    description: Tool name (e.g., "gzip", "tar")
+  interface:
+    type: string
+    description: Reference to interface (e.g., "gzip/1.0")
+  implementations:
+    type: array
+    description: List of implementations with version routing
+    items:
+      type: object
+      required:
+        - name
+        - detection
+        - version_scheme
+        - versions
+        - default
+      properties:
+        name:
+          type: string
+          description: Implementation name (e.g., "gnu", "busybox")
+        display_name:
+          type: string
+          description: Human-readable implementation name
+        homepage:
+          type: string
+          format: uri
+          description: Implementation homepage URL
+        detection:
+          type: object
+          required:
+            - pattern
+          properties:
+            command:
+              type: array
+              items:
+                type: string
+              description: Command arguments to run for detection
+            pattern:
+              type: string
+              description: Regex pattern to extract version from output
+        version_scheme:
+          oneOf:
+            - # Reference to Versionian built-in scheme
+              type: string
+              enum:
+                - semantic
+                - calver
+                - solover
+                - wendtver
+            - # Inline declarative scheme
+              type: object
+              required:
+                - name
+                - type
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                  enum:
+                    - declarative
+                description:
+                  type: string
+                components:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - type
+                    properties:
+                      name:
+                        type: string
+                      type:
+                        type: string
+                        enum:
+                          - integer
+                          - float
+                          - string
+                          - enum
+                          - date_part
+                          - prerelease
+                          - postfix
+                          - hash
+                      separator:
+                        type: string
+                      prefix:
+                        type: string
+                      optional:
+                        type: boolean
+                      values:
+                        type: array
+                        items:
+                          type: string
+                      order:
+                        type: array
+                        items:
+                          type: string
+                      subtype:
+                        type: string
+                        enum:
+                          - year
+                          - month
+                          - day
+                          - week
+        versions:
+          type: array
+          description: Version specifications with range operators
+          items:
+            oneOf:
+              - # Equals
+                type: object
+                required:
+                  - equals
+                  - file
+                properties:
+                  equals:
+                    type: string
+                    description: Exact version match
+                  file:
+                    type: string
+                    description: Path to implementation version file
+              - # Before
+                type: object
+                required:
+                  - before
+                  - file
+                properties:
+                  before:
+                    type: string
+                    description: Less than this version
+                  file:
+                    type: string
+                    description: Path to implementation version file
+              - # After
+                type: object
+                required:
+                  - after
+                  - file
+                properties:
+                  after:
+                    type: string
+                    description: Greater than or equal to this version
+                  file:
+                    type: string
+                    description: Path to implementation version file
+              - # Between
+                type: object
+                required:
+                  - between
+                  - file
+                properties:
+                  between:
+                    type: object
+                    required:
+                      - from
+                      - to
+                    properties:
+                      from:
+                        type: string
+                      to:
+                        type: string
+                  file:
+                    type: string
+                    description: Path to implementation version file
+        default:
+          type: string
+          description: Default implementation version file path

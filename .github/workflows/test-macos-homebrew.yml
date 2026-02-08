@@ -1,0 +1,90 @@
+name: macOS Tests (Homebrew)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test-macos-homebrew:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner:
+          - macos-15-intel
+          - macos-15
+          - macos-26
+        ruby-version: ['3.1', '3.4', '4.0']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # checkout schema repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/schema
+          path: schema
+
+      # checkout register repository
+      - uses: actions/checkout@v6
+        with:
+          repository: ukiryu/register
+          ref: v1
+          path: register
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      - name: Install tools via Homebrew
+        run: |
+          echo "Installing tools via Homebrew..."
+          brew install imagemagick ghostscript ffmpeg pandoc jq yq exiftool inkscape
+
+          echo "Installing shells via Homebrew..."
+          brew install powershell zsh tcsh dash-shell
+
+      - name: Refresh PATH
+        run: |
+          # Works on both Intel (/usr/local) and Apple Silicon (/opt/homebrew)
+          eval "$(brew shellenv)"
+          echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX" >> $GITHUB_ENV
+          echo "$HOMEBREW_PREFIX/bin" >> $GITHUB_PATH
+          echo "$HOMEBREW_PREFIX/sbin" >> $GITHUB_PATH
+
+      - name: Verify installations
+        run: |
+          echo "=== Verifying installations ==="
+          echo ""
+          echo "ImageMagick:"
+          magick --version
+          echo ""
+          echo "Ghostscript:"
+          gs --version
+          echo ""
+          echo "FFmpeg:"
+          ffmpeg -version
+          echo ""
+          echo "ExifTool:"
+          exiftool -ver
+          echo ""
+          echo "Pandoc:"
+          pandoc --version
+          echo ""
+          echo "jq:"
+          jq --version
+          echo ""
+          echo "yq:"
+          yq --version
+          echo ""
+          echo "Inkscape:"
+          inkscape --version
+
+      - name: Run tests
+        run: bundle exec rake spec

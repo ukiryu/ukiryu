@@ -1,0 +1,164 @@
+---
+ukiryu_schema: '1.0'
+name: inkscape
+display_name: Inkscape Vector Graphics Editor
+homepage: https://inkscape.org/
+version: '0.92'
+aliases:
+- inkscapecom
+- ink
+version_detection:
+  command: "--version"
+  pattern: Inkscape (\d+\.\d+)
+search_paths:
+  macos:
+  - "/Applications/Inkscape.app/Contents/MacOS/inkscape"
+  - "/opt/homebrew/bin/inkscape"
+  - "/usr/local/bin/inkscape"
+  - "/opt/local/bin/inkscape"
+  - "/usr/local/opt/inkscape/bin/inkscape"
+  linux:
+  - "/usr/bin/inkscape"
+  - "/usr/local/bin/inkscape"
+  - "/snap/bin/inkscape"
+  - "/var/lib/flatpak/exports/bin/org.inkscape.Inkscape"
+  - "/opt/inkscape.AppImage"
+  - "/usr/local/bin/inkscape.AppImage"
+  - "/opt/bin/inkscape"
+  windows:
+  - C:/Program Files/Inkscape/bin/inkscape.exe
+  - C:/Program Files/Inkscape/inkscape.exe
+  - C:/Program Files (x86)/Inkscape/bin/inkscape.exe
+  - C:/Program Files (x86)/Inkscape/inkscape.exe
+  - "%USERPROFILE%/scoop/apps/inkscape/current/inkscape.exe"
+  - "~/scoop/apps/inkscape/current/inkscape.exe"
+  - "%LOCALAPPDATA%/Inkscape/bin/inkscape.exe"
+  - "~/AppData/Local/Inkscape/bin/inkscape.exe"
+implements: inkscape/1.0
+profiles:
+- name: legacy_unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - fish
+  - sh
+  option_style: double_dash_equals
+  executable_name: inkscape
+  commands:
+  - description: Export document to different format (legacy)
+    usage: inkscape [OPTIONS] input1.svg [input2.svg ...]
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      position: last
+      min: 1
+      description: Input file(s)
+    options:
+    - name: output
+      type: file
+      cli: "--export-filename"
+      description: Output filename
+      required: true
+      assignment_delimiter: equals
+    - name: format
+      type: symbol
+      cli: "--export-type"
+      values:
+      - svg
+      - png
+      - ps
+      - eps
+      - pdf
+      - emf
+      - wmf
+      - xaml
+      description: Output format
+      assignment_delimiter: equals
+    - name: dpi
+      type: integer
+      cli: "-d"
+      separator: " "
+      range:
+      - 1
+      - 10000
+      description: 'Resolution for bitmaps (default: 96)'
+      assignment_delimiter: space
+    - name: width
+      type: integer
+      cli: "--export-width"
+      description: Bitmap width in pixels
+      assignment_delimiter: equals
+    - name: height
+      type: integer
+      cli: "--export-height"
+      description: Bitmap height in pixels
+      assignment_delimiter: equals
+    flags:
+    - name: plain
+      cli: "--export-plain-svg"
+      cli_short: "-l"
+      description: Remove Inkscape-specific attributes
+      default: false
+      assignment_delimiter: none
+    - name: text_to_path
+      cli: "--export-text-to-path"
+      cli_short: "-T"
+      description: Convert text to paths
+      default: false
+      assignment_delimiter: none
+    env_vars:
+    - name: DISPLAY
+      value: ''
+      platforms:
+      - macos
+      - linux
+      description: Disable display for headless operation
+    name: export
+  - description: Query document dimensions (legacy)
+    usage: inkscape --query-width/--query-height input.svg
+    arguments:
+    - name: input
+      type: file
+      required: true
+      position: 1
+      description: Input file
+    flags:
+    - name: width
+      cli: "--query-width"
+      cli_short: "-W"
+      description: Query width
+      default: false
+      assignment_delimiter: none
+    - name: height
+      cli: "--query-height"
+      cli_short: "-H"
+      description: Query height
+      default: false
+      assignment_delimiter: none
+    - name: x
+      cli: "--query-x"
+      cli_short: "-X"
+      description: Query X coordinate
+      default: false
+      assignment_delimiter: none
+    - name: "y"
+      cli: "--query-y"
+      cli_short: "-Y"
+      description: Query Y coordinate
+      default: false
+      assignment_delimiter: none
+    name: query
+- name: legacy_windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: double_dash_equals
+  executable_name: inkscape
+  inherits: legacy_unix

@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_command'
-require_relative '../tool'
-
 module Ukiryu
   module CliCommands
     # Show options for a tool or specific command
@@ -15,8 +12,8 @@ module Ukiryu
         setup_register
 
         # Use find_by for interface-based discovery (ping -> ping_bsd/ping_gnu)
-        tool = Tool.find_by(tool_name.to_sym)
-        error!("Tool not found: #{tool_name}\nAvailable tools: #{Register.tools.sort.join(', ')}") unless tool
+        tool = Ukiryu::Tool.find_by(tool_name.to_sym)
+        error!("Tool not found: #{tool_name}\nAvailable tools: #{Ukiryu::Register.tools.sort.join(', ')}") unless tool
 
         tool_commands = tool.commands
         error! "No commands defined for #{tool_name}" unless tool_commands

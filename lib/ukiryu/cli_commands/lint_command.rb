@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'thor'
-require_relative '../definition/definition_linter'
 
 module Ukiryu
   module CliCommands

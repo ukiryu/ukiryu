@@ -1,0 +1,49 @@
+---
+ukiryu_schema: '1.0'
+name: ping_gnu
+display_name: GNU Ping (iputils)
+homepage: https://iputils.codeberg.page/
+version: '2024.01.17'
+aliases:
+- ping
+version_detection:
+  command: ["--version"]
+  pattern: 'ping from iputils ([0-9.]+)'
+search_paths:
+  linux:
+  - "/bin/ping"
+  - "/usr/bin/ping"
+  - "/sbin/ping"
+  - "/usr/sbin/ping"
+implements: ping
+profiles:
+- name: default
+  platforms:
+  - linux
+  shells:
+  - bash
+  - zsh
+  - sh
+  - fish
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: ping
+  commands:
+  - name: ping
+    description: Ping a host
+    arguments:
+    - name: host
+      type: string
+      required: true
+      description: Host to ping
+    options:
+    - name: count
+      type: integer
+      cli: "-c"
+      assignment_delimiter: auto
+      description: Number of packets to send
+    flags:
+    - name: quiet
+      cli: "-q"
+      description: Quiet output

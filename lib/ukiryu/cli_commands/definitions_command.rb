@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../definition'
-
 module Ukiryu
   module CliCommands
     # CLI commands for managing tool definitions
@@ -21,13 +19,13 @@ module Ukiryu
       desc 'list', 'List all discovered definitions'
       method_option :verbose, aliases: :v, desc: 'Show detailed information', type: :boolean, default: false
       def list
-        definitions = Definition::Discovery.discover
+        definitions = Ukiryu::Definition::Discovery.discover
 
         if definitions.empty?
           puts 'No definitions found.'
           puts
           puts 'Search paths:'
-          Definition::Discovery.search_paths.each do |path|
+          Ukiryu::Definition::Discovery.search_paths.each do |path|
             puts "  - #{path}"
           end
           return
@@ -93,7 +91,7 @@ module Ukiryu
         # Load the definition to get metadata
         begin
           metadata = Definition::Loader.load_from_file(source_path, validation: :strict)
-        rescue DefinitionLoadError, DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           warn "Error: Failed to load definition: #{e.message}"
           exit 1
         end
@@ -244,7 +242,7 @@ module Ukiryu
           puts 'Validation: ✓ Valid'
           puts "Display Name: #{tool_def.display_name}" if tool_def.display_name
           puts "Homepage: #{tool_def.homepage}" if tool_def.homepage
-        rescue DefinitionLoadError, DefinitionValidationError => e
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
           puts 'Validation: ✗ Invalid'
           puts "Error: #{e.message}"
         end

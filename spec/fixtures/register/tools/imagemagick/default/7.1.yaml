@@ -1,0 +1,401 @@
+---
+ukiryu_schema: '1.0'
+name: imagemagick
+display_name: ImageMagick Image Processing Suite
+homepage: https://imagemagick.org/
+version: '7.1'
+aliases:
+- magick
+- im
+version_detection:
+  command: "-version"
+  pattern: 'Version: ImageMagick (\d+\.\d+)'
+  modern_threshold: '7.0'
+search_paths:
+  macos:
+  - "/opt/homebrew/bin/magick"
+  - "/usr/local/bin/magick"
+  - "/opt/local/bin/magick"
+  - "/usr/local/opt/imagemagick/bin/magick"
+  - "/opt/bin/magick"
+  linux:
+  - "/usr/bin/magick"
+  - "/usr/local/bin/magick"
+  - "/snap/bin/imagemagick"
+  - "/var/lib/flatpak/exports/bin/org.imagemagick.ImageMagick"
+  - "/opt/bin/magick"
+  - "/opt/imagemagick/bin/magick"
+  windows:
+  - C:/Program Files/ImageMagick-*/magick.exe
+  - C:/Program Files (x86)/ImageMagick-*/magick.exe
+  - "%USERPROFILE%/scoop/apps/imagemagick/current/magick.exe"
+  - "~/scoop/apps/imagemagick/current/magick.exe"
+  - C:/ProgramData/chocolatey/lib/imagemagick/tools/magick.exe
+  - "%LOCALAPPDATA%/Programs/ImageMagick-*/magick.exe"
+  - "~/AppData/Local/Programs/ImageMagick-*/magick.exe"
+implements: imagemagick/1.0
+profiles:
+- name: modern_unix
+  platforms:
+  - macos
+  - linux
+  shells:
+  - bash
+  - zsh
+  - fish
+  - sh
+  option_style: single_dash_space
+  executable_name: magick
+  commands:
+  - description: Convert between image formats and apply transformations
+    usage: magick [input-options] input-file [processing-options] output-file
+    subcommand: convert
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: 1
+      description: Input file(s)
+    - name: output
+      type: file
+      required: true
+      position: last
+      description: Output file
+    options:
+    - name: density
+      type: string
+      cli: "-density"
+      description: Horizontal and vertical density for input
+      assignment_delimiter: space
+    - name: input_colorspace
+      type: symbol
+      cli: "-colorspace"
+      values:
+      - RGB
+      - sRGB
+      - Gray
+      - CMYK
+      - LAB
+      - XYZ
+      description: Input image colorspace
+      assignment_delimiter: space
+    post_options:
+    - name: resize
+      type: string
+      cli: "-resize"
+      assignment_delimiter: space
+      description: Resize image (e.g., '50%', '800x600', '800x600!')
+    - name: quality
+      type: integer
+      cli: "-quality"
+      assignment_delimiter: space
+      range:
+      - 1
+      - 100
+      description: JPEG/MIFF/PNG compression level (1-100)
+    - name: format
+      type: string
+      cli: "-format"
+      assignment_delimiter: space
+      description: Output format type
+    - name: background
+      type: string
+      cli: "-background"
+      assignment_delimiter: space
+      description: Background color
+    - name: fill
+      type: string
+      cli: "-fill"
+      assignment_delimiter: space
+      description: Fill color for drawing operations
+    - name: gravity
+      type: symbol
+      cli: "-gravity"
+      assignment_delimiter: space
+      values:
+      - north
+      - south
+      - east
+      - west
+      - center
+      - northwest
+      - northeast
+      - southwest
+      - southeast
+      description: Horizontal and vertical text placement
+    - name: crop
+      type: string
+      cli: "-crop"
+      assignment_delimiter: space
+      description: Cut out rectangular region (e.g., '800x600+100+50')
+    - name: geometry
+      type: string
+      cli: "-geometry"
+      assignment_delimiter: space
+      description: Preferred size or location
+    - name: rotate
+      type: float
+      cli: "-rotate"
+      assignment_delimiter: space
+      description: Rotate image by degrees
+    - name: blur
+      type: string
+      cli: "-blur"
+      assignment_delimiter: space
+      description: Blur image (e.g., '0x5' for radiusxsigma)
+    - name: sharpen
+      type: string
+      cli: "-sharpen"
+      assignment_delimiter: space
+      description: Sharpen image
+    - name: density
+      type: string
+      cli: "-density"
+      assignment_delimiter: space
+      description: Horizontal and vertical density
+    - name: colorspace
+      type: symbol
+      cli: "-colorspace"
+      assignment_delimiter: space
+      values:
+      - RGB
+      - sRGB
+      - Gray
+      - CMYK
+      - LAB
+      - XYZ
+      description: Alternate image colorspace
+    - name: strip
+      type: boolean
+      cli: "-strip"
+      assignment_delimiter: space
+      description: Strip image of all profiles and comments
+    - name: flatten
+      type: boolean
+      cli: "-flatten"
+      assignment_delimiter: space
+      description: Flatten a sequence of images
+    - name: define
+      type: array
+      of: string
+      cli: "-define"
+      assignment_delimiter: space
+      separator: " "
+      description: Define format-specific options
+    - name: page
+      type: string
+      cli: "-page"
+      assignment_delimiter: space
+      description: Size and location of image canvas
+    - name: extent
+      type: string
+      cli: "-extent"
+      assignment_delimiter: space
+      description: Set the image size
+    - name: flip
+      type: boolean
+      cli: "-flip"
+      assignment_delimiter: space
+      description: Flip image vertically
+    - name: flop
+      type: boolean
+      cli: "-flop"
+      assignment_delimiter: space
+      description: Flop image horizontally
+    - name: grayscale
+      type: boolean
+      cli: "-grayscale"
+      assignment_delimiter: space
+      description: Convert image to grayscale
+    - name: negate
+      type: boolean
+      cli: "-negate"
+      assignment_delimiter: space
+      description: Replace each pixel with complementary color
+    - name: border
+      type: string
+      cli: "-border"
+      assignment_delimiter: space
+      description: Surround image with border
+    - name: bordercolor
+      type: string
+      cli: "-bordercolor"
+      assignment_delimiter: space
+      description: Border color
+    flags:
+    - name: verbose
+      cli: "-verbose"
+      description: Print detailed information
+      default: false
+      assignment_delimiter: none
+    - name: quiet
+      cli: "-quiet"
+      description: Suppress all warning messages
+      default: false
+      assignment_delimiter: none
+    - name: auto_orient
+      cli: "-auto-orient"
+      description: Automatically orient image
+      default: false
+      assignment_delimiter: none
+    - name: strip_flag
+      cli: "-strip"
+      description: Strip image of all profiles
+      default: false
+      assignment_delimiter: none
+    name: convert
+  - description: Describe the format and characteristics of image files
+    usage: magick identify [options] input-file
+    subcommand: identify
+    arguments:
+    - name: input
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: Input file(s) to identify
+    options:
+    - name: format
+      type: string
+      cli: "-format"
+      description: Output formatted image characteristics
+      assignment_delimiter: space
+    - name: crop
+      type: string
+      cli: "-crop"
+      description: Cut out rectangular region to identify
+      assignment_delimiter: space
+    flags:
+    - name: verbose
+      cli: "-verbose"
+      description: Print detailed information
+      default: false
+      assignment_delimiter: none
+    - name: ping
+      cli: "-ping"
+      description: Efficiently determine image attributes
+      default: false
+      assignment_delimiter: none
+    - name: unique
+      cli: "-unique"
+      description: Display number of unique colors
+      default: false
+      assignment_delimiter: none
+    name: identify
+  - description: Process image files (overwrites original file)
+    usage: magick mogrify [options] input-file
+    subcommand: mogrify
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: Input file(s) to modify in place
+    options:
+    - name: resize
+      type: string
+      cli: "-resize"
+      description: Resize image
+      assignment_delimiter: space
+    - name: quality
+      type: integer
+      cli: "-quality"
+      range:
+      - 1
+      - 100
+      description: Compression level
+      assignment_delimiter: space
+    - name: format
+      type: string
+      cli: "-format"
+      description: Output format type
+      assignment_delimiter: space
+    - name: path
+      type: file
+      cli: "-path"
+      description: Write images to this path on disk
+      assignment_delimiter: space
+    - name: crop
+      type: string
+      cli: "-crop"
+      description: Cut out rectangular region
+      assignment_delimiter: space
+    - name: geometry
+      type: string
+      cli: "-geometry"
+      description: Preferred size or location
+      assignment_delimiter: space
+    - name: rotate
+      type: float
+      cli: "-rotate"
+      description: Rotate image by degrees
+      assignment_delimiter: space
+    - name: blur
+      type: string
+      cli: "-blur"
+      description: Blur image
+      assignment_delimiter: space
+    - name: sharpen
+      type: string
+      cli: "-sharpen"
+      description: Sharpen image
+      assignment_delimiter: space
+    - name: colorspace
+      type: symbol
+      cli: "-colorspace"
+      values:
+      - RGB
+      - sRGB
+      - Gray
+      - CMYK
+      description: Alternate image colorspace
+      assignment_delimiter: space
+    - name: strip
+      type: boolean
+      cli: "-strip"
+      description: Strip image of all profiles
+      assignment_delimiter: space
+    - name: grayscale
+      type: boolean
+      cli: "-grayscale"
+      description: Convert to grayscale
+      assignment_delimiter: space
+    - name: negate
+      type: boolean
+      cli: "-negate"
+      description: Negate colors
+      assignment_delimiter: space
+    - name: flip
+      type: boolean
+      cli: "-flip"
+      description: Flip vertically
+      assignment_delimiter: space
+    - name: flop
+      type: boolean
+      cli: "-flop"
+      description: Flop horizontally
+      assignment_delimiter: space
+    flags:
+    - name: verbose
+      cli: "-verbose"
+      description: Print detailed information
+      default: false
+      assignment_delimiter: none
+    - name: quiet
+      cli: "-quiet"
+      description: Suppress warning messages
+      default: false
+      assignment_delimiter: none
+    name: mogrify
+- name: modern_windows
+  platforms:
+  - windows
+  shells:
+  - bash
+  - powershell
+  - cmd
+  option_style: single_dash_space
+  executable_name: magick
+  inherits: modern_unix

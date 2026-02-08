@@ -8,3 +8,8 @@ gem 'jekyll-seo-tag', '~> 2.8'
 gem 'jekyll-sitemap', '~> 1.4'
 gem 'just-the-docs', '~> 0.7.0'
 gem 'kramdown-parser-gfm', '~> 1.1'
+
+# Ruby 3.4 compatibility: base64 and bigdecimal were removed from stdlib
+# safe_yaml depends on base64, liquid depends on bigdecimal
+gem 'base64', '~> 0.1'
+gem 'bigdecimal', '~> 3.1'

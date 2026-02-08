@@ -1,0 +1,32 @@
+---
+ukiryu_schema: '1.0'
+name: pdf2ps
+version: '1.0'
+display_name: Pdf2ps Interface
+actions:
+- name: convert
+  description: Convert PDF to PostScript
+  signature:
+    inputs:
+      inputs:
+      - name: input
+        type: file
+        required:
+      - name: output
+        type: file
+        required:
+      options:
+      - name: first_page
+        type: integer
+      - name: last_page
+        type: integer
+      - name: paper_size
+        type: string
+      - name: resolution
+        type: integer
+      flags:
+      - name: level1
+        type: boolean
+      - name: level2
+        type: boolean
+aliases: []

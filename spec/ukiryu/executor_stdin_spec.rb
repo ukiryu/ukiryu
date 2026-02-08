@@ -4,12 +4,14 @@ require 'spec_helper'
 require 'tempfile'
 
 RSpec.describe Ukiryu::Executor do
+  let(:shell_symbol) { :bash }
+
   describe '.execute with stdin' do
     # Use platform-appropriate executable for stdin tests
     let(:executable) do
       if Ukiryu::Platform.windows?
         # Use ruby as a portable stdin echo on Windows
-        # ruby -e "puts ARGF.read" echoes stdin to stdout
+        # ruby -e "print ARGF.read" echoes stdin to stdout (without trailing newline)
         'ruby'
       else
         # Use cat on Unix-like systems
@@ -18,7 +20,7 @@ RSpec.describe Ukiryu::Executor do
     end
     let(:args) do
       if Ukiryu::Platform.windows?
-        ['-e', 'puts ARGF.read']
+        ['-e', 'print ARGF.read']
       else
         []
       end
@@ -26,7 +28,7 @@ RSpec.describe Ukiryu::Executor do
 
     context 'with string stdin data' do
       it 'passes stdin data to the command' do
-        result = described_class.execute(executable, args, stdin: 'test data')
+        result = described_class.execute(executable, args, stdin: 'test data', shell: shell_symbol, timeout: 90)
 
         expect(result.stdout).to eq('test data')
         expect(result.success?).to be true
@@ -34,14 +36,14 @@ RSpec.describe Ukiryu::Executor do
 
       it 'passes multi-line stdin data' do
         stdin_data = "line1\nline2\nline3"
-        result = described_class.execute(executable, args, stdin: stdin_data)
+        result = described_class.execute(executable, args, stdin: stdin_data, shell: shell_symbol, timeout: 90)
 
         expect(result.stdout).to eq(stdin_data)
       end
 
       it 'passes binary stdin data' do
         stdin_data = "\x00\x01\x02\x03"
-        result = described_class.execute(executable, args, stdin: stdin_data)
+        result = described_class.execute(executable, args, stdin: stdin_data, shell: shell_symbol, timeout: 90)
 
         expect(result.stdout).to eq(stdin_data)
       end
@@ -53,7 +55,7 @@ RSpec.describe Ukiryu::Executor do
           file.write('file content')
           file.rewind
 
-          result = described_class.execute(executable, args, stdin: file)
+          result = described_class.execute(executable, args, stdin: file, shell: shell_symbol, timeout: 90)
 
           expect(result.stdout).to eq('file content')
         end
@@ -68,7 +70,7 @@ RSpec.describe Ukiryu::Executor do
           writer.close
         end
 
-        result = described_class.execute(executable, args, stdin: reader)
+        result = described_class.execute(executable, args, stdin: reader, shell: shell_symbol, timeout: 90)
 
         thread.join
         reader.close
@@ -83,7 +85,9 @@ RSpec.describe Ukiryu::Executor do
 
         # head command closes stdin after reading 10 lines
         result = described_class.execute('/usr/bin/head', ['-n', '1'],
-                                         stdin: "line1\nline2\nline3\n")
+                                         stdin: "line1\nline2\nline3\n",
+                                         shell: shell_symbol,
+                                         timeout: 90)
 
         expect(result.stdout).to eq("line1\n")
         expect(result.success?).to be true

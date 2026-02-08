@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'base_extractor'
-require_relative 'native_extractor'
-require_relative 'help_parser'
-
 module Ukiryu
   module Extractors
     # Main extractor class that orchestrates extraction strategies
@@ -83,7 +79,7 @@ module Ukiryu
       #
       # @return [Hash] result hash
       def extract_with_native
-        extractor = NativeExtractor.new(@tool_name, @options)
+        extractor = Ukiryu::Extractors::NativeExtractor.new(@tool_name, @options)
 
         unless extractor.available?
           return {
@@ -117,7 +113,7 @@ module Ukiryu
       #
       # @return [Hash] result hash
       def extract_with_help
-        extractor = HelpParser.new(@tool_name, @options)
+        extractor = Ukiryu::Extractors::HelpParser.new(@tool_name, @options)
 
         unless extractor.available?
           return {

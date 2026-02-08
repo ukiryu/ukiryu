@@ -1,0 +1,82 @@
+---
+ukiryu_schema: '1.0'
+name: exiftool
+version: '1.0'
+display_name: Exiftool Interface
+actions:
+- name: read
+  description: Read metadata from files
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: tags
+        type: string
+      - name: csv
+        type: string
+      - name: json
+        type: string
+      - name: output_file
+        type: file
+      - name: format
+        type: string
+      flags:
+      - name: long
+        type: boolean
+      - name: short
+        type: boolean
+      - name: very_short
+        type: boolean
+      - name: tabular
+        type: boolean
+      - name: xml
+        type: boolean
+      - name: html
+        type: boolean
+      - name: binary
+        type: boolean
+      - name: numeric
+        type: boolean
+      - name: sort
+        type: boolean
+      - name: recursive
+        type: boolean
+      - name: extension
+        type: boolean
+      - name: verbose
+        type: boolean
+      - name: quiet
+        type: boolean
+      - name: all
+        type: boolean
+      - name: list_item
+        type: boolean
+      - name: coord_format
+        type: boolean
+      - name: date_format
+        type: boolean
+- name: write
+  description: Write metadata to files
+  signature:
+    inputs:
+      inputs:
+      - name: inputs
+        type: file
+        required:
+      options:
+      - name: tags_from_file
+        type: file
+      - name: set_tag
+        type: string
+      flags:
+      - name: overwrite_original
+        type: boolean
+      - name: overwrite_original_in_place
+        type: boolean
+      - name: preserve
+        type: boolean
+aliases:
+- exiftool

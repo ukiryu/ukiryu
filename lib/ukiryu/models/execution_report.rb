@@ -96,19 +96,15 @@ module Ukiryu
       #
       # @return [RunEnvironment] the environment info
       def self.collect
-        require_relative '../runtime'
-        require_relative '../config'
-        require_relative '../shell'
-
-        runtime = Runtime.instance
+        runtime = ::Ukiryu::Runtime.instance
         begin
-          Shell.detect
-        rescue Ukiryu::UnknownShellError
+          ::Ukiryu::Shell.detect
+        rescue ::Ukiryu::Errors::UnknownShellError
           'unknown'
         end
 
         # Determine if shell was overridden
-        shell_override = !Config.shell.nil?
+        shell_override = !::Ukiryu::Config.shell.nil?
         actual_shell = runtime.shell.to_s
 
         new(

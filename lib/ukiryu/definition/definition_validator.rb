@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'validation_result'
-require_relative 'loader'
 require 'yaml'
 require 'open-uri'
 require 'net/http'
@@ -93,9 +91,9 @@ module Ukiryu
           end
 
           if errors.empty?
-            warnings.empty? ? ValidationResult.success : ValidationResult.with_warnings(warnings)
+            warnings.empty? ? Ukiryu::Definition::ValidationResult.success : Ukiryu::Definition::ValidationResult.with_warnings(warnings)
           else
-            ValidationResult.failure(errors, warnings)
+            Ukiryu::Definition::ValidationResult.failure(errors, warnings)
           end
         end
 
@@ -108,14 +106,14 @@ module Ukiryu
           # Load raw YAML hash for validation
           definition = YAML.safe_load(File.read(file_path), permitted_classes: [Symbol, Date, Time])
           validate(definition, schema_path: schema_path)
-        rescue Ukiryu::DefinitionNotFoundError
-          ValidationResult.failure(["File not found: #{file_path}"])
-        rescue Ukiryu::DefinitionLoadError, Ukiryu::DefinitionValidationError => e
-          ValidationResult.failure([e.message])
+        rescue Ukiryu::Errors::DefinitionNotFoundError
+          Ukiryu::Definition::ValidationResult.failure(["File not found: #{file_path}"])
+        rescue Ukiryu::Errors::DefinitionLoadError, Ukiryu::Errors::DefinitionValidationError => e
+          Ukiryu::Definition::ValidationResult.failure([e.message])
         rescue Errno::ENOENT
-          ValidationResult.failure(["File not found: #{file_path}"])
+          Ukiryu::Definition::ValidationResult.failure(["File not found: #{file_path}"])
         rescue Psych::SyntaxError => e
-          ValidationResult.failure(["Invalid YAML: #{e.message}"])
+          Ukiryu::Definition::ValidationResult.failure(["Invalid YAML: #{e.message}"])
         end
 
         # Validate a YAML string
@@ -127,7 +125,7 @@ module Ukiryu
           definition = YAML.safe_load(yaml_string, permitted_classes: [Symbol, Date, Time])
           validate(definition, schema_path: schema_path)
         rescue Psych::SyntaxError => e
-          ValidationResult.failure(["Invalid YAML: #{e.message}"])
+          Ukiryu::Definition::ValidationResult.failure(["Invalid YAML: #{e.message}"])
         end
 
         private

@@ -1,0 +1,267 @@
+# Ukiryu Interface Definition Schema v1.0
+#
+# This schema defines the structure of interface definition files.
+# An interface is an abstract contract that tools can implement.
+#
+# Schema version: 2.0
+# Format: YAML (compatible with JSON Schema Draft 7)
+
+$schema: http://json-schema.org/draft-07/schema#
+title: Ukiryu Interface Definition v1.0
+description: Schema for interface definitions that define abstract contracts for CLI commands
+type: object
+required:
+  - ukiryu_schema
+  - name
+  - description
+  - discovery
+additionalProperties: false
+
+properties:
+  # === Root Metadata ===
+
+  ukiryu_schema:
+    type: string
+    enum: ["1.0"]
+    description: Schema version for this interface definition
+
+  name:
+    type: string
+    pattern: '^[a-z][a-z0-9_-]*$'
+    description: Interface identifier (lowercase, alphanumeric with underscores/hyphens)
+    example: "convert"
+
+  display_name:
+    type: string
+    minLength: 1
+    description: Human-readable display name for the interface
+    example: "Image Convert"
+
+  description:
+    type: string
+    minLength: 1
+    description: Description of what the interface provides
+    example: "Tools that convert between image formats"
+
+  version:
+    type: string
+    pattern: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+    description: Interface version (semantic versioning)
+    example: "1.0"
+
+  homepage:
+    type: string
+    format: uri
+    description: URL to the interface homepage or specification
+
+  aliases:
+    type: array
+    items:
+      type: string
+      pattern: '^[a-z][a-z0-9_-]*$'
+    description: Alternative names for this interface
+    example: ["img_convert", "image_conversion"]
+
+  # === Discovery Configuration ===
+
+  discovery:
+    type: object
+    description: How to discover implementations of this interface on the system
+    required:
+      - executables
+    additionalProperties: false
+    properties:
+      executables:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          pattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+        description: Executable names to search for in PATH
+        example: ["convert", "magick", "gm"]
+
+      version_patterns:
+        type: array
+        items:
+          type: object
+          required:
+            - pattern
+            - tool
+          additionalProperties: false
+          properties:
+            pattern:
+              type: string
+              description: Regular expression to extract version from output
+              example: 'Version: ImageMagick ([\d.]+)'
+
+            tool:
+              type: string
+              description: Tool family identifier
+              example: "imagemagick"
+
+            modern_threshold:
+              type: string
+              pattern: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+              description: Version threshold for "modern" vs "legacy"
+              example: "7.0"
+
+      search_paths:
+        type: object
+        description: Platform-specific search paths for executables
+        additionalProperties:
+          type: array
+          items:
+            type: string
+
+  # === Contract Definition ===
+
+  contract:
+    type: object
+    description: The contract that implementations must provide
+    additionalProperties: false
+    properties:
+      required_params:
+        type: array
+        description: Parameters that implementations MUST support
+        items:
+          $ref: '#/definitions/parameter'
+
+      optional_params:
+        type: array
+        description: Parameters that implementations MAY support
+        items:
+          $ref: '#/definitions/parameter'
+
+      required_capabilities:
+        type: array
+        items:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+        description: Capabilities that implementations MUST provide
+        example: ["format_conversion", "file_input_output"]
+
+      optional_capabilities:
+        type: array
+        items:
+          type: object
+          required:
+            - name
+          additionalProperties: false
+          properties:
+            name:
+              type: string
+              pattern: '^[a-z][a-z0-9_]*$'
+              description: Capability identifier
+
+            description:
+              type: string
+              description: What this capability means
+
+      required_behavior:
+        type: array
+        items:
+          type: string
+          description: Behaviors that implementations MUST exhibit
+        example: ["Convert between image formats", "Accept input files, produce output file"]
+
+  # === Implementations Registry ===
+
+  implementations:
+    type: array
+    description: Known implementations of this interface (for documentation and priority)
+    items:
+      type: object
+      required:
+        - tool
+        - version
+      additionalProperties: false
+      properties:
+        tool:
+          type: string
+          pattern: '^[a-z][a-z0-9_-]*$'
+          description: Tool name (matches tools/{tool}/version.yaml)
+          example: "convert"
+
+        version:
+          type: string
+          pattern: '^[0-9]+\.[0-9]+(\.[0-9]+)?$|^generic$'
+          description: Tool version or "generic"
+          example: "7.1"
+
+        package:
+          type: string
+          description: Package that provides this tool
+          example: "imagemagick"
+
+        invocation_type:
+          type: string
+          enum: [direct, subcommand]
+          description: How the tool is invoked
+          example: "subcommand"
+
+        priority:
+          type: integer
+          minimum: 1
+          description: Selection priority (lower = preferred)
+          example: 1
+
+# === Definitions (Reusable Components) ===
+
+definitions:
+  parameter:
+    type: object
+    required:
+      - name
+      - type
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        pattern: '^[a-z][a-z0-9_]*$'
+        description: Parameter name
+
+      type:
+        type: string
+        enum: [file, string, integer, float, boolean, array, hash, symbol, uri, datetime]
+        description: Parameter data type
+
+      description:
+        type: string
+        description: What this parameter is for
+
+      required:
+        type: boolean
+        default: false
+        description: Whether this parameter is required
+
+      variadic:
+        type: boolean
+        default: false
+        description: Whether this parameter accepts multiple values
+
+      min:
+        type: integer
+        minimum: 0
+        description: Minimum value (for integer/float) or minimum items (for variadic)
+
+      max:
+        type: integer
+        minimum: 0
+        description: Maximum value (for integer/float) or maximum items (for variadic)
+
+      position:
+        type: string
+        enum: [first, last, early, late]
+        description: Where this parameter appears in the command line
+
+      values:
+        type: array
+        items:
+          type: string
+        description: Allowed values (for symbol/enum types)
+
+      default:
+        description: Default value for this parameter
+
+      example:
+        description: Example value for documentation

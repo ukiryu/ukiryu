@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../source'
-
 module Ukiryu
   module Definition
     module Sources
@@ -21,8 +19,8 @@ module Ukiryu
         # Create a new file-based definition source
         #
         # @param path [String] path to the definition file
-        # @raise [DefinitionNotFoundError] if the file doesn't exist
-        # @raise [DefinitionLoadError] if the file is not readable
+        # @raise [Ukiryu::Errors::DefinitionNotFoundError] if the file doesn't exist
+        # @raise [Ukiryu::Errors::DefinitionLoadError] if the file is not readable
         def initialize(path)
           @path = expand_path(path)
           @mtime = nil # Will be set on first load
@@ -35,13 +33,13 @@ module Ukiryu
         # Load the YAML definition content from the file
         #
         # @return [String] the YAML content
-        # @raise [DefinitionLoadError] if the file cannot be read
+        # @raise [Ukiryu::Errors::DefinitionLoadError] if the file cannot be read
         def load
           current_mtime = get_mtime
 
           # Check if file has changed since init
           if @mtime && @mtime != current_mtime
-            raise DefinitionLoadError,
+            raise Ukiryu::Errors::DefinitionLoadError,
                   "File #{@path} has been modified since it was loaded. " \
                   "Original mtime: #{@mtime}, Current mtime: #{current_mtime}"
           end
@@ -90,46 +88,46 @@ module Ukiryu
 
         # Validate that the file exists
         #
-        # @raise [DefinitionNotFoundError] if file doesn't exist
+        # @raise [Ukiryu::Errors::DefinitionNotFoundError] if file doesn't exist
         def validate_file_exists!
           return if File.exist?(path)
 
-          raise DefinitionNotFoundError,
+          raise Ukiryu::Errors::DefinitionNotFoundError,
                 "Definition file not found: #{path}"
         end
 
         # Validate that the file is readable
         #
-        # @raise [DefinitionLoadError] if file is not readable
+        # @raise [Ukiryu::Errors::DefinitionLoadError] if file is not readable
         def validate_file_readable!
           return if File.readable?(path)
 
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Definition file is not readable: #{path}"
         end
 
         # Get the file modification time
         #
         # @return [Time] file mtime
-        # @raise [DefinitionLoadError] if mtime cannot be determined
+        # @raise [Ukiryu::Errors::DefinitionLoadError] if mtime cannot be determined
         def get_mtime
           File.mtime(path)
         rescue Errno::ENOENT, Errno::EACCES => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Cannot access file metadata for #{path}: #{e.message}"
         end
 
         # Read the file content
         #
         # @return [String] file content
-        # @raise [DefinitionLoadError] if file cannot be read
+        # @raise [Ukiryu::Errors::DefinitionLoadError] if file cannot be read
         def read_file
           File.read(path)
         rescue Errno::EACCES => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Permission denied reading file #{path}: #{e.message}"
         rescue IOError, SystemCallError => e
-          raise DefinitionLoadError,
+          raise Ukiryu::Errors::DefinitionLoadError,
                 "Error reading file #{path}: #{e.message}"
         end
       end

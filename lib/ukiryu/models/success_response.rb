@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require 'lutaml/model'
-require_relative 'arguments'
-require_relative 'command_info'
-require_relative 'output_info'
-require_relative 'execution_metadata'
-require_relative 'execution_report'
 
 module Ukiryu
   module Models

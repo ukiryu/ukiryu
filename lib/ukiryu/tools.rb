@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-require_relative 'tools/base'
-require_relative 'tools/generator'
-
 module Ukiryu
   # Tools namespace for tool-specific classes
   #
@@ -24,6 +21,12 @@ module Ukiryu
   #   # Automatically uses PingBsd on macOS, PingGnu on Linux
   #   Ukiryu::Tools::Ping.new.execute(:ping, host: 'localhost', count: 1)
   module Tools
+    # Autoload nested classes
+    autoload :Base, 'ukiryu/tools/base'
+    autoload :Generator, 'ukiryu/tools/generator'
+    autoload :ClassGenerator, 'ukiryu/tools/class_generator'
+    autoload :ExecutableFinder, 'ukiryu/tools/executable_finder'
+
     class << self
       # Autoload tool classes via const_missing
       #
@@ -65,13 +68,13 @@ module Ukiryu
       # @param alias_name [Symbol] the alias to resolve
       # @return [Symbol, nil] the platform-specific tool name
       def find_platform_implementation(alias_name)
-        register_path = Register.default_register_path
+        register_path = Ukiryu::Register.default_register_path
         return nil unless register_path && Dir.exist?(register_path)
 
         tools_dir = File.join(register_path, 'tools')
         return nil unless Dir.exist?(tools_dir)
 
-        current_platform = Platform.detect
+        current_platform = Ukiryu::Platform.detect
 
         # Search through all tool directories
         Dir.entries(tools_dir).each do |tool_dir|
@@ -88,8 +91,8 @@ module Ukiryu
             profile = YAML.load_file(yaml_path, symbolize_names: true)
 
             # Check if this tool implements the alias and matches current platform
-            # Note: implements field is a string in YAML, convert to symbol for comparison
-            next unless profile[:implements]&.to_sym == alias_name
+            # Note: implements field can be a string or an array in YAML
+            next unless Array(profile[:implements]).map(&:to_sym).include?(alias_name)
 
             # Check platform compatibility
             profiles = profile[:profiles] || []

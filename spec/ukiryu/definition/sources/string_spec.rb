@@ -39,7 +39,7 @@ RSpec.describe Ukiryu::Definition::Sources::StringSource do
     context 'with empty string' do
       it 'raises DefinitionLoadError' do
         expect { described_class.new('') }.to raise_error(
-          Ukiryu::DefinitionLoadError,
+          Ukiryu::Errors::DefinitionLoadError,
           /cannot be empty/
         )
       end

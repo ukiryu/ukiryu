@@ -1,0 +1,52 @@
+---
+ukiryu_schema: '1.0'
+name: ping
+version: '1.0'
+display_name: ping network interface
+description: |
+  Interface for ping (ICMP echo) tools.
+  Defines the contract for ping-compatible implementations across platforms.
+actions:
+- name: ping
+  display_name: Send ICMP echo requests
+  description: Send ICMP echo requests to test network connectivity
+  signature:
+    inputs:
+    - name: host
+      type: string
+      required: true
+      description: Host or IP address to ping
+    options:
+    - name: count
+      type: integer
+      min: 1
+      description: Number of packets to send (default varies by platform)
+    - name: interval
+      type: number
+      min: 0
+      description: Wait interval seconds between sending each packet
+    - name: timeout
+      type: integer
+      min: 1
+      description: Time to wait for a response in seconds
+    - name: packetsize
+      type: integer
+      min: 1
+      description: Number of data bytes to be sent
+    - name: ttl
+      type: integer
+      min: 1
+      description: Time to live for the packet
+    flags:
+    - name: verbose
+      description: Verbose output
+    - name: quiet
+      description: Quiet output (only display summary)
+    - name: flood
+      description: Flood ping (send packets as fast as possible)
+    - name: numeric
+      description: Numeric output only (no DNS lookups)
+    - name: listen
+      description: Listen only mode (don't send packets)
+aliases:
+- ping

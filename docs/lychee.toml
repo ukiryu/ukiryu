@@ -30,20 +30,12 @@ timeout = 20
 # Retry failed requests
 retry = 3
 
-# Verbose output
-verbose = true
-
-# Don't show progress
-no_progress = true
-
 # Accept 200 and 404 status codes
 accept = [200, 404]
 
 # Exclude private/internal domains
 # exclude_private = true
 
-# Skip mailto: and tel: links
-skip_missing = true
-
 # Enforce HTTPS (will downgrade http to https if supported)
+# Note: Disabled to allow checking http links during development
 enforce_https = false

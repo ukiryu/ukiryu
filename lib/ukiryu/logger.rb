@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'logger'
-require_relative 'config'
 
 module Ukiryu
   # Ukiryu Logger with level-based message classification
@@ -225,7 +224,6 @@ module Ukiryu
     def debug_section_structured_options(tool_name, command_name, options_object)
       return unless @debug_mode
 
-      require_relative 'models/arguments'
       debug_section_header("Structured Options (#{tool_name} #{command_name})")
 
       # Show the options object's attributes

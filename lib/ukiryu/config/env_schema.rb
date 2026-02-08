@@ -20,9 +20,6 @@ module Ukiryu
         # Register options
         register: :string,
 
-        # Tool discovery options
-        search_paths: :string, # Comma-separated paths
-
         # Color options
         use_color: :boolean
       }.freeze
@@ -50,12 +47,12 @@ module Ukiryu
 
         # All register attributes
         def all_register_attributes
-          %i[register search_paths]
+          %i[register]
         end
 
         # All attributes
         def all_attributes
-          %i[timeout debug dry_run metrics shell format output register search_paths use_color]
+          %i[timeout debug dry_run metrics shell format output register use_color]
         end
       end
     end
