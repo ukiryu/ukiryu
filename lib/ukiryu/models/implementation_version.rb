@@ -156,6 +156,13 @@ module Ukiryu
         @actions[action_name]
       end
 
+      # Get all command definitions
+      #
+      # @return [Hash] All commands (alias for actions)
+      def commands
+        @actions
+      end
+
       # String representation
       #
       # @return [String]
