@@ -41,6 +41,14 @@ module Ukiryu
     # @param register_path [String, nil] the path to the tool register
     def initialize(register_path: nil)
       @register_path = register_path || Ukiryu::Register.default_register_path
+
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG ToolIndex#initialize] called"
+        $stderr.puts "[UKIRYU DEBUG] param register_path = #{register_path.inspect}"
+        $stderr.puts "[UKIRYU_DEBUG] Ukiryu::Register.default_register_path = #{Ukiryu::Register.default_register_path.inspect}"
+        $stderr.puts "[UKIRYU DEBUG] @register_path = #{@register_path.inspect}"
+      end
+
       @interface_to_tools = {} # interface => [tool_names]
       @alias_to_tool = {}      # alias => [tool_names] (multiple tools can share an alias)
       @compatibility_cache = {} # tool_name => tool_definition (for platform compatibility checks)
@@ -206,13 +214,28 @@ module Ukiryu
     #
     # @return [String, nil] the register path
     def register_path
-      @register_path ||= Ukiryu::Register.default_register_path
+      path = @register_path || Ukiryu::Register.default_register_path
+
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG ToolIndex#register_path] called"
+        $stderr.puts "[UKIRYU DEBUG] @register_path = #{@register_path.inspect}"
+        $stderr.puts "[UKIRYU DEBUG] Ukiryu::Register.default_register_path = #{Ukiryu::Register.default_register_path.inspect}"
+        $stderr.puts "[UKIRYU DEBUG] returning = #{path.inspect}"
+      end
+
+      path
     end
 
     # Build the index by scanning tool directories
     # This is done once and cached
     def build_index
       current_path = register_path
+
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG ToolIndex#build_index] called"
+        $stderr.puts "[UKIRYU DEBUG] current_path = #{current_path.inspect}"
+      end
+
       return unless current_path
 
       tools_dir = File.join(current_path, 'tools')
@@ -309,6 +332,12 @@ module Ukiryu
     # @return [String, nil] the YAML content
     def load_yaml_for_tool(tool_name)
       current_path = register_path
+
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG ToolIndex#load_yaml_for_tool] tool_name=#{tool_name}"
+        $stderr.puts "[UKIRYU DEBUG] current_path = #{current_path.inspect}"
+      end
+
       return nil unless current_path
 
       tool_dir = File.join(current_path, 'tools', tool_name.to_s)

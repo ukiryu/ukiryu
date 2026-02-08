@@ -31,15 +31,39 @@ module Ukiryu
       #
       # @return [String, nil] the register path, or nil if unavailable
       def register_path
+        # Debug logging
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG RegisterAutoManager] Checking register_path..."
+          $stderr.puts "[UKIRYU DEBUG RegisterAutoManager] ENV['UKIRYU_REGISTER'] = #{ENV['UKIRYU_REGISTER'].inspect}"
+        end
+
         # 1. Environment variable has highest priority
         env_path = ENV['UKIRYU_REGISTER']
-        return env_path if env_path && Dir.exist?(env_path)
+        if env_path && Dir.exist?(env_path)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+            $stderr.puts "[UKIRU DEBUG RegisterAutoManager] Using ENV register: #{env_path}"
+          end
+          return env_path
+        end
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG RegisterAutoManager] ENV path doesn't exist or not set"
+        end
 
         # 2. Check development register (../../../register relative to this file)
         # Use Pathname for reliable path calculation
         this_file = Pathname.new(__FILE__).realpath
         dev_path = this_file.parent.parent.parent.parent + 'register'
-        return dev_path.to_s if dev_path.exist?
+        if dev_path.exist?
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+            $stderr.puts "[UKIRYU DEBUG RegisterAutoManager] Using DEV register: #{dev_path}"
+          end
+          return dev_path.to_s
+        end
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG RegisterAutoManager] DEV register doesn't exist"
+        end
 
         # 3. Use user's local clone, create if needed
         ensure_user_clone

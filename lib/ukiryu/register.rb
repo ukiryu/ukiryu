@@ -229,9 +229,19 @@ module Ukiryu
       # @return [Models::ImplementationIndex, nil] the index or nil if not found
       def load_implementation_index(tool_name, options = {})
         register_path = options[:register_path] || effective_register_path
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Register.load_implementation_index] tool_name=#{tool_name}"
+          $stderr.puts "[UKIRYU DEBUG] register_path = #{register_path.inspect}"
+        end
+
         return nil unless register_path
 
         file = File.join(register_path, 'tools', tool_name.to_s, 'index.yaml')
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG] index file = #{file.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] File exists? #{File.exist?(file)}"
+        end
         return nil unless File.exist?(file)
 
         yaml_content = File.read(file)
@@ -253,9 +263,19 @@ module Ukiryu
       # @return [Models::ImplementationVersion, nil] the implementation version or nil if not found
       def load_implementation_version(tool_name, implementation_name, file_path, options = {})
         register_path = options[:register_path] || effective_register_path
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Register.load_implementation_version] tool=#{tool_name}, impl=#{implementation_name}, file=#{file_path}"
+          $stderr.puts "[UKIRYU DEBUG] register_path = #{register_path.inspect}"
+        end
+
         return nil unless register_path
 
         file = File.join(register_path, 'tools', tool_name.to_s, implementation_name.to_s, file_path)
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG] Loading from file: #{file.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] File exists? #{File.exist?(file)}"
+        end
         return nil unless File.exist?(file)
 
         yaml_content = File.read(file)
@@ -274,12 +294,28 @@ module Ukiryu
       #
       # @return [String, nil] the register path, or nil if unavailable
       def effective_register_path
+        # Debug logging for CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Register.effective_register_path] called"
+          $stderr.puts "[UKIRYU DEBUG] @default_register_path = #{@default_register_path.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] ENV['UKIRYU_REGISTER'] = #{ENV['UKIRYU_REGISTER'].inspect}"
+        end
+
         # If manually set, use that
-        return @default_register_path if @default_register_path
+        if @default_register_path
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+            $stderr.puts "[UKIRYU DEBUG] Using @default_register_path: #{@default_register_path}"
+          end
+          return @default_register_path
+        end
 
         # Otherwise, use RegisterAutoManager (auto-clone if needed)
         # Use :: to reference top-level Ukiryu namespace
-        ::Ukiryu::RegisterAutoManager.register_path
+        auto_path = ::Ukiryu::RegisterAutoManager.register_path
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG] Using RegisterAutoManager path: #{auto_path.inspect}"
+        end
+        auto_path
       end
 
       # Recursively symbolize hash keys
