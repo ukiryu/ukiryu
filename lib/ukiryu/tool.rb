@@ -950,12 +950,23 @@ module Ukiryu
     # @param execution_timeout [Integer] timeout in seconds for command execution (required)
     # @return [Executor::Result] the execution result
     def execute_simple(command_name, execution_timeout:, **params)
+      # Debug logging for Ruby 4.0 CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG execute_simple] command_name: #{command_name.inspect}"
+        $stderr.puts "[UKIRYU DEBUG execute_simple] params (before normalize): #{params.inspect}"
+        $stderr.puts "[UKIRYU DEBUG execute_simple] params.class: #{params.class}"
+      end
+
       command = @command_profile.command(command_name.to_s)
 
       raise ArgumentError, "Unknown command: #{command_name}" unless command
 
       # Normalize params to hash with symbol keys
       params = normalize_params(params)
+
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG execute_simple] params (after normalize): #{params.inspect}"
+      end
 
       # Extract stdin parameter if present (special parameter, not passed to command)
       stdin = params.delete(:stdin)

@@ -218,7 +218,19 @@ module Ukiryu
 
       # Validate array type
       def validate_array(value, options)
+        # Debug logging for Ruby 4.0 CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Type.validate_array] value.class: #{value.class}"
+          $stderr.puts "[UKIRYU DEBUG Type.validate_array] value.inspect: #{value.inspect}"
+          $stderr.puts "[UKIRYU DEBUG Type.validate_array] options: #{options.inspect}"
+        end
+
         array = value.is_a?(Array) ? value : [value]
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Type.validate_array] after conversion, array.class: #{array.class}"
+          $stderr.puts "[UKIRYU DEBUG Type.validate_array] after conversion, array.inspect: #{array.inspect}"
+        end
 
         if options[:min] && array.size < options[:min]
           raise Ukiryu::Errors::ValidationError,
@@ -246,6 +258,10 @@ module Ukiryu
 
         # Validate element type if specified
         array = array.map { |v| validate(v, options[:of], options) } if options[:of]
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Type.validate_array] returning array.inspect: #{array.inspect}"
+        end
 
         array
       end

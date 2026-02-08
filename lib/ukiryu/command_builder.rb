@@ -17,6 +17,12 @@ module Ukiryu
     def build_args(command, params)
       args = []
 
+      # Debug logging for Ruby 4.0 CI - log all params
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] params: #{params.inspect}"
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] params.class: #{params.class}"
+      end
+
       # Add subcommand prefix if present (e.g., for ImageMagick "magick convert")
       args << command.subcommand if command.subcommand
 
@@ -59,6 +65,13 @@ module Ukiryu
       last_arg = arguments.find(&:last?)
       regular_args = arguments.reject(&:last?)
 
+      # Debug logging for Ruby 4.0 CI - log arguments
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] arguments: #{arguments.inspect}"
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] regular_args: #{regular_args.map(&:name_sym).inspect}"
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] last_arg: #{last_arg&.name_sym.inspect}"
+      end
+
       # Add regular positional arguments (in order, excluding "last")
       regular_args.sort_by(&:numeric_position).each do |arg_def|
         param_key = arg_def.name_sym
@@ -67,9 +80,21 @@ module Ukiryu
         value = params[param_key]
         next if value.nil?
 
+        # Debug logging for Ruby 4.0 CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] param_key: #{param_key.inspect}"
+          $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] value.class: #{value.class}"
+          $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] value.inspect: #{value.inspect}"
+          $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] arg_def.variadic: #{arg_def.variadic}"
+        end
+
         if arg_def.variadic
           # Variadic argument - expand array
           array = Ukiryu::Type.validate(value, :array, arg_def)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+            $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] array.class: #{array.class}"
+            $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] array.inspect: #{array.inspect}"
+          end
           array.each { |v| args << format_arg(v, arg_def) }
         else
           args << format_arg(value, arg_def)
