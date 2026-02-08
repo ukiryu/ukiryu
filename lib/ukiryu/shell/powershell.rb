@@ -82,6 +82,14 @@ module Ukiryu
       # @param args [Array<String>] the arguments
       # @return [String] the complete command line
       def join(executable, *args)
+        # Debug logging for Ruby 4.0 CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG PowerShell#join] executable: #{executable.inspect}"
+          $stderr.puts "[UKIRYU DEBUG PowerShell#join] args: #{args.inspect}"
+          $stderr.puts "[UKIRYU DEBUG PowerShell#join] args.size: #{args.size}"
+          $stderr.puts "[UKIRYU DEBUG PowerShell#join] args.class: #{args.class}"
+        end
+
         # Quote executable if it needs quoting (e.g., contains spaces)
         # Use double quotes for executables (works in both cmd.exe and PowerShell)
         # Ruby's Open3 on Windows uses cmd.exe, not PowerShell

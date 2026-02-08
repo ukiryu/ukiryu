@@ -99,6 +99,13 @@ module Ukiryu
         end
       end
 
+      # Debug logging for Ruby 4.0 CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] Built args: #{args.inspect}"
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] Args class: #{args.class}"
+        $stderr.puts "[UKIRYU DEBUG CommandBuilder#build_args] Args size: #{args.size}"
+      end
+
       args
     end
 

@@ -57,6 +57,14 @@ module Ukiryu
 
         shell_instance = shell_class.new
 
+        # Debug logging for Ruby 4.0 CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG Executor#execute] executable: #{executable.inspect}"
+          $stderr.puts "[UKIRYU DEBUG Executor#execute] args: #{args.inspect}"
+          $stderr.puts "[UKIRYU DEBUG Executor#execute] args.class: #{args.class}"
+          $stderr.puts "[UKIRYU DEBUG Executor#execute] shell_class: #{shell_class}"
+        end
+
         # Prepare environment (requires Environment or Hash)
         env = prepare_environment(options[:env] || {}, shell_class)
         cwd = options[:cwd]
