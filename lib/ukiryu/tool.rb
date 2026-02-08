@@ -472,6 +472,20 @@ module Ukiryu
         require_relative 'models/command_definition'
 
         # Create CommandDefinition from hash
+        post_options_data = cmd_hash['post_options'] || cmd_hash[:post_options]
+
+        # Debug logging for Ruby 3.4+ CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG build_command_definition] cmd.name: #{cmd_hash['name'] || cmd_hash[:name]}"
+          $stderr.puts "[UKIRYU DEBUG build_command_definition] post_options_data: #{post_options_data.inspect}"
+          $stderr.puts "[UKIRYU DEBUG build_command_definition] post_options_data.class: #{post_options_data.class}" if post_options_data
+          if post_options_data && post_options_data.is_a?(Array)
+            post_options_data.first(2).each do |opt|
+              $stderr.puts "[UKIRYU DEBUG build_command_definition] post_option: #{opt.inspect}"
+            end
+          end
+        end
+
         Models::CommandDefinition.new(
           name: cmd_hash['name'] || cmd_hash[:name],
           description: cmd_hash['description'] || cmd_hash[:description],
@@ -486,7 +500,7 @@ module Ukiryu
           options: cmd_hash['options'] || cmd_hash[:options],
           flags: cmd_hash['flags'] || cmd_hash[:flags],
           arguments: cmd_hash['arguments'] || cmd_hash[:arguments],
-          post_options: cmd_hash['post_options'] || cmd_hash[:post_options],
+          post_options: post_options_data,
           env_vars: cmd_hash['env_vars'] || cmd_hash[:env_vars],
           exit_codes: cmd_hash['exit_codes'] || cmd_hash[:exit_codes]
         )
