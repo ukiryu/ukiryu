@@ -440,6 +440,19 @@ module Ukiryu
         else
           # Profile has commands - merge with interface actions
           command_definitions = profile_commands.map do |cmd_hash|
+            # Debug logging for Ruby 3.4+ CI
+            if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+              cmd_name_debug = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
+              if cmd_name_debug == 'convert'
+                $stderr.puts "[UKIRYU DEBUG] profile_command cmd_hash.class: #{cmd_hash.class}"
+                $stderr.puts "[UKIRYU DEBUG] profile_command cmd_hash.methods: #{cmd_hash.methods.grep(/post_options/).inspect}"
+                $stderr.puts "[UKIRYU DEBUG] profile_command cmd_hash.respond_to?(:post_options): #{cmd_hash.respond_to?(:post_options)}"
+                $stderr.puts "[UKIRYU DEBUG] profile_command cmd_hash.post_options: #{cmd_hash.post_options.inspect}" if cmd_hash.respond_to?(:post_options)
+                $stderr.puts "[UKIRYU DEBUG] profile_command cmd_hash[:post_options]: #{cmd_hash[:post_options].inspect}"
+                $stderr.puts "[UKIRYU DEBUG] profile_command cmd_hash['post_options']: #{cmd_hash['post_options'].inspect}"
+              end
+            end
+
             # Command name may be specified as 'name' or 'subcommand' field
             cmd_name = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
             # Merge profile command data with interface action data
