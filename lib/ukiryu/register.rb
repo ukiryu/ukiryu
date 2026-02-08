@@ -282,6 +282,23 @@ module Ukiryu
         hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
         return nil unless hash
 
+        # Debug logging for Ruby 3.4+ CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG] Loaded hash keys: #{hash.keys.inspect}"
+          profiles_data = hash[:profiles] || hash['profiles'] || hash[:execution_profiles] || hash['execution_profiles'] || []
+          profiles_data.first(2).each do |prof|
+            prof_name = prof[:name] || prof['name']
+            $stderr.puts "[UKIRYU DEBUG] Profile: #{prof_name}"
+            commands_data = prof[:commands] || prof['commands'] || []
+            commands_data.first(2).each do |cmd|
+              cmd_name = cmd[:name] || cmd['name']
+              $stderr.puts "[UKIRYU DEBUG] Command: #{cmd_name}"
+              post_opts = cmd[:post_options] || cmd['post_options']
+              $stderr.puts "[UKIRYU DEBUG] post_options: #{post_opts.inspect}"
+            end
+          end
+        end
+
         Models::ImplementationVersion.from_hash(symbolize_keys(hash))
       end
 
