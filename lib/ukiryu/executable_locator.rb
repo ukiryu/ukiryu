@@ -58,7 +58,7 @@ module Ukiryu
         # Try aliases
         aliases.each do |alias_name|
           result = DiscoveryStrategy.discover(alias_name, context)
-          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
             $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Found alias #{alias_name}: #{result[:path]}"
           end
           return result if result
