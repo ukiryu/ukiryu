@@ -11,6 +11,7 @@ actions:
       inputs:
       - name: inputs
         type: file
+        variadic: true
         required:
       - name: output
         type: file
@@ -60,6 +61,7 @@ actions:
       inputs:
       - name: inputs
         type: file
+        variadic: true
         required:
       options:
       - name: resize
