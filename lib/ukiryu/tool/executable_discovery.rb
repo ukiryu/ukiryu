@@ -21,11 +21,31 @@ module Ukiryu
       def find_executable
         # Use executable_name from command profile, falling back to profile name
         executable_name = @command_profile.executable_name || @profile.name
+
+        # Debug logging for Windows CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (Platform.windows? && ENV['CI'])
+          $stderr.puts "[UKIRYU DEBUG] Tool: #{@profile.name}"
+          $stderr.puts "[UKIRYU DEBUG] Command profile executable_name: #{@command_profile.executable_name.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] Profile name: #{@profile.name.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] Resolved executable_name: #{executable_name.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] Profile aliases: #{@profile.aliases.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] Shell: #{@shell.inspect}"
+          $stderr.puts "[UKIRYU DEBUG] Platform: #{@platform.inspect}"
+        end
+
         result = ::Ukiryu::ExecutableLocator.find_with_info(
           tool_name: executable_name,
           aliases: @profile.aliases || [],
           platform: @platform
         )
+
+        if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (Platform.windows? && ENV['CI']))
+          $stderr.puts "[UKIRYU DEBUG] Found executable: #{result[:path]}"
+          $stderr.puts "[UKIRYU DEBUG] Discovery source: #{result[:info].source.inspect}"
+        elsif !result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (Platform.windows? && ENV['CI']))
+          $stderr.puts "[UKIRYU DEBUG] EXECUTABLE NOT FOUND!"
+        end
+
         return nil unless result
 
         @executable_info = result[:info]

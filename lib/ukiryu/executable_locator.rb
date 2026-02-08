@@ -40,14 +40,32 @@ module Ukiryu
         platform ||= Ukiryu::Runtime.instance.platform
         context = DiscoveryContext.new(platform)
 
+        # Debug logging for Windows CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+          $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Searching for tool: #{tool_name.inspect}"
+          $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Aliases: #{aliases.inspect}"
+          $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Detected shell: #{context.shell_sym.inspect}"
+          $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Shell class: #{context.shell_class.inspect}"
+        end
+
         # Try primary name first
         result = DiscoveryStrategy.discover(tool_name, context)
+        if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
+          $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Found #{tool_name}: #{result[:path]}"
+        end
         return result if result
 
         # Try aliases
         aliases.each do |alias_name|
           result = DiscoveryStrategy.discover(alias_name, context)
+          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG ExecutableLocator] Found alias #{alias_name}: #{result[:path]}"
+          end
           return result if result
+        end
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+          $stderr.puts "[UKIRYU DEBUG ExecutableLocator] NO EXECUTABLE FOUND for #{tool_name} or aliases #{aliases}"
         end
 
         nil
@@ -92,9 +110,38 @@ module Ukiryu
         # @param context [DiscoveryContext] discovery environment
         # @return [Hash, nil] discovery result or nil
         def discover(command, context)
-          AliasDiscovery.discover(command, context) ||
-            SystemCommandDiscovery.discover(command, context) ||
-            PathDiscovery.discover(command, context)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG DiscoveryStrategy] Discovering: #{command.inspect}"
+          end
+
+          result = nil
+
+          # Try AliasDiscovery
+          result = AliasDiscovery.discover(command, context)
+          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI']))
+            $stderr.puts "[UKIRYU DEBUG DiscoveryStrategy] AliasDiscovery found: #{result[:path]}"
+            return result
+          end
+
+          # Try SystemCommandDiscovery
+          result = SystemCommandDiscovery.discover(command, context)
+          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI']))
+            $stderr.puts "[UKIRYU DEBUG DiscoveryStrategy] SystemCommandDiscovery found: #{result[:path]}"
+            return result
+          end
+
+          # Try PathDiscovery
+          result = PathDiscovery.discover(command, context)
+          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI']))
+            $stderr.puts "[UKIRYU DEBUG DiscoveryStrategy] PathDiscovery found: #{result[:path]}"
+            return result
+          end
+
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG DiscoveryStrategy] NO STRATEGY FOUND: #{command}"
+          end
+
+          nil
         end
       end
     end
@@ -110,11 +157,22 @@ module Ukiryu
         # @param context [DiscoveryContext] discovery environment
         # @return [Hash, nil] discovery result or nil
         def discover(command, context)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG AliasDiscovery] Checking for alias: #{command.inspect} with shell #{context.shell_class}"
+          end
+
           alias_info = context.shell_class.detect_alias(command)
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG AliasDiscovery] Alias info: #{alias_info.inspect}"
+          end
           return nil unless alias_info
 
           alias_target = alias_info[:target]
           path = PathScanner.find(command) || PathScanner.find(alias_target)
+
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG AliasDiscovery] Alias target: #{alias_target.inspect}, path: #{path.inspect}"
+          end
 
           DiscoveryResult.build(path, :alias, context, alias_info[:definition]) if path
         end
@@ -193,12 +251,22 @@ module Ukiryu
         def find(command)
           platform = Runtime.instance.platform
 
-          if platform == :windows
-            execute('where', ["#{command}.exe"])
-          else
-            execute('sh', ['-c', "command -v '#{command}' 2>/dev/null"]) ||
-              execute('which', [command])
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG SystemCommandExecutor] Finding command: #{command.inspect}"
           end
+
+          result = if platform == :windows
+                     execute('where', ["#{command}.exe"])
+                   else
+                     execute('sh', ['-c', "command -v '#{command}' 2>/dev/null"]) ||
+                       execute('which', [command])
+                   end
+
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
+            $stderr.puts "[UKIRYU DEBUG SystemCommandExecutor] Result: #{result.inspect}"
+          end
+
+          result
         end
 
         private
