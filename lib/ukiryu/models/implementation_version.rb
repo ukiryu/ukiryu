@@ -43,12 +43,33 @@ module Ukiryu
         platform_str = platform.to_s
         shell_str = shell.to_s
 
-        @execution_profiles.find do |profile|
-          platforms = Array(profile[:platforms] || profile[:platform]).map(&:to_s)
-          shells = Array(profile[:shells] || profile[:shell]).map(&:to_s)
+        profile = @execution_profiles.find do |prof|
+          platforms = Array(prof[:platforms] || prof[:platform]).map(&:to_s)
+          shells = Array(prof[:shells] || prof[:shell]).map(&:to_s)
 
           platforms.include?(platform_str) && shells.include?(shell_str)
         end
+
+        return nil unless profile
+
+        # Resolve profile inheritance at hash level
+        # If profile has 'inherits', copy commands from parent profile
+        inherits = profile[:inherits] || profile['inherits']
+        if inherits
+          parent_profile = @execution_profiles.find do |prof|
+            prof_name = prof[:name] || prof['name']
+            prof_name.to_s == inherits.to_s
+          end
+
+          if parent_profile && (profile[:commands].nil? || profile[:commands].empty?)
+            # Copy parent's commands to child profile (without modifying original)
+            parent_commands = parent_profile[:commands] || parent_profile['commands']
+            # Return a new hash with inherited commands
+            profile = profile.dup.merge(commands: parent_commands)
+          end
+        end
+
+        profile
       end
 
       # Get profile by name
