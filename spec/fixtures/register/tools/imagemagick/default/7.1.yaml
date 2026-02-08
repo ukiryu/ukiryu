@@ -84,12 +84,12 @@ profiles:
     - name: resize
       type: string
       cli: "-resize"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Resize image (e.g., '50%', '800x600', '800x600!')
     - name: quality
       type: integer
       cli: "-quality"
-      format: single_dash_space
+      assignment_delimiter: space
       range:
       - 1
       - 100
@@ -97,22 +97,22 @@ profiles:
     - name: format
       type: string
       cli: "-format"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Output format type
     - name: background
       type: string
       cli: "-background"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Background color
     - name: fill
       type: string
       cli: "-fill"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Fill color for drawing operations
     - name: gravity
       type: symbol
       cli: "-gravity"
-      format: single_dash_space
+      assignment_delimiter: space
       values:
       - north
       - south
@@ -127,37 +127,37 @@ profiles:
     - name: crop
       type: string
       cli: "-crop"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Cut out rectangular region (e.g., '800x600+100+50')
     - name: geometry
       type: string
       cli: "-geometry"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Preferred size or location
     - name: rotate
       type: float
       cli: "-rotate"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Rotate image by degrees
     - name: blur
       type: string
       cli: "-blur"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Blur image (e.g., '0x5' for radiusxsigma)
     - name: sharpen
       type: string
       cli: "-sharpen"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Sharpen image
     - name: density
       type: string
       cli: "-density"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Horizontal and vertical density
     - name: colorspace
       type: symbol
       cli: "-colorspace"
-      format: single_dash_space
+      assignment_delimiter: space
       values:
       - RGB
       - sRGB
@@ -169,59 +169,59 @@ profiles:
     - name: strip
       type: boolean
       cli: "-strip"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Strip image of all profiles and comments
     - name: flatten
       type: boolean
       cli: "-flatten"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Flatten a sequence of images
     - name: define
       type: array
       of: string
       cli: "-define"
-      format: single_dash_space
+      assignment_delimiter: space
       separator: " "
       description: Define format-specific options
     - name: page
       type: string
       cli: "-page"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Size and location of image canvas
     - name: extent
       type: string
       cli: "-extent"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Set the image size
     - name: flip
       type: boolean
       cli: "-flip"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Flip image vertically
     - name: flop
       type: boolean
       cli: "-flop"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Flop image horizontally
     - name: grayscale
       type: boolean
       cli: "-grayscale"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Convert image to grayscale
     - name: negate
       type: boolean
       cli: "-negate"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Replace each pixel with complementary color
     - name: border
       type: string
       cli: "-border"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Surround image with border
     - name: bordercolor
       type: string
       cli: "-bordercolor"
-      format: single_dash_space
+      assignment_delimiter: space
       description: Border color
     flags:
     - name: verbose
