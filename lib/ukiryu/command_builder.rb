@@ -173,6 +173,16 @@ module Ukiryu
       delimiter_sym = opt_def.assignment_delimiter_sym
       separator = opt_def.separator || '='
 
+      # Debug logging for Ruby 3.4+ CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+        $stderr.puts "[UKIRYU DEBUG format_option] opt_def.name: #{opt_def.name}"
+        $stderr.puts "[UKIRYU DEBUG format_option] opt_def.cli: #{opt_def.cli.inspect}"
+        $stderr.puts "[UKIRYU DEBUG format_option] cli: #{cli.inspect}"
+        $stderr.puts "[UKIRYU DEBUG format_option] delimiter_sym: #{delimiter_sym.inspect}"
+        $stderr.puts "[UKIRYU DEBUG format_option] value: #{value.inspect}"
+        $stderr.puts "[UKIRYU DEBUG format_option] value.class: #{value.class}"
+      end
+
       # Auto-detect delimiter based on CLI prefix
       delimiter_sym = detect_delimiter(cli) if delimiter_sym == :auto
 
@@ -195,7 +205,7 @@ module Ukiryu
           "#{cli}=#{joined}"
         end
       else
-        case delimiter_sym
+        result = case delimiter_sym
         when :equals
           "#{cli}=#{value_str}"
         when :space
@@ -207,6 +217,14 @@ module Ukiryu
         else
           "#{cli}=#{value_str}"
         end
+
+        # Debug logging for Ruby 3.4+ CI
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
+          $stderr.puts "[UKIRYU DEBUG format_option] result: #{result.inspect}"
+          $stderr.puts "[UKIRYU DEBUG format_option] result.class: #{result.class}"
+        end
+
+        result
       end
     end
 
