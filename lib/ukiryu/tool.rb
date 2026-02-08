@@ -431,15 +431,11 @@ module Ukiryu
 
           # Debug logging for Ruby 3.4+ CI
           if ENV['UKIRYU_DEBUG_EXECUTABLE'] || ENV['CI']
-            $stderr.puts "[UKIRYU DEBUG] profile_commands.class: #{profile_commands.class}"
-            $stderr.puts "[UKIRYU DEBUG] profile_commands.size: #{profile_commands.size}"
-            profile_commands.first(2).each do |cmd|
-              $stderr.puts "[UKIRYU DEBUG] profile_command: #{cmd.class}"
-              $stderr.puts "[UKIRYU DEBUG] profile_command.name: #{cmd.name if cmd.respond_to?(:name)}"
-              if cmd.respond_to?(:post_options)
-                $stderr.puts "[UKIRYU DEBUG] profile_command.post_options: #{cmd.post_options.inspect}"
-                $stderr.puts "[UKIRYU DEBUG] profile_command.post_options.class: #{cmd.post_options.class}" if cmd.post_options
-              end
+            $stderr.puts "[UKIRYU DEBUG] profile.actions.class: #{profile.actions.class}"
+            $stderr.puts "[UKIRYU DEBUG] profile.actions.keys: #{profile.actions.keys.inspect}"
+            profile.actions.each do |cmd_name, cmd_hash|
+              $stderr.puts "[UKIRYU DEBUG] profile.actions[#{cmd_name}].keys: #{cmd_hash.keys.inspect}"
+              $stderr.puts "[UKIRYU DEBUG] profile.actions[#{cmd_name}][:post_options]: #{cmd_hash[:post_options].inspect}"
             end
           end
         end
