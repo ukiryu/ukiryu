@@ -2,6 +2,7 @@
 
 require_relative 'tool_cache'
 require_relative 'tool_finder'
+require_relative 'tool/loader'
 
 module Ukiryu
   # Tool wrapper class for external command-line tools
@@ -44,48 +45,13 @@ module Ukiryu
       end
 
       # Try loading a tool using the new ImplementationIndex architecture
-      # Returns nil if the tool doesn't use the new architecture
+      # Delegates to Tool::Loader module
       #
       # @param name [String, Symbol] the tool name
       # @param options [Hash] loading options
       # @return [Tool, nil] the tool instance or nil if not using new architecture
       def load_with_implementation_index(name, options = {})
-        require_relative 'version_scheme_resolver'
-
-        # Try to load ImplementationIndex
-        index = Register.load_implementation_index(name, options)
-        return nil unless index
-
-        # Load Interface
-        interface = Register.load_interface(index.interface, options)
-        return nil unless interface
-
-        # Detect implementation and version
-        impl_spec = detect_implementation_and_version(index, name, options)
-        return nil unless impl_spec
-
-        # Load ImplementationVersion
-        impl_version = Register.load_implementation_version(
-          name,
-          impl_spec[:implementation_name],
-          impl_spec[:file],
-          options
-        )
-        return nil unless impl_version
-
-        # Convert to old ToolDefinition format for compatibility
-        profile = convert_to_tool_definition(
-          name,
-          interface,
-          impl_version,
-          impl_spec[:implementation_name],
-          impl_spec[:version], # Pass detected version
-          options
-        )
-        return nil unless profile
-
-        # Create tool instance
-        new(profile, options)
+        Loader.load_with_implementation_index(name, options)
       end
 
       # Detect implementation and version from ImplementationIndex
