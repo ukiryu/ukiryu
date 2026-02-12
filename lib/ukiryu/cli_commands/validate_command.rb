@@ -163,7 +163,7 @@ module Ukiryu
       #
       # This method runs executable validation against all tool definitions
       def test_all_executables
-        register_path = Ukiryu::RegisterAutoManager.register_path
+        register_path = Ukiryu::Register.default.path
         return say_error("Register not found: #{register_path}") unless Dir.exist?(register_path)
 
         tools_dir = File.join(register_path, 'tools')
@@ -453,7 +453,7 @@ module Ukiryu
 
       # Validate all definitions in register
       def validate_all
-        register_path = Ukiryu::RegisterAutoManager.register_path
+        register_path = Ukiryu::Register.default.path
         return say_error("Register not found: #{register_path}") unless Dir.exist?(register_path)
 
         tools_dir = File.join(register_path, 'tools')

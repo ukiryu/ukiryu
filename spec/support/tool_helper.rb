@@ -15,6 +15,8 @@ module ToolHelper
   def tool_available?(name)
     tool = get_tool(name)
     tool.available?
+  rescue Ukiryu::Errors::ToolNotFoundError
+    false
   end
 
   # Get tool version if available

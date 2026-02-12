@@ -66,7 +66,8 @@ module Ukiryu
       # @return [ImplementationIndex] Loaded index
       def self.from_yaml(path)
         require 'psych'
-        data = Psych.safe_load_file(path, permitted_classes: [Symbol, String, Integer, Array, Hash, TrueClass, FalseClass])
+        data = Psych.safe_load_file(path,
+                                    permitted_classes: [Symbol, String, Integer, Array, Hash, TrueClass, FalseClass])
         from_hash(data)
       end
 

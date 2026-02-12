@@ -22,16 +22,15 @@ module Ukiryu
         # Use executable_name from command profile, falling back to profile name
         executable_name = @command_profile.executable_name || @profile.name
 
-        # Debug logging for Windows CI
-        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (Platform.windows? && ENV['CI'])
-          warn "[UKIRYU DEBUG] Tool: #{@profile.name}"
-          warn "[UKIRYU DEBUG] Command profile executable_name: #{@command_profile.executable_name.inspect}"
-          warn "[UKIRYU DEBUG] Profile name: #{@profile.name.inspect}"
-          warn "[UKIRYU DEBUG] Resolved executable_name: #{executable_name.inspect}"
-          warn "[UKIRYU DEBUG] Profile aliases: #{@profile.aliases.inspect}"
-          warn "[UKIRYU DEBUG] Shell: #{@shell.inspect}"
-          warn "[UKIRYU DEBUG] Platform: #{@platform.inspect}"
-        end
+        # Debug logging for executable discovery
+        Logger.debug("Tool: #{@profile.name}", category: :executable)
+        Logger.debug("Command profile executable_name: #{@command_profile.executable_name.inspect}",
+                     category: :executable)
+        Logger.debug("Profile name: #{@profile.name.inspect}", category: :executable)
+        Logger.debug("Resolved executable_name: #{executable_name.inspect}", category: :executable)
+        Logger.debug("Profile aliases: #{@profile.aliases.inspect}", category: :executable)
+        Logger.debug("Shell: #{@shell.inspect}", category: :executable)
+        Logger.debug("Platform: #{@platform.inspect}", category: :executable)
 
         result = ::Ukiryu::ExecutableLocator.find_with_info(
           tool_name: executable_name,
@@ -39,11 +38,11 @@ module Ukiryu
           platform: @platform
         )
 
-        if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (Platform.windows? && ENV['CI']))
-          warn "[UKIRYU DEBUG] Found executable: #{result[:path]}"
-          warn "[UKIRYU DEBUG] Discovery source: #{result[:info].source.inspect}"
-        elsif !result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (Platform.windows? && ENV['CI']))
-          warn '[UKIRYU DEBUG] EXECUTABLE NOT FOUND!'
+        if result
+          Logger.debug("Found executable: #{result[:path]}", category: :executable)
+          Logger.debug("Discovery source: #{result[:info].source.inspect}", category: :executable)
+        else
+          Logger.debug('EXECUTABLE NOT FOUND!', category: :executable)
         end
 
         return nil unless result

@@ -5,7 +5,6 @@ require 'etc'
 
 module Ukiryu
   module Models
-
     # Run environment information
     class RunEnvironment < Lutaml::Model::Serializable
       attribute :hostname, :string, default: ''
@@ -107,6 +106,5 @@ module Ukiryu
 
       private_class_method :detect_shell_version_for, :detect_total_memory, :os_version_string
     end
-
   end
 end

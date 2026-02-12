@@ -60,11 +60,11 @@ module Ukiryu
           load_from_source(source, options)
         end
 
-        # Get the profile cache
+        # Get the profile cache (bounded LRU cache)
         #
-        # @return [Hash] the profile cache
+        # @return [Cache] the profile cache
         def profile_cache
-          @profile_cache ||= {}
+          @profile_cache ||= Cache.new(max_size: 100, ttl: 3600)
         end
 
         # Clear the profile cache

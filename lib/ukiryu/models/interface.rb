@@ -63,7 +63,8 @@ module Ukiryu
       # @return [Interface] Loaded interface
       def self.from_yaml(path)
         require 'psych'
-        data = Psych.safe_load_file(path, permitted_classes: [Symbol, String, Integer, Array, Hash, TrueClass, FalseClass])
+        data = Psych.safe_load_file(path,
+                                    permitted_classes: [Symbol, String, Integer, Array, Hash, TrueClass, FalseClass])
         from_hash(symbolize_keys(data))
       end
 

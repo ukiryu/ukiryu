@@ -50,23 +50,17 @@ module Ukiryu
 
         # Try primary name first
         result = DiscoveryStrategy.discover(tool_name, context)
-        if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
-          warn "[UKIRYU DEBUG ExecutableLocator] Found #{tool_name}: #{result[:path]}"
-        end
+        warn "[UKIRYU DEBUG ExecutableLocator] Found #{tool_name}: #{result[:path]}" if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
         return result if result
 
         # Try aliases
         aliases.each do |alias_name|
           result = DiscoveryStrategy.discover(alias_name, context)
-          if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
-            warn "[UKIRYU DEBUG ExecutableLocator] Found alias #{alias_name}: #{result[:path]}"
-          end
+          warn "[UKIRYU DEBUG ExecutableLocator] Found alias #{alias_name}: #{result[:path]}" if result && (ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI']))
           return result if result
         end
 
-        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
-          warn "[UKIRYU DEBUG ExecutableLocator] NO EXECUTABLE FOUND for #{tool_name} or aliases #{aliases}"
-        end
+        warn "[UKIRYU DEBUG ExecutableLocator] NO EXECUTABLE FOUND for #{tool_name} or aliases #{aliases}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (platform == :windows && ENV['CI'])
 
         nil
       end
@@ -151,9 +145,7 @@ module Ukiryu
         # @param context [DiscoveryContext] discovery environment
         # @return [Hash, nil] discovery result or nil
         def discover(command, context)
-          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
-            warn "[UKIRYU DEBUG AliasDiscovery] Checking for alias: #{command.inspect} with shell #{context.shell_class}"
-          end
+          warn "[UKIRYU DEBUG AliasDiscovery] Checking for alias: #{command.inspect} with shell #{context.shell_class}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
 
           alias_info = context.shell_class.detect_alias(command)
           warn "[UKIRYU DEBUG AliasDiscovery] Alias info: #{alias_info.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
@@ -162,9 +154,7 @@ module Ukiryu
           alias_target = alias_info[:target]
           path = PathScanner.find(command) || PathScanner.find(alias_target)
 
-          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
-            warn "[UKIRYU DEBUG AliasDiscovery] Alias target: #{alias_target.inspect}, path: #{path.inspect}"
-          end
+          warn "[UKIRYU DEBUG AliasDiscovery] Alias target: #{alias_target.inspect}, path: #{path.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (context.platform == :windows && ENV['CI'])
 
           DiscoveryResult.build(path, :alias, context, alias_info[:definition]) if path
         end
@@ -325,12 +315,21 @@ module Ukiryu
 
     # Handle platform-specific path extensions (.exe, .bat, etc.)
     #
+    # On Windows, prioritizes .exe over .com for better PowerShell compatibility.
+    # The .com extension is legacy and can cause issues with PowerShell's call
+    # operator when used with I/O redirection (hangs with Open3.capture3).
+    #
     # @api private
     class PathExtensions
       include Enumerable
 
+      # Extensions to prioritize on Windows for PowerShell compatibility
+      # .com files can hang PowerShell when used with I/O redirection
+      PREFERRED_WINDOWS_EXTENSIONS = %w[.exe .EXE].freeze
+
       def initialize
-        @extensions = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
+        raw_extensions = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
+        @extensions = prioritize_extensions(raw_extensions)
       end
 
       # Iterate over extensions
@@ -338,6 +337,31 @@ module Ukiryu
       # @yield [String] each extension
       def each(&block)
         @extensions.each(&block)
+      end
+
+      private
+
+      # Prioritize .exe extensions on Windows for better PowerShell compatibility
+      #
+      # @param extensions [Array<String>] original PATHEXT extensions
+      # @return [Array<String>] reordered extensions with .exe first
+      def prioritize_extensions(extensions)
+        return extensions unless Platform.windows?
+
+        # Separate preferred extensions from others
+        preferred = []
+        others = []
+
+        extensions.each do |ext|
+          if PREFERRED_WINDOWS_EXTENSIONS.include?(ext)
+            preferred << ext
+          else
+            others << ext
+          end
+        end
+
+        # Return preferred first, then others in original order
+        preferred + others
       end
     end
   end

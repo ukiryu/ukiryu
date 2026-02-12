@@ -7,6 +7,8 @@ homepage: https://www.ghostscript.com/
 version: '10.0'
 aliases:
 - gs
+- gswin64c
+- gswin32c
 version_detection:
   command: "--version"
   pattern: "(\\d+\\.\\d+)"
@@ -18,6 +20,7 @@ search_paths:
   - "/usr/bin/gs"
   windows:
   - "C:/Program Files/gs/gs*/bin/gswin64c.exe"
+  - "C:/Program Files/gs/gs*/bin/gswin32c.exe"
 profiles:
 - name: unix
   display_name: Ghostscript on Unix
@@ -32,6 +35,53 @@ profiles:
   commands:
   - description: Convert PostScript or PDF to other formats
     usage: gs [options] input-file
+    arguments:
+    - name: inputs
+      type: file
+      variadic: true
+      min: 1
+      position: last
+      description: Input file(s) to process
+    options:
+    - name: device
+      type: string
+      cli: "-sDEVICE"
+      description: Output device (e.g., png16m, jpeg, pdfwrite)
+      assignment_delimiter: equals
+    - name: output
+      type: file
+      cli: "-sOutputFile"
+      description: Output file path
+      assignment_delimiter: equals
+    - name: resolution
+      type: string
+      cli: "-r"
+      description: Resolution (e.g., 150, 300, or 600x600)
+      assignment_delimiter: auto
+    flags:
+    - name: quiet
+      cli: "-q"
+      description: Quiet mode
+      default: false
+      assignment_delimiter: none
+    - name: batch
+      cli: "-dBATCH"
+      description: Batch mode
+      default: true
+      assignment_delimiter: none
+    name: convert
+- name: windows
+  display_name: Ghostscript on Windows
+  platforms:
+  - windows
+  shells:
+  - powershell
+  - cmd
+  version: ">= 9.0"
+  option_style: single_dash_equals
+  commands:
+  - description: Convert PostScript or PDF to other formats
+    usage: gswin64c [options] input-file
     arguments:
     - name: inputs
       type: file

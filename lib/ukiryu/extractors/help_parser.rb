@@ -212,6 +212,9 @@ module Ukiryu
           /is not recognized as (?:a |the )?(?:name of a )?cmdlet/i,
           /cannot be found/i,
           /because it does not exist/i,
+          # Windows Start-Process error when executable not found
+          /The system cannot find the file specified/i,
+          /cannot find the file/i,
           # General
           /executable not found/i,
           /bad command or file name/i

@@ -92,7 +92,8 @@ module Ukiryu
         args = build_args(action, params)
 
         # Execute with the routed executable, passing tool_name and command_name for exit code lookups
-        execute_with_config(resolution[:executable], args, action, params, execution_timeout: execution_timeout, stdin: stdin)
+        execute_with_config(resolution[:executable], args, action, params, execution_timeout: execution_timeout,
+                                                                           stdin: stdin)
       end
 
       # Execute a command with root-path notation (for hierarchical tools)

@@ -10,11 +10,16 @@ module Ukiryu
   # - Colored output via Paint gem (when available)
   # - Message classification (debug, info, warn, error)
   # - Structured output for tool resolution process
+  # - Class-level convenience methods for quick debug output
   #
   # @example Enable debug mode
   #   ENV['UKIRYU_DEBUG'] = '1'
   #   logger = Ukiryu::Logger.new
   #   logger.debug("Tool resolution started")
+  #
+  # @example Class-level debug output (recommended)
+  #   Ukiryu::Logger.debug("Message", category: :executable)
+  #   Ukiryu::Logger.debug("Found executable", context: { path: '/usr/bin/tool' })
   #
   # @example Standard logging
   #   logger = Ukiryu::Logger.new
@@ -24,6 +29,52 @@ module Ukiryu
   class Logger
     # Log levels
     LEVELS = %i[debug info warn error].freeze
+
+    # Environment variable names for debug control
+    DEBUG_ENV_VAR = 'UKIRYU_DEBUG'
+    DEBUG_EXECUTABLE_ENV_VAR = 'UKIRYU_DEBUG_EXECUTABLE'
+
+    class << self
+      # Class-level debug output (quick access without instance)
+      #
+      # @param message [String] the debug message
+      # @param category [Symbol, nil] optional category (:executable for UKIRYU_DEBUG_EXECUTABLE)
+      # @param context [Hash] optional context data to include
+      def debug(message, category: nil, context: {})
+        return unless debug_enabled?(category)
+
+        prefix = "[UKIRYU DEBUG#{category ? " #{category.to_s.upcase}" : ''}]"
+        details = context.empty? ? '' : " (#{context.map { |k, v| "#{k}=#{v.inspect}" }.join(', ')})"
+        warn "#{prefix} #{message}#{details}"
+      end
+
+      # Check if debug mode is enabled for a given category
+      #
+      # @param category [Symbol, nil] the category to check
+      # @return [Boolean] true if debug is enabled
+      def debug_enabled?(category = nil)
+        case category
+        when :executable
+          ENV[DEBUG_EXECUTABLE_ENV_VAR] || (Platform.windows? && ENV['CI'])
+        else
+          ENV[DEBUG_ENV_VAR]
+        end
+      end
+
+      # Get the singleton instance
+      #
+      # @return [Logger] the logger instance
+      def instance
+        @instance ||= new
+      end
+
+      # Delegate instance methods to class level
+      %i[info warn error debug_resolution].each do |method|
+        define_method(method) do |*args, **kwargs|
+          instance.send(method, *args, **kwargs)
+        end
+      end
+    end
 
     attr_reader :level, :logger, :output, :paint_available
 

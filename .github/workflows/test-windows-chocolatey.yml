@@ -22,13 +22,13 @@ jobs:
             ruby-version: '3.4'
           - runner: windows-2025
             ruby-version: '4.0'
-          # Windows ARM64 is experimental - some native dependencies (nokogiri) don't compile
-          - runner: windows-11-arm
-            ruby-version: '3.4'
-            experimental: true
-          - runner: windows-11-arm
-            ruby-version: '4.0'
-            experimental: true
+          # Windows ARM64 disabled due to nokogiri compilation issues
+          # - runner: windows-11-arm
+          #   ruby-version: '3.4'
+          #   experimental: true
+          # - runner: windows-11-arm
+          #   ruby-version: '4.0'
+          #   experimental: true
 
     steps:
       - name: Create working directory
@@ -87,6 +87,29 @@ jobs:
           }
         shell: pwsh
 
+      # Refresh PATH from machine/user environment before adding tool-specific paths
+      # This ensures we have the baseline PATH before adding Ghostscript
+      - name: Refresh PATH
+        run: |
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          echo "PATH=$env:Path" >> $env:GITHUB_ENV
+
+      # Chocolatey installs Ghostscript but doesn't add to PATH automatically
+      # Add the Ghostscript bin directory to PATH for the tests
+      - name: Add Ghostscript to PATH
+        if: runner.arch != 'ARM64'
+        shell: pwsh
+        run: |
+          $gsPath = "C:\Program Files\gs\gs*\bin"
+          $gsDir = Get-Item $gsPath -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($gsDir) {
+            $fullPath = $gsDir.FullName
+            Write-Host "Adding Ghostscript to PATH: $fullPath"
+            echo "PATH=$env:Path;$fullPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } else {
+            Write-Host "WARNING: Ghostscript directory not found at $gsPath"
+          }
+
       - name: Install FFmpeg (chocolatey)
         run: |
           Write-Host "Installing FFmpeg via chocolatey..."
@@ -127,11 +150,6 @@ jobs:
             echo "INKSCAPE_DIR=$inkscapePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             Write-Host "Inkscape found at: $inkscapePath"
           }
-
-      - name: Refresh PATH
-        run: |
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-          echo "PATH=$env:Path" >> $env:GITHUB_ENV
 
       - name: Verify installations
         shell: pwsh
@@ -199,3 +217,4 @@ jobs:
         run: bundle exec rake spec
         env:
           UKIRYU_DEBUG_HELP_PARSER: 1
+          UKIRYU_DEBUG_EXECUTABLE: 1

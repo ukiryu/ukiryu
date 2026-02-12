@@ -17,11 +17,10 @@ module Ukiryu
     def build_args(command, params)
       args = []
 
-      # Debug logging for Ruby 4.0 CI - log all params
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] params: #{params.inspect}"
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] params.class: #{params.class}"
-      end
+      # Debug logging for CI - log all params
+      Logger.debug("command: #{command.name}", category: :executable)
+      Logger.debug("params: #{params.inspect}", category: :executable)
+      Logger.debug("params.class: #{params.class}", category: :executable)
 
       # Add subcommand prefix if present (e.g., for ImageMagick "magick convert")
       args << command.subcommand if command.subcommand
@@ -45,6 +44,11 @@ module Ukiryu
         next if params[param_key].nil?
 
         formatted_opt = format_option(opt_def, params[param_key])
+
+        # Debug logging
+        Logger.debug("formatted_opt for #{param_key}: #{formatted_opt.inspect}",
+                     category: :executable)
+
         Array(formatted_opt).each { |opt| args << opt unless opt.nil? || opt.empty? }
       end
 
@@ -65,12 +69,11 @@ module Ukiryu
       last_arg = arguments.find(&:last?)
       regular_args = arguments.reject(&:last?)
 
-      # Debug logging for Ruby 4.0 CI - log arguments
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] arguments: #{arguments.inspect}"
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] regular_args: #{regular_args.map(&:name_sym).inspect}"
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] last_arg: #{last_arg&.name_sym.inspect}"
-      end
+      # Debug logging for arguments
+      Logger.debug("arguments: #{arguments.inspect}", category: :executable)
+      Logger.debug("regular_args: #{regular_args.map(&:name_sym).inspect}",
+                   category: :executable)
+      Logger.debug("last_arg: #{last_arg&.name_sym.inspect}", category: :executable)
 
       # Add regular positional arguments (in order, excluding "last")
       regular_args.sort_by(&:numeric_position).each do |arg_def|
@@ -80,21 +83,17 @@ module Ukiryu
         value = params[param_key]
         next if value.nil?
 
-        # Debug logging for Ruby 4.0 CI
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG CommandBuilder#build_args] param_key: #{param_key.inspect}"
-          warn "[UKIRYU DEBUG CommandBuilder#build_args] value.class: #{value.class}"
-          warn "[UKIRYU DEBUG CommandBuilder#build_args] value.inspect: #{value.inspect}"
-          warn "[UKIRYU DEBUG CommandBuilder#build_args] arg_def.variadic: #{arg_def.variadic}"
-        end
+        # Debug logging
+        Logger.debug("param_key: #{param_key.inspect}", category: :executable)
+        Logger.debug("value.class: #{value.class}", category: :executable)
+        Logger.debug("value.inspect: #{value.inspect}", category: :executable)
+        Logger.debug("arg_def.variadic: #{arg_def.variadic}", category: :executable)
 
         if arg_def.variadic
           # Variadic argument - expand array
           array = Ukiryu::Type.validate(value, :array, arg_def)
-          if ENV['UKIRYU_DEBUG_EXECUTABLE']
-            warn "[UKIRYU DEBUG CommandBuilder#build_args] array.class: #{array.class}"
-            warn "[UKIRYU DEBUG CommandBuilder#build_args] array.inspect: #{array.inspect}"
-          end
+          Logger.debug("array.class: #{array.class}", category: :executable)
+          Logger.debug("array.inspect: #{array.inspect}", category: :executable)
           array.each { |v| args << format_arg(v, arg_def) }
         else
           args << format_arg(value, arg_def)
@@ -124,11 +123,12 @@ module Ukiryu
         end
       end
 
-      # Debug logging for Ruby 4.0 CI
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] Built args: #{args.inspect}"
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] Args class: #{args.class}"
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] Args size: #{args.size}"
+      # Debug logging for final args
+      Logger.debug("Final args: #{args.inspect}", category: :executable)
+      Logger.debug("Args class: #{args.class}", category: :executable)
+      Logger.debug("Args size: #{args.size}", category: :executable)
+      args.each_with_index do |arg, i|
+        Logger.debug("args[#{i}]: #{arg.inspect} (#{arg.class})", category: :executable)
       end
 
       args
@@ -144,7 +144,7 @@ module Ukiryu
       Ukiryu::Type.validate(value, arg_def.type || :string, arg_def)
 
       # Apply platform-specific path formatting
-      if arg_def.type == :file
+      if arg_def.type.to_s == 'file'
         shell = Ukiryu::Shell::InstanceCache.instance_for(@shell)
         shell.format_path(value.to_s)
       else
@@ -161,6 +161,13 @@ module Ukiryu
       # Validate type
       Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
 
+      # Debug logging - trace the full option formatting
+      Logger.debug("opt_def.name: #{opt_def.name.inspect}", category: :executable)
+      Logger.debug("opt_def.cli: #{opt_def.cli.inspect}", category: :executable)
+      Logger.debug("opt_def.assignment_delimiter: #{opt_def.assignment_delimiter.inspect}",
+                   category: :executable)
+      Logger.debug("value: #{value.inspect} (#{value.class})", category: :executable)
+
       # Handle boolean types - just return the CLI flag (no value)
       type_val = opt_def.type
       if [:boolean, TrueClass, 'boolean'].include?(type_val)
@@ -173,27 +180,55 @@ module Ukiryu
       delimiter_sym = opt_def.assignment_delimiter_sym
       separator = opt_def.separator || '='
 
+      Logger.debug("cli variable: #{cli.inspect}", category: :executable)
+      Logger.debug("delimiter_sym: #{delimiter_sym.inspect}", category: :executable)
+
       # Auto-detect delimiter based on CLI prefix
       delimiter_sym = detect_delimiter(cli) if delimiter_sym == :auto
 
-      # Convert value to string (handle symbols)
-      value_str = value.is_a?(Symbol) ? value.to_s : value.to_s
+      Logger.debug("delimiter_sym after detect: #{delimiter_sym.inspect}",
+                   category: :executable)
+
+      # Convert value to string (handle symbols and file paths)
+      if value.is_a?(Symbol)
+        value_str = value.to_s
+      elsif opt_def.type.to_s == 'file'
+        # Apply platform-specific path formatting for file types
+        shell_instance = Ukiryu::Shell::InstanceCache.instance_for(@shell)
+        Logger.debug("FILE type detected: opt_def.name=#{opt_def.name}, value=#{value.inspect}",
+                     category: :executable)
+        Logger.debug("@shell=#{@shell.inspect}, shell_instance=#{shell_instance.class}",
+                     category: :executable)
+        Logger.debug("Platform.windows?=#{Ukiryu::Platform.windows? if defined?(Ukiryu::Platform)}",
+                     category: :executable)
+        value_str = shell_instance.format_path(value.to_s)
+        Logger.debug("format_path result: #{value_str.inspect}", category: :executable)
+      else
+        value_str = value.to_s
+      end
 
       # Handle array values with separator
       if value.is_a?(Array) && separator
-        joined = value.join(separator)
-        case delimiter_sym
-        when :equals
-          "#{cli}=#{joined}"
-        when :space
-          [cli, joined] # Return array for space-separated
-        when :colon
-          "#{cli}:#{joined}"
-        when :none
-          cli
-        else
-          "#{cli}=#{joined}"
-        end
+        # Apply path formatting to each element if type is file
+        formatted_values = if opt_def.type.to_s == 'file'
+                             shell_instance ||= Ukiryu::Shell::InstanceCache.instance_for(@shell)
+                             value.map { |v| shell_instance.format_path(v.to_s) }
+                           else
+                             value.map(&:to_s)
+                           end
+        joined = formatted_values.join(separator)
+        result = case delimiter_sym
+                 when :equals
+                   "#{cli}=#{joined}"
+                 when :space
+                   [cli, joined] # Return array for space-separated
+                 when :colon
+                   "#{cli}:#{joined}"
+                 when :none
+                   cli
+                 else
+                   "#{cli}=#{joined}"
+                 end
       else
         result = case delimiter_sym
                  when :equals
@@ -207,15 +242,13 @@ module Ukiryu
                  else
                    "#{cli}=#{value_str}"
                  end
-
-        # Debug logging for Ruby 3.4+ CI
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG format_option] result: #{result.inspect}"
-          warn "[UKIRYU DEBUG format_option] result.class: #{result.class}"
-        end
-
-        result
       end
+
+      # Debug logging for result
+      Logger.debug("FINAL result: #{result.inspect}", category: :executable)
+      Logger.debug("result.class: #{result.class}", category: :executable)
+
+      result
     end
 
     # Detect assignment delimiter based on CLI prefix

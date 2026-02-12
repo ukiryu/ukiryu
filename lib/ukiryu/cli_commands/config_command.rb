@@ -222,23 +222,20 @@ module Ukiryu
       #
       # @return [String] formatted register display
       def format_register_display
-        info = Ukiryu::RegisterAutoManager.register_info
+        register = Ukiryu::Register.default
+        info = register.info
 
-        case info[:status]
-        when :ok
-          # Register exists and is valid
+        if info[:valid]
           source_label = format_source_label(info[:source])
           tools_count = info[:tools_count] ? " (#{info[:tools_count]} tools)" : ''
           "#{info[:path]} [#{source_label}]#{tools_count}"
-        when :not_cloned, :not_found
-          # Register not cloned yet
-          '~/.ukiryu/register (not found - run: ukiryu register update)'
-        when :invalid
-          # Register exists but is invalid
+        elsif info[:exists]
           "#{info[:path]} (invalid - run: ukiryu register update --force)"
         else
-          '(unknown)'
+          '~/.ukiryu/register (not found - run: ukiryu register update)'
         end
+      rescue Ukiryu::Register::Error
+        '~/.ukiryu/register (not found - run: ukiryu register update)'
       end
 
       # Format source label for display
