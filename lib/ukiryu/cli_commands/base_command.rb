@@ -36,7 +36,9 @@ module Ukiryu
         register_path = custom_path || config.register || default_register_path
         return unless register_path && Dir.exist?(register_path)
 
-        Ukiryu::Register.default_register_path = register_path
+        # Set UKIRYU_REGISTER env and reset the default register
+        ENV['UKIRYU_REGISTER'] = register_path
+        Ukiryu::Register.reset_default
       end
 
       # Apply CLI options to the Config instance
@@ -80,11 +82,10 @@ module Ukiryu
 
       # Get the default register path
       #
-      # @return [String, nil] the default register path from RegisterAutoManager
+      # @return [String, nil] the default register path
       def default_register_path
-        # Use RegisterAutoManager to find or create the register
-        Ukiryu::RegisterAutoManager.register_path
-      rescue StandardError
+        Ukiryu::Register.default.path
+      rescue Ukiryu::Register::Error
         nil
       end
 

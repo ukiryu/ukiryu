@@ -50,6 +50,17 @@ module Ukiryu
           platforms.include?(platform_str) && shells.include?(shell_str)
         end
 
+        # Debug output for profile selection
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (ENV['CI'] && defined?(Ukiryu::Platform) && Ukiryu::Platform.windows?)
+          warn "[UKIRYU DEBUG compatible_profile] platform=#{platform_str}, shell=#{shell_str}"
+          warn "[UKIRYU DEBUG compatible_profile] Found profile: #{profile ? (profile[:name] || profile['name']) : 'nil'}"
+          if profile
+            warn "[UKIRYU DEBUG compatible_profile] Profile inherits: #{profile[:inherits] || profile['inherits']}"
+            warn "[UKIRYU DEBUG compatible_profile] Profile commands nil?: #{profile[:commands].nil?}"
+            warn "[UKIRYU DEBUG compatible_profile] Profile commands empty?: #{(profile[:commands] || []).empty?}"
+          end
+        end
+
         return nil unless profile
 
         # Resolve profile inheritance at hash level
@@ -61,11 +72,16 @@ module Ukiryu
             prof_name.to_s == inherits.to_s
           end
 
+          if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (ENV['CI'] && defined?(Ukiryu::Platform) && Ukiryu::Platform.windows?)
+            warn "[UKIRYU DEBUG compatible_profile] Looking for parent '#{inherits}': #{parent_profile ? 'found' : 'not found'}"
+          end
+
           if parent_profile && (profile[:commands].nil? || profile[:commands].empty?)
             # Copy parent's commands to child profile (without modifying original)
             parent_commands = parent_profile[:commands] || parent_profile['commands']
             # Return a new hash with inherited commands
             profile = profile.dup.merge(commands: parent_commands)
+            warn "[UKIRYU DEBUG compatible_profile] Inherited #{parent_commands&.size || 0} commands from parent" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (ENV['CI'] && defined?(Ukiryu::Platform) && Ukiryu::Platform.windows?)
           end
         end
 
@@ -86,7 +102,8 @@ module Ukiryu
       # @return [ImplementationVersion] Loaded version
       def self.from_yaml(path)
         require 'psych'
-        data = Psych.safe_load_file(path, permitted_classes: [Symbol, String, Integer, Array, Hash, TrueClass, FalseClass])
+        data = Psych.safe_load_file(path,
+                                    permitted_classes: [Symbol, String, Integer, Array, Hash, TrueClass, FalseClass])
         from_hash(data)
       end
 

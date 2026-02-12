@@ -78,7 +78,10 @@ module Ukiryu
         raise Ukiryu::Errors::ValidationError, 'File path cannot be empty' if value.empty?
 
         # Check if file exists (only if require_existing is true)
-        raise Ukiryu::Errors::ValidationError, "File not found: #{value}" if options[:require_existing] && !File.exist?(value)
+        if options[:require_existing] && !File.exist?(value)
+          raise Ukiryu::Errors::ValidationError,
+                "File not found: #{value}"
+        end
 
         value
       end
@@ -108,7 +111,10 @@ module Ukiryu
 
         if options[:range]
           min, max = options[:range]
-          raise Ukiryu::Errors::ValidationError, "Integer #{integer} out of range [#{min}, #{max}]" if integer < min || integer > max
+          if integer < min || integer > max
+            raise Ukiryu::Errors::ValidationError,
+                  "Integer #{integer} out of range [#{min}, #{max}]"
+          end
         end
 
         if options[:min] && integer < options[:min]
@@ -136,7 +142,10 @@ module Ukiryu
 
         if options[:range]
           min, max = options[:range]
-          raise Ukiryu::Errors::ValidationError, "Float #{float} out of range [#{min}, #{max}]" if float < min || float > max
+          if float < min || float > max
+            raise Ukiryu::Errors::ValidationError,
+                  "Float #{float} out of range [#{min}, #{max}]"
+          end
         end
 
         float
@@ -203,7 +212,10 @@ module Ukiryu
 
       # Validate hash type
       def validate_hash(value, options)
-        raise Ukiryu::Errors::ValidationError, "Hash expected, got #{value.class}: #{value.inspect}" unless value.is_a?(Hash)
+        unless value.is_a?(Hash)
+          raise Ukiryu::Errors::ValidationError,
+                "Hash expected, got #{value.class}: #{value.inspect}"
+        end
 
         if options[:keys]
           unknown_keys = value.keys - options[:keys]
@@ -218,19 +230,17 @@ module Ukiryu
 
       # Validate array type
       def validate_array(value, options)
-        # Debug logging for Ruby 4.0 CI
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG Type.validate_array] value.class: #{value.class}"
-          warn "[UKIRYU DEBUG Type.validate_array] value.inspect: #{value.inspect}"
-          warn "[UKIRYU DEBUG Type.validate_array] options: #{options.inspect}"
-        end
+        # Debug logging for executable discovery
+        Logger.debug("Type.validate_array value.class: #{value.class}", category: :executable)
+        Logger.debug("Type.validate_array value.inspect: #{value.inspect}", category: :executable)
+        Logger.debug("Type.validate_array options: #{options.inspect}", category: :executable)
 
         array = value.is_a?(Array) ? value : [value]
 
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG Type.validate_array] after conversion, array.class: #{array.class}"
-          warn "[UKIRYU DEBUG Type.validate_array] after conversion, array.inspect: #{array.inspect}"
-        end
+        Logger.debug("Type.validate_array after conversion, array.class: #{array.class}",
+                     category: :executable)
+        Logger.debug("Type.validate_array after conversion, array.inspect: #{array.inspect}",
+                     category: :executable)
 
         if options[:min] && array.size < options[:min]
           raise Ukiryu::Errors::ValidationError,
@@ -259,7 +269,8 @@ module Ukiryu
         # Validate element type if specified
         array = array.map { |v| validate(v, options[:of], options) } if options[:of]
 
-        warn "[UKIRYU DEBUG Type.validate_array] returning array.inspect: #{array.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        Logger.debug("Type.validate_array returning array.inspect: #{array.inspect}",
+                     category: :executable)
 
         array
       end

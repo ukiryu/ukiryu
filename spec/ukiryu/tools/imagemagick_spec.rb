@@ -112,7 +112,8 @@ RSpec.describe 'ImageMagick Tool Profile' do
       create_test_image(input)
 
       tool = get_tool(:imagemagick)
-      result = tool.execute(:convert, execution_timeout: 30, inputs: [input], output: output, resize: '75x75', quality: 85, strip: true)
+      result = tool.execute(:convert, execution_timeout: 30, inputs: [input], output: output, resize: '75x75',
+                                      quality: 85, strip: true)
 
       expect(result.success?).to be true
       expect(File.exist?(output)).to be true

@@ -174,8 +174,8 @@ RSpec.describe Ukiryu::Definition::Loader do
   end
 
   describe '.profile_cache' do
-    it 'returns a hash' do
-      expect(described_class.profile_cache).to be_a(Hash)
+    it 'returns a bounded cache' do
+      expect(described_class.profile_cache).to be_a(Ukiryu::Cache)
     end
 
     it 'returns same cache on multiple calls' do

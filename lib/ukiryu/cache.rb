@@ -50,6 +50,12 @@ module Ukiryu
       @mutex = Mutex.new if thread_safe
     end
 
+    # @return [Integer] maximum cache size
+    attr_reader :max_size
+
+    # @return [Integer, nil] time-to-live in seconds
+    attr_reader :ttl
+
     # Get a value from the cache
     #
     # @param key [Object] the cache key

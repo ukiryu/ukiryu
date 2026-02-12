@@ -25,6 +25,7 @@ module Ukiryu
     autoload :Tcsh, 'ukiryu/shell/tcsh'
     autoload :PowerShell, 'ukiryu/shell/powershell'
     autoload :Cmd, 'ukiryu/shell/cmd'
+    autoload :InstanceCache, 'ukiryu/shell/instance_cache'
 
     # Platform-grouped shell types (new schema v1)
     PLATFORM_GROUPS = %i[unix windows powershell].freeze
@@ -55,6 +56,47 @@ module Ukiryu
       windows: %i[cmd],
       powershell: %i[powershell pwsh]
     }.freeze
+
+    # Shell registry for custom shells
+    # @api private
+    class Registry
+      class << self
+        def shells
+          @shells ||= {}
+        end
+
+        # Register a custom shell class
+        #
+        # @param name [Symbol] the shell name
+        # @param shell_class [Class] the shell class (must inherit from Shell::Base)
+        # @raise [ArgumentError] if shell_class is not a Shell::Base subclass
+        def register(name, shell_class)
+          raise ArgumentError, 'Shell class must inherit from Ukiryu::Shell::Base' unless shell_class.ancestors.include?(Base)
+
+          shells[name.to_sym] = shell_class
+        end
+
+        # Lookup a shell class by name
+        #
+        # @param name [Symbol] the shell name
+        # @return [Class, nil] the shell class or nil if not registered
+        def lookup(name)
+          shells[name.to_sym]
+        end
+
+        # Get all registered shell names
+        #
+        # @return [Array<Symbol>] list of registered shell names
+        def registered_shells
+          shells.keys
+        end
+
+        # Clear all registered shells (mainly for testing)
+        def clear
+          @shells = nil
+        end
+      end
+    end
 
     class << self
       # Get or set the current shell (for explicit configuration)
@@ -94,7 +136,10 @@ module Ukiryu
       def platform_group_for(shell_sym)
         return shell_sym if PLATFORM_GROUPS.include?(shell_sym)
 
-        raise ArgumentError, "Unknown shell: #{shell_sym}. Valid shells: #{VALID_SHELLS.join(', ')}" unless SHELL_TO_PLATFORM.key?(shell_sym)
+        unless SHELL_TO_PLATFORM.key?(shell_sym)
+          raise ArgumentError,
+                "Unknown shell: #{shell_sym}. Valid shells: #{VALID_SHELLS.join(', ')}"
+        end
 
         SHELL_TO_PLATFORM[shell_sym]
       end
@@ -231,7 +276,11 @@ module Ukiryu
       # @return [Class] the shell class
       # @raise [UnknownShellError] if shell class not found
       def class_for(name)
-        # Platform groups map to their representative shell classes
+        # Check registry first (for custom shells)
+        registered = Registry.lookup(name)
+        return registered if registered
+
+        # Built-in shells
         case name
         when :unix
           Bash # Most common Unix shell, all Unix shells share the same quoting rules
@@ -258,6 +307,15 @@ module Ukiryu
         else
           raise Ukiryu::Errors::UnknownShellError, "Unknown shell: #{name}"
         end
+      end
+
+      # Register a custom shell class
+      #
+      # @param name [Symbol] the shell name
+      # @param shell_class [Class] the shell class (must inherit from Shell::Base)
+      # @raise [ArgumentError] if shell_class is not a Shell::Base subclass
+      def register(name, shell_class)
+        Registry.register(name, shell_class)
       end
 
       private

@@ -77,9 +77,10 @@ RSpec.describe Ukiryu::Models::ExecutionReport do
         # In Docker/CI, may be 0 or an actual value
         expect(stage.memory_after).to be_a(Integer)
         expect(stage.memory_after).to be >= 0
-        # If memory detection works, memory_after should be >= memory_before
-        expect(stage.memory_after).to be >= stage.memory_before if stage.memory_before > 0
+        # Memory delta is calculated (may be negative due to GC)
         expect(stage.memory_delta).to be_a(Integer)
+        # Verify delta calculation is correct
+        expect(stage.memory_delta).to eq(stage.memory_after - stage.memory_before)
       end
 
       it 'marks the stage as successful by default' do

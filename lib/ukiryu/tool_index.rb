@@ -3,6 +3,8 @@
 # Lazy load ToolMetadata only when needed
 autoload :ToolMetadata, File.expand_path('models/tool_metadata', __dir__)
 
+require_relative 'models/semantic_version'
+
 module Ukiryu
   # Index for fast tool lookup by interface and alias
   #
@@ -12,20 +14,27 @@ module Ukiryu
   # - Register change detection via mtime
   #
   # Built once and cached for the lifetime of the process.
+  # Thread-safe for concurrent access.
   #
   # @api private
   class ToolIndex
+    @mutex = Mutex.new
+
     class << self
-      # Get the singleton instance
+      # Get the singleton instance (thread-safe)
       #
       # @return [ToolIndex] the index instance
       def instance
-        @instance ||= new
+        @mutex.synchronize do
+          @instance ||= new
+        end
       end
 
       # Reset the index (mainly for testing)
       def reset
-        @instance = nil
+        @mutex.synchronize do
+          @instance = nil
+        end
       end
 
       # Get all tools in the index (class method delegating to instance)
@@ -41,13 +50,13 @@ module Ukiryu
     # @param register_path [String, nil] the path to the tool register
     def initialize(register_path: nil)
       @register_path = register_path || Ukiryu::Register.default_register_path
+      @mutex = Mutex.new
 
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn '[UKIRYU DEBUG ToolIndex#initialize] called'
-        warn "[UKIRYU DEBUG] param register_path = #{register_path.inspect}"
-        warn "[UKIRYU_DEBUG] Ukiryu::Register.default_register_path = #{Ukiryu::Register.default_register_path.inspect}"
-        warn "[UKIRYU DEBUG] @register_path = #{@register_path.inspect}"
-      end
+      Logger.debug('ToolIndex#initialize called', category: :executable)
+      Logger.debug("param register_path = #{register_path.inspect}", category: :executable)
+      Logger.debug("Ukiryu::Register.default_register_path = #{Ukiryu::Register.default_register_path.inspect}",
+                   category: :executable)
+      Logger.debug("@register_path = #{@register_path.inspect}", category: :executable)
 
       @interface_to_tools = {} # interface => [tool_names]
       @alias_to_tool = {}      # alias => [tool_names] (multiple tools can share an alias)
@@ -64,16 +73,18 @@ module Ukiryu
     def find_by_interface(interface_name)
       build_index_if_needed
 
-      tool_names = @interface_to_tools[interface_name]
-      return nil unless tool_names
+      @mutex.synchronize do
+        tool_names = @interface_to_tools[interface_name]
+        return nil unless tool_names
 
-      # Try each tool implementing this interface until we find one that loads
-      tool_names.each do |tool_name|
-        metadata = load_metadata_for_tool(tool_name)
-        return metadata if metadata
+        # Try each tool implementing this interface until we find one that loads
+        tool_names.each do |tool_name|
+          metadata = load_metadata_for_tool(tool_name)
+          return metadata if metadata
+        end
+
+        nil
       end
-
-      nil
     end
 
     # Find all tools that implement an interface
@@ -83,7 +94,9 @@ module Ukiryu
     def find_all_by_interface(interface_name)
       build_index_if_needed
 
-      @interface_to_tools[interface_name] || []
+      @mutex.synchronize do
+        @interface_to_tools[interface_name] || []
+      end
     end
 
     # Find tool by alias
@@ -96,20 +109,22 @@ module Ukiryu
     def find_by_alias(alias_name)
       build_index_if_needed
 
-      candidates = @alias_to_tool[alias_name.to_sym]
-      return nil unless candidates
+      @mutex.synchronize do
+        candidates = @alias_to_tool[alias_name.to_sym]
+        return nil unless candidates
 
-      # If only one tool has this alias, return it directly
-      return candidates.first if candidates.one?
+        # If only one tool has this alias, return it directly
+        return candidates.first if candidates.one?
 
-      # Multiple tools have this alias - select by platform compatibility
-      runtime = Ukiryu::Runtime.instance
-      platform = runtime.platform
-      shell = runtime.shell
+        # Multiple tools have this alias - select by platform compatibility
+        runtime = Ukiryu::Runtime.instance
+        platform = runtime.platform
+        shell = runtime.shell
 
-      candidates.find do |tool_name|
-        tool_compatible?(tool_name, platform: platform, shell: shell)
-      end || candidates.first
+        candidates.find do |tool_name|
+          tool_compatible?(tool_name, platform: platform, shell: shell)
+        end || candidates.first
+      end
     end
 
     # Check if a tool is compatible with the given platform and shell
@@ -165,31 +180,45 @@ module Ukiryu
     #
     # @return [Boolean] true if rebuild is needed
     def stale?
-      return true unless @built
+      @mutex.synchronize do
+        return true unless @built
 
-      current_cache_key = build_cache_key
-      @cache_key != current_cache_key
+        current_cache_key = build_cache_key
+        @cache_key != current_cache_key
+      end
     end
 
     # Update the register path
     #
     # @param new_path [String] the new register path
     def register_path=(new_path)
-      return if @register_path == new_path
+      @mutex.synchronize do
+        return if @register_path == new_path
 
-      @register_path = new_path
-      @built = false # Rebuild index with new path
-      @cache_key = nil
-      @interface_to_tools = {}
-      @alias_to_tool = {}
-      @compatibility_cache = {}
+        @register_path = new_path
+        @built = false # Rebuild index with new path
+        @cache_key = nil
+        @interface_to_tools = {}
+        @alias_to_tool = {}
+        @compatibility_cache = {}
+      end
     end
 
     private
 
-    # Build index only if needed (lazy loading)
+    # Build index only if needed (lazy loading) - thread-safe
     def build_index_if_needed
-      build_index if stale?
+      @mutex.synchronize do
+        build_index if stale_without_lock?
+      end
+    end
+
+    # Check if stale without acquiring lock (must be called within synchronized block)
+    def stale_without_lock?
+      return true unless @built
+
+      current_cache_key = build_cache_key
+      @cache_key != current_cache_key
     end
 
     # Build cache key for register change detection
@@ -216,12 +245,11 @@ module Ukiryu
     def register_path
       path = @register_path || Ukiryu::Register.default_register_path
 
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn '[UKIRYU DEBUG ToolIndex#register_path] called'
-        warn "[UKIRYU DEBUG] @register_path = #{@register_path.inspect}"
-        warn "[UKIRYU DEBUG] Ukiryu::Register.default_register_path = #{Ukiryu::Register.default_register_path.inspect}"
-        warn "[UKIRYU DEBUG] returning = #{path.inspect}"
-      end
+      Logger.debug('ToolIndex#register_path called', category: :executable)
+      Logger.debug("@register_path = #{@register_path.inspect}", category: :executable)
+      Logger.debug("Ukiryu::Register.default_register_path = #{Ukiryu::Register.default_register_path.inspect}",
+                   category: :executable)
+      Logger.debug("returning = #{path.inspect}", category: :executable)
 
       path
     end
@@ -231,10 +259,8 @@ module Ukiryu
     def build_index
       current_path = register_path
 
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn '[UKIRYU DEBUG ToolIndex#build_index] called'
-        warn "[UKIRYU DEBUG] current_path = #{current_path.inspect}"
-      end
+      Logger.debug('ToolIndex#build_index called', category: :executable)
+      Logger.debug("current_path = #{current_path.inspect}", category: :executable)
 
       return unless current_path
 
@@ -328,15 +354,17 @@ module Ukiryu
 
     # Load YAML content for a specific tool
     #
+    # Version selection is based on the `version:` field inside YAML content,
+    # NOT the filename. This ensures the content is the source of truth.
+    #
     # @param tool_name [Symbol, String] the tool name
     # @return [String, nil] the YAML content
     def load_yaml_for_tool(tool_name)
       current_path = register_path
 
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG ToolIndex#load_yaml_for_tool] tool_name=#{tool_name}"
-        warn "[UKIRYU DEBUG] current_path = #{current_path.inspect}"
-      end
+      Logger.debug("ToolIndex#load_yaml_for_tool tool_name=#{tool_name}",
+                   category: :executable)
+      Logger.debug("current_path = #{current_path.inspect}", category: :executable)
 
       return nil unless current_path
 
@@ -354,19 +382,56 @@ module Ukiryu
         # Prefer 'default' variant if present
         next unless File.basename(variant_dir) == 'default'
 
-        files = Dir.glob(File.join(variant_dir, '*.yaml')).sort
-        return File.read(files.last) if files.any?
+        files = Dir.glob(File.join(variant_dir, '*.yaml'))
+        return select_latest_version_by_content(files) if files.any?
 
         # Fall back to any variant directory
-        files = Dir.glob(File.join(variant_dir, '*.yaml')).sort
-        return File.read(files.last) if files.any?
+        files = Dir.glob(File.join(variant_dir, '*.yaml'))
+        return select_latest_version_by_content(files) if files.any?
       end
 
       # Fallback: direct YAML files in tool directory (legacy structure)
-      files = Dir.glob(File.join(tool_dir, '*.yaml')).sort
-      files.last ? File.read(files.last) : nil
+      files = Dir.glob(File.join(tool_dir, '*.yaml'))
+      files.any? ? select_latest_version_by_content(files) : nil
     rescue StandardError
       nil
+    end
+
+    # Select the latest version file by reading version from YAML CONTENT.
+    #
+    # This is the correct approach: version comes from the `version:` field
+    # inside the YAML file, NOT from the filename. The content is the
+    # source of truth.
+    #
+    # @param files [Array<String>] list of YAML file paths
+    # @return [String, nil] content of the file with the highest version
+    def select_latest_version_by_content(files)
+      return nil if files.empty?
+      return File.read(files.first) if files.size == 1
+
+      # Build a map of version (from content) => file content
+      versions_to_content = {}
+
+      files.each do |file|
+        content = File.read(file)
+        hash = YAML.safe_load(content, permitted_classes: [Symbol], aliases: true)
+        next unless hash
+
+        version_string = hash['version']
+        next unless version_string
+
+        version = Models::SemanticVersion.new(version_string)
+        versions_to_content[version] = content
+      rescue StandardError => e
+        # Skip files that can't be parsed
+        Logger.warn("Failed to parse version from #{file}: #{e.message}")
+      end
+
+      # Return content of the highest version
+      return nil if versions_to_content.empty?
+
+      latest_version = versions_to_content.keys.max
+      versions_to_content[latest_version]
     end
   end
 end

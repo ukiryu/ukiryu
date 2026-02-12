@@ -20,7 +20,10 @@ module Ukiryu
         result = `type #{command_name} 2>/dev/null`
         return nil unless result
 
-        { definition: result.strip, target: ::Regexp.last_match(1) } if result =~ /^#{command_name} is aliased to `(.*)'`$/
+        if result =~ /^#{command_name} is aliased to `(.*)'`$/
+          { definition: result.strip,
+            target: ::Regexp.last_match(1) }
+        end
         nil
       end
 

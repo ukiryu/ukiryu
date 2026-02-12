@@ -33,7 +33,9 @@ module Ukiryu
 
     class << self
       def instance
-        @instance ||= new
+        mutex.synchronize do
+          @instance ||= new
+        end
       end
 
       # Configure Ukiryu with a block
@@ -46,7 +48,9 @@ module Ukiryu
 
       # Reset configuration to defaults
       def reset!
-        @instance = new
+        mutex.synchronize do
+          @instance = new
+        end
       end
 
       # Delegate to instance
@@ -56,6 +60,13 @@ module Ukiryu
 
       def respond_to_missing?(method, include_private = false)
         instance.respond_to?(method) || super
+      end
+
+      private
+
+      # Mutex for thread-safe singleton access
+      def mutex
+        @mutex ||= Mutex.new
       end
     end
 

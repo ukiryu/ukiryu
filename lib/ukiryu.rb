@@ -46,11 +46,11 @@ module Ukiryu
   # Internal Tool implementation classes - lazy load with autoload
   autoload :CommandBuilder, 'ukiryu/command_builder'
   autoload :Cache, 'ukiryu/cache'
+  autoload :CacheRegistry, 'ukiryu/cache_registry'
   autoload :ExecutableLocator, 'ukiryu/executable_locator'
   autoload :VersionDetector, 'ukiryu/version_detector'
   autoload :ToolIndex, 'ukiryu/tool_index'
   autoload :ManPageParser, 'ukiryu/man_page_parser'
-  autoload :RegisterAutoManager, 'ukiryu/register_auto_manager'
 
   # Model classes - lazy load with autoload (these are directly under Ukiryu namespace)
   autoload :ToolMetadata, 'ukiryu/models/tool_metadata'

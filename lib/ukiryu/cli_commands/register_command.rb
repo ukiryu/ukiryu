@@ -21,7 +21,7 @@ module Ukiryu
         else
           error!("Unknown subcommand: #{subcommand}. Valid subcommands: info, update, path")
         end
-      rescue Ukiryu::RegisterAutoManager::RegisterError => e
+      rescue Ukiryu::Register::Error => e
         error!("Register error: #{e.message}")
       end
 
@@ -31,21 +31,16 @@ module Ukiryu
       #
       # @param options [Hash] command options
       def show_info(_options = {})
-        info = Ukiryu::RegisterAutoManager.register_info
+        info = Ukiryu::Register.default.info
 
         say 'Register Information', :cyan
         say ''
 
-        case info[:status]
+        case determine_status(info)
         when :not_found
           say '  Status: Not configured', :red
           say ''
           say '  No register found. Run: ukiryu register update', :yellow
-        when :not_cloned
-          say '  Status: Not cloned', :yellow
-          say "  Expected path: #{info[:path]}", :dim
-          say ''
-          say '  Run: ukiryu register update', :yellow
         when :invalid
           say '  Status: Invalid', :red
           say "  Path: #{info[:path]}", :dim
@@ -58,11 +53,14 @@ module Ukiryu
 
           say "  Tools available: #{info[:tools_count]}", :dim if info[:tools_count]
 
-          say "  Branch: #{info[:branch]}", :dim if info[:branch]
-
-          say "  Commit: #{info[:commit]}", :dim if info[:commit]
-
-          say "  Last updated: #{info[:last_update].strftime('%Y-%m-%d %H:%M:%S')}", :dim if info[:last_update]
+          if info[:git_info]
+            say "  Branch: #{info[:git_info][:branch]}", :dim if info[:git_info][:branch]
+            say "  Commit: #{info[:git_info][:commit]}", :dim if info[:git_info][:commit]
+            if info[:git_info][:last_update]
+              say "  Last updated: #{info[:git_info][:last_update].strftime('%Y-%m-%d %H:%M:%S')}",
+                  :dim
+            end
+          end
         end
 
         say ''
@@ -74,7 +72,15 @@ module Ukiryu
           say '  UKIRYU_REGISTER (not set)', :dim
         end
 
-        show_manual_setup_help if info[:status] != :ok
+        show_manual_setup_help unless info[:valid]
+      end
+
+      # Determine register status from info hash
+      def determine_status(info)
+        return :not_found unless info[:exists]
+        return :invalid unless info[:valid]
+
+        :ok
       end
 
       # Update the register
@@ -85,11 +91,14 @@ module Ukiryu
 
         if force
           say 'Force re-cloning register...', :yellow
+          FileUtils.rm_rf(Ukiryu::Register.default.path) if Dir.exist?(Ukiryu::Register.default.path)
+          Ukiryu::Register.reset_default
         else
           say 'Updating register...', :cyan
         end
 
-        Ukiryu::RegisterAutoManager.update_register(force: force)
+        register = Ukiryu::Register.default
+        register.update!
 
         say 'Register updated successfully!', :green
         show_info(options)
@@ -97,9 +106,9 @@ module Ukiryu
 
       # Show the register path
       def show_path
-        path = Ukiryu::RegisterAutoManager.register_path
+        path = Ukiryu::Register.default.path
 
-        if path
+        if path && Dir.exist?(path)
           say path
         else
           error!('Register not available. Run: ukiryu register update')
@@ -129,7 +138,7 @@ module Ukiryu
         say 'Manual setup:', :cyan
         say ''
         say '  1. Clone the register:'
-        say "     git clone #{Ukiryu::RegisterAutoManager::REGISTER_URL} ~/.ukiryu/register"
+        say '     git clone https://github.com/ukiryu/register ~/.ukiryu/register'
         say ''
         say '  2. Or set environment variable:'
         say '     export UKIRYU_REGISTER=/path/to/register'

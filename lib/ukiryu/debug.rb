@@ -12,24 +12,35 @@ module Ukiryu
   #
   # @example Disable debug logging (default)
   #   Ukiryu.debug_enabled? # => false
+  #
+  # @example Log with category
+  #   Ukiryu::Debug.log("Found executable", category: :executable)
   module Debug
     class << self
-      # Check if debug logging is enabled
+      # Check if debug logging is enabled for a category
       #
-      # Debug is enabled ONLY when UKIRYU_DEBUG environment variable is set.
-      # The ENV['CI'] check was removed to prevent debug output from polluting
-      # JSON/YAML output in automated tests.
-      #
+      # @param category [Symbol, nil] the category (:executable for UKIRYU_DEBUG_EXECUTABLE)
       # @return [Boolean] true if debug mode is enabled
-      def enabled?
-        ENV['UKIRYU_DEBUG'] || ENV['UKIRYU_DEBUG_EXECUTABLE']
+      def enabled?(category = nil)
+        case category
+        when :executable
+          ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Platform) && Platform.windows? && ENV['CI'])
+        else
+          ENV['UKIRYU_DEBUG'] || ENV['UKIRYU_DEBUG_EXECUTABLE']
+        end
       end
 
       # Log a debug message to stderr
       #
       # @param message [String] the debug message
-      def log(message)
-        warn "[UKIRYU DEBUG] #{message}" if enabled?
+      # @param category [Symbol, nil] optional category (:executable for executable discovery)
+      # @param context [Hash] optional context data
+      def log(message, category: nil, context: {})
+        return unless enabled?(category)
+
+        prefix = "[UKIRYU DEBUG#{category ? " #{category.to_s.upcase}" : ''}]"
+        details = context.empty? ? '' : " (#{context.map { |k, v| "#{k}=#{v.inspect}" }.join(', ')})"
+        warn "#{prefix} #{message}#{details}"
       end
     end
   end
