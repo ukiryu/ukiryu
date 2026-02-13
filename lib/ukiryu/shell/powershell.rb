@@ -50,6 +50,27 @@ module Ukiryu
         string.to_s.gsub(/[`"$]/) { "`#{::Regexp.last_match(0)}" }
       end
 
+      # Check if a string needs quoting for PowerShell
+      # Overrides base class to add PowerShell-specific handling
+      #
+      # In PowerShell, arguments starting with - are interpreted as PowerShell
+      # parameters when passed to the call operator (&). This causes the prefix
+      # to be stripped (e.g., -sDEVICE=pdfwrite becomes =pdfwrite).
+      # To prevent this, we must quote all arguments starting with -.
+      #
+      # @param string [String] the string to check
+      # @return [Boolean] true if quoting is needed
+      def needs_quoting?(string)
+        str = string.to_s
+        # Call super for base checks (empty, whitespace, special chars)
+        return true if super(string)
+        # PowerShell-specific: arguments starting with - must be quoted
+        # to prevent PowerShell's parameter binder from stripping the prefix
+        return true if str.start_with?('-')
+
+        false
+      end
+
       # Quote an argument for PowerShell
       # Uses single quotes for literal strings
       # Uses double quotes for executable paths (works in both cmd.exe and PowerShell)
@@ -156,7 +177,12 @@ module Ukiryu
         # Use double quotes for PowerShell -Command (works better than single quotes)
         exe_quoted = %("#{escape(executable)}")
 
-        # Quote each argument - only quote if it contains special chars or spaces
+        # Quote each argument based on needs_quoting?
+        # Note: We do NOT add special handling for -Command/-File here because
+        # this method builds a PowerShell script string (using the & call operator),
+        # not a command line for the shell. The -Command/-File handling in join()
+        # is for when building command lines where PowerShell's parameter binder
+        # would interpret -prefixed arguments.
         args_quoted = args.map do |a|
           if needs_quoting?(a)
             %("#{escape(a)}")
@@ -219,7 +245,12 @@ module Ukiryu
         # Use double quotes for PowerShell -Command (works better than single quotes)
         exe_quoted = %("#{escape(executable)}")
 
-        # Quote each argument - only quote if it contains special chars or spaces
+        # Quote each argument based on needs_quoting?
+        # Note: We do NOT add special handling for -Command/-File here because
+        # this method builds a PowerShell script string (using the & call operator),
+        # not a command line for the shell. The -Command/-File handling in join()
+        # is for when building command lines where PowerShell's parameter binder
+        # would interpret -prefixed arguments.
         args_quoted = args.map do |a|
           if needs_quoting?(a)
             %("#{escape(a)}")
