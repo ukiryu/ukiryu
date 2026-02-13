@@ -207,6 +207,73 @@ RSpec.describe Ukiryu::Shell::PowerShell do
         expect(result).to eq('echo \'``malicious``\'')
       end
     end
+
+    context 'quoting dash-prefixed arguments' do
+      it 'quotes arguments starting with dash' do
+        result = shell.join('gswin64c.exe', '-sDEVICE=pdfwrite', 'input.eps')
+        expect(result).to eq('gswin64c.exe \'-sDEVICE=pdfwrite\' input.eps')
+      end
+
+      it 'quotes multiple dash-prefixed arguments' do
+        result = shell.join('gswin64c.exe', '-sDEVICE=pdfwrite',
+                            '-sOutputFile=output.pdf', '-dBATCH', 'input.eps')
+        expect(result).to eq('gswin64c.exe \'-sDEVICE=pdfwrite\' ' \
+                             '\'-sOutputFile=output.pdf\' \'-dBATCH\' input.eps')
+      end
+
+      it 'quotes ImageMagick-style options' do
+        result = shell.join('magick', 'input.png', '-resize', '50x50', 'output.png')
+        expect(result).to eq('magick input.png \'-resize\' 50x50 output.png')
+      end
+
+      it 'still handles -Command specially (not quoted, next arg not quoted)' do
+        result = shell.join('powershell', '-Command', 'Write-Host hello')
+        expect(result).to eq('powershell -Command Write-Host hello')
+      end
+
+      it 'still handles -File specially (not quoted, next arg not quoted)' do
+        result = shell.join('powershell', '-File', 'script.ps1')
+        expect(result).to eq('powershell -File script.ps1')
+      end
+
+      it 'quotes dash-prefixed args after -Command script' do
+        result = shell.join('powershell', '-Command', 'script.ps1', '-SomeFlag')
+        expect(result).to eq('powershell -Command script.ps1 \'-SomeFlag\'')
+      end
+    end
+  end
+
+  describe '#needs_quoting?' do
+    it 'returns true for empty strings' do
+      expect(shell.needs_quoting?('')).to be true
+    end
+
+    it 'returns true for strings with whitespace' do
+      expect(shell.needs_quoting?('hello world')).to be true
+    end
+
+    it 'returns true for strings with special characters' do
+      expect(shell.needs_quoting?('hello;world')).to be true
+      expect(shell.needs_quoting?('hello&world')).to be true
+      expect(shell.needs_quoting?('hello|world')).to be true
+    end
+
+    it 'returns true for strings starting with dash' do
+      expect(shell.needs_quoting?('-sDEVICE=pdfwrite')).to be true
+      expect(shell.needs_quoting?('-resize')).to be true
+      expect(shell.needs_quoting?('-dBATCH')).to be true
+      expect(shell.needs_quoting?('-')).to be true
+    end
+
+    it 'returns false for simple strings' do
+      expect(shell.needs_quoting?('hello')).to be false
+      expect(shell.needs_quoting?('input.eps')).to be false
+      expect(shell.needs_quoting?('output.pdf')).to be false
+    end
+
+    it 'returns false for strings with dollar sign (PowerShell treats as literal)' do
+      expect(shell.needs_quoting?('$VAR')).to be false
+    end
   end
 
   describe '#format_path' do
