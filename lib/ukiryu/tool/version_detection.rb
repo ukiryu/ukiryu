@@ -26,9 +26,7 @@ module Ukiryu
         return nil unless vd
 
         # Check for new detection_methods array format
-        if vd.respond_to?(:detection_methods) && vd.detection_methods && !vd.detection_methods.empty?
-          return detect_version_with_detection_methods(vd.detection_methods)
-        end
+        return detect_version_with_detection_methods(vd.detection_methods) if vd.respond_to?(:detection_methods) && vd.detection_methods && !vd.detection_methods.empty?
 
         # Legacy format: command-based detection
         return nil if vd.command.nil? || vd.command.empty?

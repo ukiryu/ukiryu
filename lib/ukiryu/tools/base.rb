@@ -259,7 +259,8 @@ module Ukiryu
         args = build_args(command_def, params)
 
         # Find executable using ExecutableFinder
-        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s,
+                                                              self.class.tool_definition)
 
         # Get shell
         shell_sym = Ukiryu::Runtime.instance.shell
@@ -425,7 +426,8 @@ module Ukiryu
 
         cmd = vd.command
 
-        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s, self.class.tool_definition)
+        executable = Ukiryu::ExecutableFinder.find_executable(self.class.tool_definition.name.to_s,
+                                                              self.class.tool_definition)
         return nil unless executable
 
         shell_sym = Ukiryu::Runtime.instance.shell

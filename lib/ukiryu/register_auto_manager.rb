@@ -49,7 +49,7 @@ module Ukiryu
         # 2. Check development register (../../../register relative to this file)
         # Use Pathname for reliable path calculation
         this_file = Pathname.new(__FILE__).realpath
-        dev_path = this_file.parent.parent.parent.parent + 'register'
+        dev_path = "#{this_file.parent.parent.parent.parent}register"
         if dev_path.exist?
           warn "[UKIRYU DEBUG RegisterAutoManager] Using DEV register: #{dev_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
           return dev_path.to_s
@@ -301,7 +301,7 @@ module Ukiryu
         # Check development register (../../../register relative to this file)
         # Use Pathname for reliable path calculation
         this_file = Pathname.new(__FILE__).realpath
-        dev_path = this_file.parent.parent.parent.parent + 'register'
+        dev_path = "#{this_file.parent.parent.parent.parent}register"
         return dev_path.to_s if dev_path.exist?
 
         # Check user clone

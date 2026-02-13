@@ -298,7 +298,8 @@ module Ukiryu
         # @param detected_version [String, nil] detected version
         # @param options [Hash] options
         # @return [ToolDefinition] converted tool definition
-        def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, detected_version, options = {})
+        def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, detected_version,
+                                       options = {})
           require_relative '../models/tool_definition'
           require_relative '../models/platform_profile'
 

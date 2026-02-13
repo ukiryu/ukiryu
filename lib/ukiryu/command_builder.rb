@@ -17,8 +17,9 @@ module Ukiryu
     def build_args(command, params)
       args = []
 
-      # Debug logging for Ruby 4.0 CI - log all params
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+      # Debug logging for CI - log all params
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Platform) && Platform.windows? && ENV['CI'])
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] command: #{command.name}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] params: #{params.inspect}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] params.class: #{params.class}"
       end
@@ -124,11 +125,14 @@ module Ukiryu
         end
       end
 
-      # Debug logging for Ruby 4.0 CI
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] Built args: #{args.inspect}"
+      # Debug logging for CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Platform) && Platform.windows? && ENV['CI'])
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] Final args: #{args.inspect}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] Args class: #{args.class}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] Args size: #{args.size}"
+        args.each_with_index do |arg, i|
+          warn "[UKIRYU DEBUG CommandBuilder#build_args] args[#{i}]: #{arg.inspect} (#{arg.class})"
+        end
       end
 
       args

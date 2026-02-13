@@ -95,11 +95,11 @@ module Ukiryu
             # Prefer implementation-level default, then version-level default, then last version
             impl_default = impl[:default] || impl['default']
             version_spec = if impl_default
-                            # Find version spec matching the implementation default
-                            versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
+                             # Find version spec matching the implementation default
+                             versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
                            else
-                            versions.find { |v| v[:default] || v['default'] } || versions.last
-                          end
+                             versions.find { |v| v[:default] || v['default'] } || versions.last
+                           end
             return {
               implementation_name: impl[:name] || impl['name'],
               version: nil,
@@ -128,11 +128,11 @@ module Ukiryu
         # Prefer implementation-level default, then version-level default, then last version
         impl_default = impl[:default] || impl['default']
         default_spec = if impl_default
-                        # Find version spec matching the implementation default
-                        versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
+                         # Find version spec matching the implementation default
+                         versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
                        else
-                        versions.find { |v| v[:default] || v['default'] } || versions.last
-                      end
+                         versions.find { |v| v[:default] || v['default'] } || versions.last
+                       end
         {
           implementation_name: impl[:name] || impl['name'],
           version: nil,
@@ -226,14 +226,14 @@ module Ukiryu
 
         versions.each do |version_spec|
           range_type = if version_spec[:equals]
-  :equals
+                         :equals
                        elsif version_spec[:before]
-  :before
+                         :before
                        elsif version_spec[:after]
-  :after
+                         :after
                        else
-  version_spec[:between] ? :between : nil
-end
+                         version_spec[:between] ? :between : nil
+                       end
 
           next unless range_type
 
@@ -267,7 +267,8 @@ end
       # @param implementation_name [String] implementation name
       # @param options [Hash] options
       # @return [ToolDefinition] converted tool definition
-      def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, detected_version, options = {})
+      def convert_to_tool_definition(tool_name, interface, impl_version, implementation_name, detected_version,
+                                     options = {})
         require_relative 'models/tool_definition'
         require_relative 'models/platform_profile'
 
@@ -282,13 +283,13 @@ end
         # Build ToolDefinition from execution profile
         # Note: implements must be an array for the v2 model
         # Only append implementation name for non-default implementations
-        specific_tool_name = if implementation_name && implementation_name != 'default'
-                               "#{tool_name}_#{implementation_name}"
-                             else
-                               tool_name
-                             end
+        if implementation_name && implementation_name != 'default'
+          "#{tool_name}_#{implementation_name}"
+        else
+          tool_name
+        end
         # Use detected version if available, otherwise fall back to YAML version
-        version = detected_version || impl_version.version
+        detected_version || impl_version.version
         # Build ToolDefinition from execution profile
         # Note: implements must be an array for the v2 model
         # Only append implementation name for non-default implementations
@@ -343,11 +344,11 @@ end
       # @return [Hash] profile hash
       def convert_profile_to_hash(profile, actions)
         # Handle both Hash and ExecutionProfile objects
+        actions_hash = actions || {}
+        commands_array = convert_actions_to_array(actions_hash)
         if profile.is_a?(Hash)
           # Use the actions parameter (interface.actions), not profile[:actions]
-          actions_hash = actions || {}
           # Convert actions hash to array format expected by ToolDefinition
-          commands_array = convert_actions_to_array(actions_hash)
           {
             'name' => profile[:name] || profile['name'],
             'display_name' => profile[:display_name] || profile['display_name'],
@@ -358,8 +359,6 @@ end
             'commands' => commands_array
           }
         else
-          actions_hash = actions || {}
-          commands_array = convert_actions_to_array(actions_hash)
           {
             'name' => profile.name,
             'display_name' => profile.display_name,
@@ -407,25 +406,25 @@ end
         # If profile has commands, merge them with interface actions
         # If profile has no commands, use interface actions directly
         command_definitions = if profile_commands.nil? || profile_commands.empty?
-          # No profile commands - use interface actions directly
-          interface_commands_hash.map do |_cmd_name, cmd_hash|
-            convert_hash_to_command_definition(cmd_hash)
-          end
+                                # No profile commands - use interface actions directly
+                                interface_commands_hash.map do |_cmd_name, cmd_hash|
+                                  convert_hash_to_command_definition(cmd_hash)
+                                end
                               else
-          # Profile has commands - merge with interface actions
-          profile_commands.map do |cmd_hash|
-            # Command name may be specified as 'name' or 'subcommand' field
-            cmd_name = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
-            # Merge profile command data with interface action data
-            interface_cmd = interface_commands_hash[cmd_name]
-            merged_cmd_hash = if interface_cmd
-                                # Deep merge: profile data takes precedence
-                                deep_merge_hashes(interface_cmd, cmd_hash)
-                              else
-                                cmd_hash
-                              end
-            convert_hash_to_command_definition(merged_cmd_hash)
-          end
+                                # Profile has commands - merge with interface actions
+                                profile_commands.map do |cmd_hash|
+                                  # Command name may be specified as 'name' or 'subcommand' field
+                                  cmd_name = cmd_hash[:name] || cmd_hash['name'] || cmd_hash[:subcommand] || cmd_hash['subcommand']
+                                  # Merge profile command data with interface action data
+                                  interface_cmd = interface_commands_hash[cmd_name]
+                                  merged_cmd_hash = if interface_cmd
+                                                      # Deep merge: profile data takes precedence
+                                                      deep_merge_hashes(interface_cmd, cmd_hash)
+                                                    else
+                                                      cmd_hash
+                                                    end
+                                  convert_hash_to_command_definition(merged_cmd_hash)
+                                end
                               end
 
         # Create PlatformProfile
@@ -467,7 +466,7 @@ end
           warn "[UKIRYU DEBUG build_command_definition] cmd.name: #{cmd_hash['name'] || cmd_hash[:name]}"
           warn "[UKIRYU DEBUG build_command_definition] post_options_data: #{post_options_data.inspect}"
           warn "[UKIRYU DEBUG build_command_definition] post_options_data.class: #{post_options_data.class}" if post_options_data
-          if post_options_data && post_options_data.is_a?(Array)
+          if post_options_data.is_a?(Array)
             post_options_data.first(2).each do |opt|
               warn "[UKIRYU DEBUG build_command_definition] post_option: #{opt.inspect}"
             end
@@ -529,7 +528,8 @@ end
                                    when 'inputs' then 'arguments'
                                    else nested_key.to_s
                                    end
-                      command_def[target_key.to_sym] = nested_value unless [:signature, 'signature'].include?(nested_key)
+                      command_def[target_key.to_sym] = nested_value unless [:signature,
+                                                                            'signature'].include?(nested_key)
                     end
                   else
                     command_def[key] = value
@@ -966,9 +966,7 @@ end
       # Normalize params to hash with symbol keys
       params = normalize_params(params)
 
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG execute_simple] params (after normalize): #{params.inspect}"
-      end
+      warn "[UKIRYU DEBUG execute_simple] params (after normalize): #{params.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
       # Extract stdin parameter if present (special parameter, not passed to command)
       stdin = params.delete(:stdin)
@@ -1000,10 +998,10 @@ end
                                # Use command-specific executable if profile explicitly allows it
                                # This is determined by checking if the command has standalone_executable: true
                                allows_standalone = if command.respond_to?(:standalone_executable?)
-                                                   command.standalone_executable?
+                                                     command.standalone_executable?
                                                    else
-                                                   false
-                                                 end
+                                                     false
+                                                   end
 
                                same_dir_as_exec = allows_standalone &&
                                                   File.executable?(exe_path) &&

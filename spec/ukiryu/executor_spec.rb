@@ -152,7 +152,8 @@ RSpec.describe Ukiryu::Executor do
         # Use platform-appropriate command that exits with specific code
         result = if Ukiryu::Platform.windows?
                    # Windows: PowerShell supports exit codes
-                   executor.execute('powershell', ['-Command', 'exit 42'], allow_failure: true, shell: :powershell, timeout: 30)
+                   executor.execute('powershell', ['-Command', 'exit 42'], allow_failure: true, shell: :powershell,
+                                                                           timeout: 30)
                  else
                    executor.execute('sh', ['-c', 'exit 42'], allow_failure: true, shell: shell_symbol, timeout: 30)
                  end
@@ -215,7 +216,8 @@ RSpec.describe Ukiryu::Executor do
         # Use echo as a cross-platform command that always works
         result = if Ukiryu::Platform.windows?
                    # On Windows with PowerShell, use echo command via PowerShell
-                   executor.execute('powershell', ['-Command', 'echo test'], allow_failure: true, shell: :powershell, timeout: 90)
+                   executor.execute('powershell', ['-Command', 'echo test'], allow_failure: true, shell: :powershell,
+                                                                             timeout: 90)
                  else
                    executor.execute('echo', ['test'], allow_failure: true, shell: shell_symbol, timeout: 90)
                  end
@@ -415,7 +417,8 @@ RSpec.describe Ukiryu::Executor do
     end
 
     it 'handles commands with special characters in arguments' do
-      result = executor.execute('echo', ['hello "quoted" test\'s'], allow_failure: true, shell: shell_symbol, timeout: 90)
+      result = executor.execute('echo', ['hello "quoted" test\'s'], allow_failure: true, shell: shell_symbol,
+                                                                    timeout: 90)
 
       expect(result.stdout.strip).to include('hello')
     end

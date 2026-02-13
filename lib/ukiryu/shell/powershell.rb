@@ -2,6 +2,7 @@
 
 require 'open3'
 require 'timeout'
+require 'tempfile'
 
 module Ukiryu
   module Shell
@@ -42,11 +43,25 @@ module Ukiryu
       end
 
       # Escape a string for PowerShell
-      # Backtick is the escape character for: ` $ "
+      # - Single quotes are escaped by doubling them (for single-quoted strings)
+      # - Backtick, dollar, and double quotes are escaped with backtick (for double-quoted strings)
+      #
+      # Note: This method escapes for single-quoted strings by default since we use
+      # single quotes for arguments to prevent parameter binding issues.
       #
       # @param string [String] the string to escape
       # @return [String] the escaped string
       def escape(string)
+        # For single-quoted strings, escape single quotes by doubling them
+        string.to_s.gsub("'", "''")
+      end
+
+      # Escape a string for double-quoted PowerShell strings
+      # Used for executable paths which need double quotes
+      #
+      # @param string [String] the string to escape
+      # @return [String] the escaped string
+      def escape_for_double_quotes(string)
         string.to_s.gsub(/[`"$]/) { "`#{::Regexp.last_match(0)}" }
       end
 
@@ -58,6 +73,8 @@ module Ukiryu
       # to be stripped (e.g., -sDEVICE=pdfwrite becomes =pdfwrite).
       # To prevent this, we must quote all arguments starting with -.
       #
+      # Also, arguments containing $ must be quoted to prevent variable expansion.
+      #
       # @param string [String] the string to check
       # @return [Boolean] true if quoting is needed
       def needs_quoting?(string)
@@ -67,26 +84,25 @@ module Ukiryu
         # PowerShell-specific: arguments starting with - must be quoted
         # to prevent PowerShell's parameter binder from stripping the prefix
         return true if str.start_with?('-')
+        # PowerShell-specific: arguments containing $ must be quoted
+        # to prevent variable expansion
+        return true if str.include?('$')
 
         false
       end
 
       # Quote an argument for PowerShell
-      # Uses single quotes for literal strings
-      # Uses double quotes for executable paths (works in both cmd.exe and PowerShell)
+      # Uses double quotes for all arguments to prevent PowerShell's parameter
+      # binder from stripping dash prefixes. Double quotes work consistently
+      # across both the call operator (&) and Start-Process.
       #
       # @param string [String] the string to quote
-      # @param for_exe [Boolean] true if quoting for executable path
+      # @param for_exe [Boolean] true if quoting for executable path (same behavior)
       # @return [String] the quoted string
       def quote(string, for_exe: false)
-        if for_exe
-          # For executable paths, use double quotes which work in both cmd.exe and PowerShell
-          # This is needed because Ruby's Open3 uses cmd.exe on Windows, not PowerShell
-          "\"#{string}\""
-        else
-          # For arguments, use single quotes for literal strings
-          "'#{escape(string)}'"
-        end
+        # Always use double quotes - this prevents PowerShell's parameter binder
+        # from stripping dash prefixes in all contexts (call operator, Start-Process)
+        "\"#{escape_for_double_quotes(string)}\""
       end
 
       # Format an environment variable reference
@@ -107,12 +123,20 @@ module Ukiryu
       # @param args [Array<String>] the arguments
       # @return [String] the complete command line
       def join(executable, *args)
-        # Debug logging for Ruby 4.0 CI
+        # Debug logging for CI - helps identify where prefix stripping might occur
         if ENV['UKIRYU_DEBUG_EXECUTABLE']
           warn "[UKIRYU DEBUG PowerShell#join] executable: #{executable.inspect}"
           warn "[UKIRYU DEBUG PowerShell#join] args: #{args.inspect}"
           warn "[UKIRYU DEBUG PowerShell#join] args.size: #{args.size}"
           warn "[UKIRYU DEBUG PowerShell#join] args.class: #{args.class}"
+          args.each_with_index do |a, i|
+            warn "[UKIRYU DEBUG PowerShell#join] args[#{i}]: #{a.inspect} (#{a.class})"
+            # Check for nested arrays which would cause stringification issues
+            if a.is_a?(Array)
+              warn "[UKIRYU DEBUG PowerShell#join] WARNING: args[#{i}] is a NESTED ARRAY!"
+              warn "[UKIRYU DEBUG PowerShell#join] This will be converted to string: #{a.to_s.inspect}"
+            end
+          end
         end
 
         # Quote executable if it needs quoting (e.g., contains spaces)
@@ -161,9 +185,13 @@ module Ukiryu
 
       # Execute a command using PowerShell
       #
-      # Uses PowerShell's -Command flag to execute the command string.
-      # The executable and arguments are quoted individually and passed to
-      # PowerShell's call operator &.
+      # Uses Start-Process to avoid PowerShell's parameter binder stripping
+      # dash-prefixed arguments. The call operator (&) in PowerShell still
+      # interprets arguments starting with - as parameters even when quoted,
+      # causing -sDEVICE=pdfwrite to become =pdfwrite.
+      #
+      # Start-Process with -ArgumentList passes arguments verbatim without
+      # any parameter binding interference.
       #
       # @param executable [String] the executable path
       # @param args [Array<String>] command arguments
@@ -173,33 +201,45 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command(executable, args, env, timeout, cwd = nil)
-        # Build the command with proper quoting for each element
-        # Use double quotes for PowerShell -Command (works better than single quotes)
-        exe_quoted = %("#{escape(executable)}")
-
-        # Quote each argument based on needs_quoting?
-        # Note: We do NOT add special handling for -Command/-File here because
-        # this method builds a PowerShell script string (using the & call operator),
-        # not a command line for the shell. The -Command/-File handling in join()
-        # is for when building command lines where PowerShell's parameter binder
-        # would interpret -prefixed arguments.
-        args_quoted = args.map do |a|
-          if needs_quoting?(a)
-            %("#{escape(a)}")
-          else
-            a
+        # Debug logging for CI - helps identify where prefix stripping might occur
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG PowerShell#execute_command] executable: #{executable.inspect}"
+          warn "[UKIRYU DEBUG PowerShell#execute_command] args: #{args.inspect}"
+          warn "[UKIRYU DEBUG PowerShell#execute_command] args.class: #{args.class}"
+          args.each_with_index do |a, i|
+            warn "[UKIRYU DEBUG PowerShell#execute_command] args[#{i}]: #{a.inspect} (#{a.class})"
+            # Check for nested arrays which would cause stringification issues
+            warn "[UKIRYU DEBUG PowerShell#execute_command] WARNING: args[#{i}] is a NESTED ARRAY!" if a.is_a?(Array)
           end
         end
 
-        # Build PowerShell command: & "executable" "arg1" "arg2" ...
-        # Append "; exit $LASTEXITCODE" to properly propagate exit codes from
-        # the invoked command/program back through the PowerShell wrapper
-        ps_command_base = if args_quoted.empty?
-                            "& #{exe_quoted}"
-                          else
-                            "& #{exe_quoted} #{args_quoted.join(' ')}"
-                          end
-        ps_command = "#{ps_command_base}; exit $LASTEXITCODE"
+        # Build arguments array for Start-Process -ArgumentList
+        # ALL arguments must be quoted consistently for the PowerShell array literal
+        args_escaped = args.map do |a|
+          # Escape special characters for double-quoted strings in PowerShell
+          # Backticks and dollar signs need escaping with backtick
+          escaped = a.to_s.gsub(/[`$]/) { "`#{::Regexp.last_match(0)}" }.gsub('"', '`"')
+          %("#{escaped}")
+        end
+
+        # Build the argument list string
+        arg_list = args_escaped.join(', ')
+
+        # Build PowerShell command using Start-Process
+        # This avoids the call operator's parameter binding issues
+        exe_escaped = executable.to_s.gsub('"', '`"')
+
+        ps_command = if args.empty?
+                       <<~PS.strip
+                         $p = Start-Process -FilePath "#{exe_escaped}" -NoNewWindow -Wait -PassThru
+                         exit $p.ExitCode
+                       PS
+                     else
+                       <<~PS.strip
+                         $p = Start-Process -FilePath "#{exe_escaped}" -ArgumentList @(#{arg_list}) -NoNewWindow -Wait -PassThru
+                         exit $p.ExitCode
+                       PS
+                     end
 
         # Convert Environment to Hash ONLY at Open3 call site
         env_hash = environment_to_h(env)
@@ -228,9 +268,7 @@ module Ukiryu
 
       # Execute a command with stdin input using PowerShell
       #
-      # Uses PowerShell's -Command flag to execute the command string.
-      # The executable and arguments are quoted individually and passed to
-      # PowerShell's call operator &.
+      # Uses Start-Process with -RedirectStandardInput for stdin handling.
       #
       # @param executable [String] the executable path
       # @param args [Array<String>] command arguments
@@ -241,78 +279,62 @@ module Ukiryu
       # @return [Hash] execution result with :status, :stdout, :stderr keys
       # @raise [Timeout::Error] if command times out
       def execute_command_with_stdin(executable, args, env, timeout, cwd, stdin_data)
-        # Build the command with proper quoting for each element
-        # Use double quotes for PowerShell -Command (works better than single quotes)
-        exe_quoted = %("#{escape(executable)}")
-
-        # Quote each argument based on needs_quoting?
-        # Note: We do NOT add special handling for -Command/-File here because
-        # this method builds a PowerShell script string (using the & call operator),
-        # not a command line for the shell. The -Command/-File handling in join()
-        # is for when building command lines where PowerShell's parameter binder
-        # would interpret -prefixed arguments.
-        args_quoted = args.map do |a|
-          if needs_quoting?(a)
-            %("#{escape(a)}")
-          else
-            a
-          end
+        # Build arguments for Start-Process -ArgumentList
+        # ALL arguments must be quoted consistently
+        args_escaped = args.map do |a|
+          escaped = a.to_s.gsub(/[`$]/) { "`#{::Regexp.last_match(0)}" }.gsub('"', '`"')
+          %("#{escaped}")
         end
+        arg_list = args_escaped.join(', ')
 
-        # Build PowerShell command: & "executable" "arg1" "arg2" ...
-        # Append "; exit $LASTEXITCODE" to properly propagate exit codes from
-        # the invoked command/program back through the PowerShell wrapper
-        ps_command_base = if args_quoted.empty?
-                            "& #{exe_quoted}"
-                          else
-                            "& #{exe_quoted} #{args_quoted.join(' ')}"
-                          end
-        ps_command = "#{ps_command_base}; exit $LASTEXITCODE"
+        exe_escaped = executable.to_s.gsub('"', '`"')
 
-        # Convert Environment to Hash ONLY at Open3 call site
-        env_hash = environment_to_h(env)
+        # Write stdin to temp file for redirection
+        stdin_file = Tempfile.new('ukiryu_stdin')
+        begin
+          if stdin_data.is_a?(IO)
+            IO.copy_stream(stdin_data, stdin_file)
+          elsif stdin_data.is_a?(String)
+            stdin_file.write(stdin_data)
+          end
+          stdin_file.close
 
-        # Execute using PowerShell's -Command flag
-        Timeout.timeout(timeout) do
-          execution = lambda do
-            Open3.popen3(env_hash, powershell_command, '-NoLogo', '-Command',
-                         ps_command) do |stdin, stdout, stderr, wait_thr|
-              # Write stdin data
-              begin
-                if stdin_data.is_a?(IO)
-                  IO.copy_stream(stdin_data, stdin)
-                elsif stdin_data.is_a?(String)
-                  stdin.write(stdin_data)
-                end
-              rescue Errno::EPIPE
-                # Process closed stdin early
-              ensure
-                stdin.close
-              end
+          stdin_path = stdin_file.path.gsub('\\', '\\\\').gsub('"', '`"')
 
-              # Read output
-              out = stdout.read
-              err = stderr.read
+          ps_command = if args.empty?
+                         <<~PS.strip
+                           $p = Start-Process -FilePath "#{exe_escaped}" -NoNewWindow -Wait -PassThru -RedirectStandardInput "#{stdin_path}"
+                           exit $p.ExitCode
+                         PS
+                       else
+                         <<~PS.strip
+                           $p = Start-Process -FilePath "#{exe_escaped}" -ArgumentList @(#{arg_list}) -NoNewWindow -Wait -PassThru -RedirectStandardInput "#{stdin_path}"
+                           exit $p.ExitCode
+                         PS
+                       end
 
-              # Wait for process to complete
-              status = wait_thr.value
+          env_hash = environment_to_h(env)
 
+          Timeout.timeout(timeout) do
+            execution = lambda do
+              stdout, stderr, status = Open3.capture3(env_hash, powershell_command, '-NoLogo', '-Command', ps_command)
               {
                 status: Ukiryu::Executor.extract_status(status),
-                stdout: out,
-                stderr: err
+                stdout: stdout,
+                stderr: stderr
               }
             end
-          end
 
-          if cwd
-            Dir.chdir(cwd) { execution.call }
-          else
-            execution.call
+            if cwd
+              Dir.chdir(cwd) { execution.call }
+            else
+              execution.call
+            end
           end
+        ensure
+          stdin_file.unlink
         end
       rescue Timeout::Error, Timeout::ExitException
-        # Re-raise with context
         raise Timeout::Error, "Command timed out after #{timeout}s: #{executable}"
       end
     end
