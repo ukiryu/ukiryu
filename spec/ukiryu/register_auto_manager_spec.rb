@@ -41,10 +41,16 @@ RSpec.describe Ukiryu::RegisterAutoManager do
       it 'returns a String path when dev register exists' do
         # The dev register (../../register from gem) should exist in development
         # This tests that Pathname#join is used correctly instead of string interpolation
-        result = described_class.send(:register_path)
+        result = begin
+          described_class.send(:register_path)
+        rescue Ukiryu::RegisterAutoManager::RegisterError
+          # Git not available on this system - skip auto-clone test
+          nil
+        end
 
         # In development, the dev register should be found
         # In CI or other environments, it might fall back to user clone
+        # If git is not available, result will be nil
         expect(result).to be_a(String).or be_nil
       end
 
@@ -52,7 +58,15 @@ RSpec.describe Ukiryu::RegisterAutoManager do
         # This specifically tests that dev_path is a Pathname, not a String
         # The bug was: dev_path = "#{pathname}string" creates a String
         # The fix is: dev_path = pathname.join('string') keeps it as Pathname
-        expect { described_class.send(:register_path) }.not_to raise_error
+        #
+        # If git is not available and no register exists, RegisterError is expected
+        # The important thing is that we don't get NoMethodError for String#exist?
+        expect do
+          described_class.send(:register_path)
+        rescue Ukiryu::RegisterAutoManager::RegisterError
+          # Git not available - this is OK, we're testing for Pathname bug
+          nil
+        end.not_to raise_error
       end
     end
   end
