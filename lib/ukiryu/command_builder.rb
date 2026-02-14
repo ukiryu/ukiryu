@@ -46,6 +46,12 @@ module Ukiryu
         next if params[param_key].nil?
 
         formatted_opt = format_option(opt_def, params[param_key])
+
+        # Debug logging
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG build_args] formatted_opt for #{param_key}: #{formatted_opt.inspect}"
+        end
+
         Array(formatted_opt).each { |opt| args << opt unless opt.nil? || opt.empty? }
       end
 
@@ -165,6 +171,14 @@ module Ukiryu
       # Validate type
       Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
 
+      # Debug logging - trace the full option formatting
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG format_option] opt_def.name: #{opt_def.name.inspect}"
+        warn "[UKIRYU DEBUG format_option] opt_def.cli: #{opt_def.cli.inspect}"
+        warn "[UKIRYU DEBUG format_option] opt_def.assignment_delimiter: #{opt_def.assignment_delimiter.inspect}"
+        warn "[UKIRYU DEBUG format_option] value: #{value.inspect} (#{value.class})"
+      end
+
       # Handle boolean types - just return the CLI flag (no value)
       type_val = opt_def.type
       if [:boolean, TrueClass, 'boolean'].include?(type_val)
@@ -177,8 +191,13 @@ module Ukiryu
       delimiter_sym = opt_def.assignment_delimiter_sym
       separator = opt_def.separator || '='
 
+      warn "[UKIRYU DEBUG format_option] cli variable: #{cli.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+      warn "[UKIRYU DEBUG format_option] delimiter_sym: #{delimiter_sym.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
       # Auto-detect delimiter based on CLI prefix
       delimiter_sym = detect_delimiter(cli) if delimiter_sym == :auto
+
+      warn "[UKIRYU DEBUG format_option] delimiter_sym after detect: #{delimiter_sym.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
       # Convert value to string (handle symbols)
       value_str = value.is_a?(Symbol) ? value.to_s : value.to_s
@@ -188,15 +207,15 @@ module Ukiryu
         joined = value.join(separator)
         case delimiter_sym
         when :equals
-          "#{cli}=#{joined}"
+          result = "#{cli}=#{joined}"
         when :space
-          [cli, joined] # Return array for space-separated
+          result = [cli, joined] # Return array for space-separated
         when :colon
-          "#{cli}:#{joined}"
+          result = "#{cli}:#{joined}"
         when :none
-          cli
+          result = cli
         else
-          "#{cli}=#{joined}"
+          result = "#{cli}=#{joined}"
         end
       else
         result = case delimiter_sym
@@ -211,15 +230,15 @@ module Ukiryu
                  else
                    "#{cli}=#{value_str}"
                  end
-
-        # Debug logging for Ruby 3.4+ CI
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG format_option] result: #{result.inspect}"
-          warn "[UKIRYU DEBUG format_option] result.class: #{result.class}"
-        end
-
-        result
       end
+
+      # Debug logging for Ruby 3.4+ CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG format_option] FINAL result: #{result.inspect}"
+        warn "[UKIRYU DEBUG format_option] result.class: #{result.class}"
+      end
+
+      result
     end
 
     # Detect assignment delimiter based on CLI prefix
