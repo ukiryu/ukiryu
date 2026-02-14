@@ -216,14 +216,25 @@ module Ukiryu
         # Build arguments array for Start-Process -ArgumentList
         # ALL arguments must be quoted consistently for the PowerShell array literal
         args_escaped = args.map do |a|
+          # Debug logging
+          if ENV['UKIRYU_DEBUG_EXECUTABLE']
+            warn "[UKIRYU DEBUG PowerShell#execute_command] escaping arg: #{a.inspect}"
+          end
           # Escape special characters for double-quoted strings in PowerShell
           # Backticks and dollar signs need escaping with backtick
           escaped = a.to_s.gsub(/[`$]/) { "`#{::Regexp.last_match(0)}" }.gsub('"', '`"')
-          %("#{escaped}")
+          result = %("#{escaped}")
+          if ENV['UKIRYU_DEBUG_EXECUTABLE']
+            warn "[UKIRYU DEBUG PowerShell#execute_command] escaped to: #{result.inspect}"
+          end
+          result
         end
 
         # Build the argument list string
         arg_list = args_escaped.join(', ')
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG PowerShell#execute_command] arg_list: #{arg_list.inspect}"
+        end
 
         # Build PowerShell command using Start-Process
         # This avoids the call operator's parameter binding issues
@@ -240,6 +251,10 @@ module Ukiryu
                          exit $p.ExitCode
                        PS
                      end
+
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG PowerShell#execute_command] ps_command:\n#{ps_command}"
+        end
 
         # Convert Environment to Hash ONLY at Open3 call site
         env_hash = environment_to_h(env)
