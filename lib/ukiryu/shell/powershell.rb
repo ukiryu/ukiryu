@@ -115,63 +115,25 @@ module Ukiryu
 
       # Format a file path for PowerShell on Windows
       #
-      # For paths with spaces that exist on disk, we try to use Windows short path
-      # format (8.3) to work around tools like Ghostscript that can't handle spaces.
-      # For paths that don't exist or don't have spaces, we keep them as-is.
+      # For paths with spaces, we use double quote escaping to properly handle
+      # them when passed as arguments to external commands like Ghostscript.
+      # This is more reliable than using Windows short paths (8.3 format).
       #
       # @param path [String] the file path
       # @return [String] the formatted path
       def format_path(path)
-        return path.to_s unless Platform.windows?
-
         path_str = path.to_s
 
-        # Only convert if path has spaces AND exists (so we can get its short path)
-        if path_str.include?(' ') && (File.exist?(path_str) || File.directory?(path_str))
-          short_path = get_short_path(path_str)
-          return short_path if short_path
+        # On Windows, if the path contains spaces, wrap it in escaped double quotes
+        # This ensures tools like Ghostscript receive the path correctly
+        if Platform.windows? && path_str.include?(' ')
+          # Escape the path for double-quoted context (escape internal quotes)
+          escaped = escape_for_double_quotes(path_str)
+          # Return with escaped double quotes around it
+          "`\"#{escaped}`\""
+        else
+          path_str
         end
-
-        path_str
-      end
-
-      # Get Windows short path (8.3 format) for an existing path
-      # This eliminates spaces which cause issues with tools like Ghostscript
-      #
-      # @param path [String] the long path (must exist)
-      # @return [String, nil] the short path or nil if conversion failed
-      def get_short_path(path)
-        return nil unless Platform.windows?
-
-        # Convert forward slashes to backslashes for Windows API
-        win_path = path.tr('/', '\\')
-
-        # Use PowerShell to call Windows API GetShortPathName
-        ps_script = <<~PS
-          $path = '#{win_path.gsub("'", "''")}'
-          try {
-            $short = (New-Object -ComObject Scripting.FileSystemObject).GetFile($path).ShortPath
-            if ($short) { $short } else { $path }
-          } catch {
-            try {
-              $short = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($path).ShortPath
-              if ($short) { $short } else { $path }
-            } catch {
-              $path
-            }
-          }
-        PS
-
-        stdout, _stderr, status = Open3.capture3(
-          powershell_command, '-NoLogo', '-NonInteractive', '-Command', ps_script
-        )
-
-        result = stdout.strip
-        return nil unless status.success? && !result.empty? && result != win_path
-
-        result
-      rescue StandardError
-        nil
       end
 
       # Join executable and arguments into a command line
@@ -278,24 +240,18 @@ module Ukiryu
         # ALL arguments must be quoted consistently for the PowerShell array literal
         args_escaped = args.map do |a|
           # Debug logging
-          if ENV['UKIRYU_DEBUG_EXECUTABLE']
-            warn "[UKIRYU DEBUG PowerShell#execute_command] escaping arg: #{a.inspect}"
-          end
+          warn "[UKIRYU DEBUG PowerShell#execute_command] escaping arg: #{a.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
           # Escape special characters for double-quoted strings in PowerShell
           # Backticks and dollar signs need escaping with backtick
           escaped = a.to_s.gsub(/[`$]/) { "`#{::Regexp.last_match(0)}" }.gsub('"', '`"')
           result = %("#{escaped}")
-          if ENV['UKIRYU_DEBUG_EXECUTABLE']
-            warn "[UKIRYU DEBUG PowerShell#execute_command] escaped to: #{result.inspect}"
-          end
+          warn "[UKIRYU DEBUG PowerShell#execute_command] escaped to: #{result.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
           result
         end
 
         # Build the argument list string
         arg_list = args_escaped.join(', ')
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG PowerShell#execute_command] arg_list: #{arg_list.inspect}"
-        end
+        warn "[UKIRYU DEBUG PowerShell#execute_command] arg_list: #{arg_list.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
         # Build PowerShell command using Start-Process
         # This avoids the call operator's parameter binding issues
@@ -313,9 +269,7 @@ module Ukiryu
                        PS
                      end
 
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG PowerShell#execute_command] ps_command:\n#{ps_command}"
-        end
+        warn "[UKIRYU DEBUG PowerShell#execute_command] ps_command:\n#{ps_command}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
         # Convert Environment to Hash ONLY at Open3 call site
         env_hash = environment_to_h(env)

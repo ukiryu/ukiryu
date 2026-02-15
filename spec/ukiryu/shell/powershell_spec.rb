@@ -325,6 +325,10 @@ RSpec.describe Ukiryu::Shell::PowerShell do
         expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
       end
 
+      it 'handles paths with spaces (no escaping on non-Windows)' do
+        expect(shell.format_path('/path with spaces/file')).to eq('/path with spaces/file')
+      end
+
       it 'handles relative paths' do
         expect(shell.format_path('relative/path')).to eq('relative/path')
       end
@@ -339,21 +343,28 @@ RSpec.describe Ukiryu::Shell::PowerShell do
         expect(shell.format_path('D:/temp/file.eps')).to eq('D:/temp/file.eps')
       end
 
-      it 'keeps paths with spaces unchanged if file does not exist' do
-        # Non-existent files can't get short paths
-        expect(shell.format_path('D:/temp/sub dir/file.eps')).to eq('D:/temp/sub dir/file.eps')
+      it 'wraps paths with spaces in escaped double quotes' do
+        expect(shell.format_path('D:/temp/sub dir/file.eps')).to eq('`"D:/temp/sub dir/file.eps`"')
       end
 
-      it 'keeps Unix-style paths unchanged' do
+      it 'wraps backslash paths with spaces in escaped double quotes' do
+        expect(shell.format_path('C:\\Program Files\\app.exe')).to eq('`"C:\\Program Files\\app.exe`"')
+      end
+
+      it 'keeps paths without spaces unchanged' do
+        expect(shell.format_path('C:/Users/file.txt')).to eq('C:/Users/file.txt')
+      end
+
+      it 'keeps Unix-style paths without spaces unchanged' do
         expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
       end
 
-      it 'handles relative paths' do
+      it 'handles relative paths without spaces' do
         expect(shell.format_path('relative/path/to/file')).to eq('relative/path/to/file')
       end
 
-      it 'leaves backslash paths unchanged' do
-        expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
+      it 'handles relative paths with spaces (wraps in escaped quotes)' do
+        expect(shell.format_path('relative/path with spaces/file')).to eq('`"relative/path with spaces/file`"')
       end
     end
   end
