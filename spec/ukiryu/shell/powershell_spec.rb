@@ -312,60 +312,21 @@ RSpec.describe Ukiryu::Shell::PowerShell do
   end
 
   describe '#format_path' do
-    context 'on non-Windows platforms' do
-      before(:each) do
-        allow(Ukiryu::Platform).to receive(:windows?).and_return(false)
-      end
-
-      it 'returns paths unchanged' do
-        expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
-      end
-
-      it 'handles Unix-style paths' do
-        expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
-      end
-
-      it 'handles paths with spaces (no escaping on non-Windows)' do
-        expect(shell.format_path('/path with spaces/file')).to eq('/path with spaces/file')
-      end
-
-      it 'handles relative paths' do
-        expect(shell.format_path('relative/path')).to eq('relative/path')
-      end
+    it 'returns paths unchanged' do
+      expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
     end
 
-    context 'on Windows platform' do
-      before(:each) do
-        allow(Ukiryu::Platform).to receive(:windows?).and_return(true)
-      end
+    it 'handles Unix-style paths' do
+      expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
+    end
 
-      it 'keeps forward slashes for paths without spaces' do
-        expect(shell.format_path('D:/temp/file.eps')).to eq('D:/temp/file.eps')
-      end
+    it 'handles paths with spaces (quoting handled by quote method)' do
+      # format_path returns path as-is; quote method handles quoting
+      expect(shell.format_path('/path with spaces/file')).to eq('/path with spaces/file')
+    end
 
-      it 'wraps paths with spaces in escaped double quotes' do
-        expect(shell.format_path('D:/temp/sub dir/file.eps')).to eq('`"D:/temp/sub dir/file.eps`"')
-      end
-
-      it 'wraps backslash paths with spaces in escaped double quotes' do
-        expect(shell.format_path('C:\\Program Files\\app.exe')).to eq('`"C:\\Program Files\\app.exe`"')
-      end
-
-      it 'keeps paths without spaces unchanged' do
-        expect(shell.format_path('C:/Users/file.txt')).to eq('C:/Users/file.txt')
-      end
-
-      it 'keeps Unix-style paths without spaces unchanged' do
-        expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
-      end
-
-      it 'handles relative paths without spaces' do
-        expect(shell.format_path('relative/path/to/file')).to eq('relative/path/to/file')
-      end
-
-      it 'handles relative paths with spaces (wraps in escaped quotes)' do
-        expect(shell.format_path('relative/path with spaces/file')).to eq('`"relative/path with spaces/file`"')
-      end
+    it 'handles relative paths' do
+      expect(shell.format_path('relative/path')).to eq('relative/path')
     end
   end
 

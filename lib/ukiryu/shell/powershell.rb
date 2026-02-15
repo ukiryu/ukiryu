@@ -115,25 +115,14 @@ module Ukiryu
 
       # Format a file path for PowerShell on Windows
       #
-      # For paths with spaces, we use double quote escaping to properly handle
-      # them when passed as arguments to external commands like Ghostscript.
-      # This is more reliable than using Windows short paths (8.3 format).
+      # Returns the path unchanged. Quoting for paths with spaces is handled
+      # by the quote method, which wraps paths in double quotes with proper
+      # escaping.
       #
       # @param path [String] the file path
       # @return [String] the formatted path
       def format_path(path)
-        path_str = path.to_s
-
-        # On Windows, if the path contains spaces, wrap it in escaped double quotes
-        # This ensures tools like Ghostscript receive the path correctly
-        if Platform.windows? && path_str.include?(' ')
-          # Escape the path for double-quoted context (escape internal quotes)
-          escaped = escape_for_double_quotes(path_str)
-          # Return with escaped double quotes around it
-          "`\"#{escaped}`\""
-        else
-          path_str
-        end
+        path.to_s
       end
 
       # Join executable and arguments into a command line
