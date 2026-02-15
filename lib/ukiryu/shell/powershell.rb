@@ -115,18 +115,44 @@ module Ukiryu
 
       # Format a file path for PowerShell on Windows
       #
-      # We intentionally DO NOT convert forward slashes to backslashes because:
-      # 1. Most cross-platform tools (Ghostscript, ImageMagick, FFmpeg, Pandoc, etc.)
-      #    handle forward slashes correctly on Windows
-      # 2. Ghostscript specifically treats backslash as escape in PostScript strings,
-      #    which breaks paths with spaces like "C:\temp\sub dir\file.eps"
-      # 3. PowerShell's quoting handles paths with spaces correctly regardless of
-      #    slash direction
+      # For paths containing spaces, we convert to Windows short path (8.3) format
+      # to work around tools like Ghostscript that have issues with spaces in paths.
+      # For paths without spaces, we keep forward slashes since most cross-platform
+      # tools handle them correctly.
       #
       # @param path [String] the file path
-      # @return [String] the formatted path (unchanged - keep forward slashes)
+      # @return [String] the formatted path
       def format_path(path)
-        path.to_s
+        return path.to_s unless Platform.windows?
+
+        path_str = path.to_s
+
+        # If path contains spaces, convert to short path (8.3) format
+        # This fixes issues with tools like Ghostscript that can't handle spaces
+        if path_str.include?(' ')
+          short_path = to_short_path(path_str)
+          return short_path if short_path
+        end
+
+        # Keep forward slashes - most cross-platform tools handle them correctly
+        path_str
+      end
+
+      # Convert a Windows path to short path (8.3) format
+      # This eliminates spaces which cause issues with some tools like Ghostscript
+      #
+      # @param path [String] the long path
+      # @return [String, nil] the short path or nil if conversion failed
+      def to_short_path(path)
+        return nil unless Platform.windows?
+
+        # Use PowerShell to get the short path
+        # (Get-Item "path").Target gives the full path
+        # We use cmd /c for %I in (path) do @echo %~sI for short path
+        result = `cmd /c for %I in ("#{path.gsub('"', '""')}") do @echo %~sI 2>nul`.strip
+        result.empty? ? nil : result
+      rescue StandardError
+        nil
       end
 
       # Join executable and arguments into a command line
