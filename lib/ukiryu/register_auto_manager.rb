@@ -324,7 +324,11 @@ module Ukiryu
       #
       # @return [Boolean] true if git binary is available
       def git_available?
-        system('git --version > /dev/null 2>&1')
+        # Use out: and err: options for cross-platform compatibility
+        # This avoids shell redirection which differs between Unix and Windows
+        system('git', '--version', out: File::NULL, err: File::NULL)
+      rescue StandardError
+        false
       end
 
       # Expand a path with ~ support
