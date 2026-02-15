@@ -154,7 +154,7 @@ module Ukiryu
       Ukiryu::Type.validate(value, arg_def.type || :string, arg_def)
 
       # Apply platform-specific path formatting
-      if arg_def.type == :file
+      if arg_def.type.to_s == 'file'
         shell = Ukiryu::Shell::InstanceCache.instance_for(@shell)
         shell.format_path(value.to_s)
       else
@@ -202,7 +202,7 @@ module Ukiryu
       # Convert value to string (handle symbols and file paths)
       if value.is_a?(Symbol)
         value_str = value.to_s
-      elsif opt_def.type == :file
+      elsif opt_def.type.to_s == 'file'
         # Apply platform-specific path formatting for file types
         shell_instance = Ukiryu::Shell::InstanceCache.instance_for(@shell)
         if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
@@ -221,7 +221,7 @@ module Ukiryu
       # Handle array values with separator
       if value.is_a?(Array) && separator
         # Apply path formatting to each element if type is file
-        formatted_values = if opt_def.type == :file
+        formatted_values = if opt_def.type.to_s == 'file'
                              shell_instance ||= Ukiryu::Shell::InstanceCache.instance_for(@shell)
                              value.map { |v| shell_instance.format_path(v.to_s) }
                            else

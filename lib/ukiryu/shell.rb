@@ -25,6 +25,7 @@ module Ukiryu
     autoload :Tcsh, 'ukiryu/shell/tcsh'
     autoload :PowerShell, 'ukiryu/shell/powershell'
     autoload :Cmd, 'ukiryu/shell/cmd'
+    autoload :InstanceCache, 'ukiryu/shell/instance_cache'
 
     # Platform-grouped shell types (new schema v1)
     PLATFORM_GROUPS = %i[unix windows powershell].freeze
