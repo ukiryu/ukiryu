@@ -114,16 +114,19 @@ module Ukiryu
       end
 
       # Format a file path for PowerShell on Windows
-      # Converts forward slashes to backslashes for better compatibility with
-      # native Windows tools (like Ghostscript) that don't handle forward-slash
-      # paths with spaces correctly.
+      #
+      # We intentionally DO NOT convert forward slashes to backslashes because:
+      # 1. Most cross-platform tools (Ghostscript, ImageMagick, FFmpeg, Pandoc, etc.)
+      #    handle forward slashes correctly on Windows
+      # 2. Ghostscript specifically treats backslash as escape in PostScript strings,
+      #    which breaks paths with spaces like "C:\temp\sub dir\file.eps"
+      # 3. PowerShell's quoting handles paths with spaces correctly regardless of
+      #    slash direction
       #
       # @param path [String] the file path
-      # @return [String] the formatted path
+      # @return [String] the formatted path (unchanged - keep forward slashes)
       def format_path(path)
-        return path.to_s unless Platform.windows?
-
-        path.to_s.gsub('/', '\\')
+        path.to_s
       end
 
       # Join executable and arguments into a command line

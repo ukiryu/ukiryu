@@ -9,6 +9,24 @@ require_relative 'models/interface'
 require_relative 'models/implementation_index'
 require_relative 'models/implementation_version'
 
+# Configure git gem for Windows where git may not be in PATH
+# The git gem looks for git in: Git.config.binary_path, ENV['GIT_PATH'], or 'git' in PATH
+if RbConfig::CONFIG['host_os'] =~ /mswin|mingw/
+  # Common Git for Windows installation paths
+  git_paths = [
+    'C:\Program Files\Git\bin',
+    'C:\Program Files (x86)\Git\bin',
+    ENV['ProgramFiles'] && File.join(ENV['ProgramFiles'], 'Git', 'bin'),
+    ENV['ProgramW6432'] && File.join(ENV['ProgramW6432'], 'Git', 'bin')
+  ].compact.uniq
+
+  git_bin = git_paths.find { |path| File.exist?(File.join(path, 'git.exe')) }
+
+  if git_bin && !ENV['GIT_PATH']
+    ENV['GIT_PATH'] = git_bin
+  end
+end
+
 module Ukiryu
   # Represents a collection of tool definitions
   #
