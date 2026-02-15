@@ -86,14 +86,31 @@ module Ukiryu
         # @param options [Hash] options including platform and shell
         # @return [Hash, nil] hash with :implementation_name, :version, :file or nil
         def detect_implementation_and_version(index, tool_name, options = {})
+          if ENV['CI']
+            warn "[DEBUG detect] index.implementations: #{index.implementations.inspect}"
+          end
+
           # Try each implementation in order
           index.implementations.each do |impl|
+            if ENV['CI']
+              warn "[DEBUG detect] trying impl: #{impl.inspect}"
+            end
             result = try_implementation(impl, tool_name, options)
+            if ENV['CI']
+              warn "[DEBUG detect] try_implementation result: #{result.inspect}"
+            end
             return result if result
           end
 
           # If no implementation matched, use the first one's default
-          fallback_to_default(index)
+          if ENV['CI']
+            warn "[DEBUG detect] falling back to default"
+          end
+          result = fallback_to_default(index)
+          if ENV['CI']
+            warn "[DEBUG detect] fallback result: #{result.inspect}"
+          end
+          result
         end
 
         private
@@ -156,17 +173,37 @@ module Ukiryu
         # @param versions [Array] version specs
         # @return [Hash] default implementation spec
         def build_default_spec(impl, versions)
+          if ENV['CI']
+            warn "[DEBUG build_default_spec] impl: #{impl.inspect}"
+            warn "[DEBUG build_default_spec] versions: #{versions.inspect}"
+          end
+
           impl_default = impl[:default] || impl['default']
+          if ENV['CI']
+            warn "[DEBUG build_default_spec] impl_default: #{impl_default.inspect}"
+          end
+
           version_spec = if impl_default
                            versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
                          else
                            versions.find { |v| v[:default] || v['default'] } || versions.last
                          end
-          {
+
+          if ENV['CI']
+            warn "[DEBUG build_default_spec] version_spec: #{version_spec.inspect}"
+          end
+
+          result = {
             implementation_name: impl[:name] || impl['name'],
             version: nil,
             file: version_spec[:file] || version_spec['file'] || impl_default
           }
+
+          if ENV['CI']
+            warn "[DEBUG build_default_spec] result: #{result.inspect}"
+          end
+
+          result
         end
 
         # Fallback to first implementation's default
