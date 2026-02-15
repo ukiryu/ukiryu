@@ -113,6 +113,19 @@ module Ukiryu
         "$ENV:#{name}"
       end
 
+      # Format a file path for PowerShell on Windows
+      # Converts forward slashes to backslashes for better compatibility with
+      # native Windows tools (like Ghostscript) that don't handle forward-slash
+      # paths with spaces correctly.
+      #
+      # @param path [String] the file path
+      # @return [String] the formatted path
+      def format_path(path)
+        return path.to_s unless Platform.windows?
+
+        path.to_s.gsub('/', '\\')
+      end
+
       # Join executable and arguments into a command line
       # Uses smart quoting: only quote arguments that need it
       #

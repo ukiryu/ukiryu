@@ -312,16 +312,48 @@ RSpec.describe Ukiryu::Shell::PowerShell do
   end
 
   describe '#format_path' do
-    it 'returns paths unchanged' do
-      expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
+    context 'on non-Windows platforms' do
+      before(:each) do
+        allow(Ukiryu::Platform).to receive(:windows?).and_return(false)
+      end
+
+      it 'returns paths unchanged' do
+        expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
+      end
+
+      it 'handles Unix-style paths' do
+        expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
+      end
+
+      it 'handles relative paths' do
+        expect(shell.format_path('relative/path')).to eq('relative/path')
+      end
     end
 
-    it 'handles Unix-style paths' do
-      expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
-    end
+    context 'on Windows platform' do
+      before(:each) do
+        allow(Ukiryu::Platform).to receive(:windows?).and_return(true)
+      end
 
-    it 'handles relative paths' do
-      expect(shell.format_path('relative/path')).to eq('relative/path')
+      it 'converts forward slashes to backslashes' do
+        expect(shell.format_path('D:/temp/sub dir/file.eps')).to eq('D:\\temp\\sub dir\\file.eps')
+      end
+
+      it 'converts Unix-style paths to Windows paths' do
+        expect(shell.format_path('/usr/bin/file')).to eq('\\usr\\bin\\file')
+      end
+
+      it 'handles paths with spaces' do
+        expect(shell.format_path('D:/a/_temp/sub dir/space test.eps')).to eq('D:\\a\\_temp\\sub dir\\space test.eps')
+      end
+
+      it 'handles relative paths with forward slashes' do
+        expect(shell.format_path('relative/path/to/file')).to eq('relative\\path\\to\\file')
+      end
+
+      it 'leaves backslash paths unchanged' do
+        expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
+      end
     end
   end
 

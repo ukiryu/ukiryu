@@ -199,12 +199,25 @@ module Ukiryu
 
       warn "[UKIRYU DEBUG format_option] delimiter_sym after detect: #{delimiter_sym.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
-      # Convert value to string (handle symbols)
-      value_str = value.is_a?(Symbol) ? value.to_s : value.to_s
+      # Convert value to string (handle symbols and file paths)
+      if value.is_a?(Symbol)
+        value_str = value.to_s
+      elsif opt_def.type == :file
+        # Apply platform-specific path formatting for file types
+        value_str = shell.format_path(value.to_s)
+      else
+        value_str = value.to_s
+      end
 
       # Handle array values with separator
       if value.is_a?(Array) && separator
-        joined = value.join(separator)
+        # Apply path formatting to each element if type is file
+        formatted_values = if opt_def.type == :file
+                             value.map { |v| shell.format_path(v.to_s) }
+                           else
+                             value.map(&:to_s)
+                           end
+        joined = formatted_values.join(separator)
         case delimiter_sym
         when :equals
           result = "#{cli}=#{joined}"
