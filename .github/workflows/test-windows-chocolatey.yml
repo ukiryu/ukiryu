@@ -22,13 +22,13 @@ jobs:
             ruby-version: '3.4'
           - runner: windows-2025
             ruby-version: '4.0'
-          # Windows ARM64 is experimental - some native dependencies (nokogiri) don't compile
-          - runner: windows-11-arm
-            ruby-version: '3.4'
-            experimental: true
-          - runner: windows-11-arm
-            ruby-version: '4.0'
-            experimental: true
+          # Windows ARM64 disabled due to nokogiri compilation issues
+          # - runner: windows-11-arm
+          #   ruby-version: '3.4'
+          #   experimental: true
+          # - runner: windows-11-arm
+          #   ruby-version: '4.0'
+          #   experimental: true
 
     steps:
       - name: Create working directory
