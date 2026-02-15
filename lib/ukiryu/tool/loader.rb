@@ -367,7 +367,11 @@ module Ukiryu
           if ENV['CI']
             warn "[DEBUG convert] detected_platform: #{detected_platform.inspect}"
             warn "[DEBUG convert] detected_shell: #{detected_shell.inspect}"
-            warn "[DEBUG convert] impl_version.profiles: #{impl_version.profiles.inspect}"
+            warn "[DEBUG convert] impl_version.execution_profiles count: #{impl_version.execution_profiles&.count.inspect}"
+            impl_version.execution_profiles&.each_with_index do |p, i|
+              warn "[DEBUG convert] profile[#{i}] platforms: #{p[:platforms].inspect}"
+              warn "[DEBUG convert] profile[#{i}] shells: #{p[:shells].inspect}"
+            end
           end
 
           # Select compatible execution profile
