@@ -66,18 +66,17 @@ RSpec.describe Ukiryu::ToolIndex do
 
   describe '#find_by_interface' do
     context 'when register path is nil and default is also nil' do
-      it 'returns nil' do
-        # Temporarily clear the default register path
-        original_path = Ukiryu::Register.default_register_path
-        Ukiryu::Register.default_register_path = nil
+      it 'returns nil when register cannot be found' do
+        # This test verifies behavior when no register is available
+        # In the new architecture, Register will always try to discover a register
+        # So this test now verifies that when explicitly given a nonexistent path,
+        # the find_by_interface returns nil
 
-        index = described_class.new(register_path: nil)
+        # Create an index with an explicit nonexistent path
+        index = described_class.new(register_path: '/nonexistent/register/path')
         metadata = index.find_by_interface(:ping)
 
         expect(metadata).to be_nil
-
-        # Restore the default register path
-        Ukiryu::Register.default_register_path = original_path
       end
     end
 
@@ -93,18 +92,12 @@ RSpec.describe Ukiryu::ToolIndex do
 
   describe '#all_tools' do
     context 'when register path is nil and default is also nil' do
-      it 'returns empty hash' do
-        # Temporarily clear the default register path
-        original_path = Ukiryu::Register.default_register_path
-        Ukiryu::Register.default_register_path = nil
-
-        index = described_class.new(register_path: nil)
+      it 'returns empty hash when register cannot be found' do
+        # Create an index with an explicit nonexistent path
+        index = described_class.new(register_path: '/nonexistent/register/path')
         tools = index.all_tools
 
         expect(tools).to eq({})
-
-        # Restore the default register path
-        Ukiryu::Register.default_register_path = original_path
       end
     end
 

@@ -1,19 +1,11 @@
 # frozen_string_literal: true
 
-require 'git'
 require 'fileutils'
-require 'pathname'
 
 module Ukiryu
-  # Manages automatic register cloning and updates
+  # Backward compatibility shim for RegisterAutoManager
   #
-  # This class handles:
-  # - Auto-cloning the register repository to ~/.ukiryu/register
-  # - Detecting development mode (local submodule)
-  # - Validating register integrity
-  # - Providing register path to the Register class
-  #
-  # @api private
+  # @deprecated Use Ukiryu::Register instead
   class RegisterAutoManager
     # GitHub repository URL for the register
     REGISTER_URL = 'https://github.com/ukiryu/register'
@@ -21,391 +13,91 @@ module Ukiryu
     # Default local directory for the register
     DEFAULT_DIR = '~/.ukiryu/register'
 
+    # Error class for backward compatibility
+    class RegisterError < StandardError; end
+
     class << self
-      # Get the register path, ensuring it exists
-      #
-      # Checks in order:
-      # 1. Environment variable UKIRYU_REGISTER
-      # 2. Development register (../../register relative to gem lib)
-      # 3. User's local clone (~/.ukiryu/register)
-      #
-      # @return [String, nil] the register path, or nil if unavailable
+      # @deprecated Use Register.default.path instead
       def register_path
-        # Debug logging
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn '[UKIRYU DEBUG RegisterAutoManager] Checking register_path...'
-          warn "[UKIRYU DEBUG RegisterAutoManager] ENV['UKIRYU_REGISTER'] = #{ENV['UKIRYU_REGISTER'].inspect}"
-        end
-
-        # 1. Environment variable has highest priority
-        env_path = ENV['UKIRYU_REGISTER']
-        if env_path && Dir.exist?(env_path)
-          warn "[UKIRU DEBUG RegisterAutoManager] Using ENV register: #{env_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          return env_path
-        end
-
-        warn "[UKIRYU DEBUG RegisterAutoManager] ENV path doesn't exist or not set" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-
-        # 2. Check development register (../../../register relative to this file)
-        # Use Pathname for reliable path calculation
-        this_file = Pathname.new(__FILE__).realpath
-        dev_path = this_file.parent.parent.parent.parent.join('register')
-        if dev_path.exist?
-          warn "[UKIRYU DEBUG RegisterAutoManager] Using DEV register: #{dev_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          return dev_path.to_s
-        end
-
-        warn "[UKIRYU DEBUG RegisterAutoManager] DEV register doesn't exist" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-
-        # 3. Use user's local clone, create if needed
-        ensure_user_clone
+        Register.default.path
+      rescue Register::Error => e
+        raise RegisterError, e.message
       end
 
-      # Check if the register exists and is valid
-      #
-      # @return [Boolean] true if register exists and is valid
+      # @deprecated Use Register.exists? instead
       def register_exists?
-        path = resolve_register_path
-        return false unless path
-
-        Dir.exist?(path) && validate_register_integrity(path)
+        Register.exists?
       end
 
-      # Update or re-clone the register
-      #
-      # @param force [Boolean] if true, re-clone even if register exists
-      # @return [Boolean] true if successful
-      # @raise [RegisterError] if update fails
+      # @deprecated Use Register.default.update! instead
       def update_register(force: false)
+        register = Register.default
         if force
-          force_reclone
+          FileUtils.rm_rf(register.path) if Dir.exist?(register.path)
+          register.clone!
         else
-          update_existing_clone
+          register.update!
         end
         true
+      rescue Register::Error => e
+        raise RegisterError, e.message
       rescue Git::Error => e
         raise RegisterError, "Failed to update register: #{e.message}"
       rescue StandardError => e
         raise RegisterError, "Register update failed: #{e.message}"
       end
 
-      # Get register information
-      #
-      # @return [Hash] register information
+      # @deprecated Use Register.default.info instead
       def register_info
-        path = resolve_register_path
-        return { status: :not_found } unless path
+        register = begin
+          Register.default
+        rescue Register::Error
+          nil
+        end
 
-        return { status: :not_cloned, path: expand_path(DEFAULT_DIR) } unless Dir.exist?(path)
+        return { status: :not_found } unless register
 
-        return { status: :invalid, path: path } unless validate_register_integrity(path)
+        info = register.info
 
-        info = {
-          status: :ok,
-          path: path,
-          source: detect_source(path)
+        {
+          status: info[:valid?] ? :ok : :invalid,
+          path: info[:path],
+          source: info[:source],
+          branch: info[:git_info]&.dig(:branch),
+          commit: info[:git_info]&.dig(:commit),
+          last_update: info[:git_info]&.dig(:last_update),
+          tools_count: info[:tools_count]
         }
-
-        # Add git info if available
-        git_dir = File.join(path, '.git')
-        if Dir.exist?(git_dir)
-          begin
-            # Suppress stderr from git commands using GIT_REDIRECT_STDERR
-            # This prevents "fatal: not a git repository" errors from polluting output
-            # Redirect stderr to /dev/null at the git subprocess level
-            null_dev = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/ ? 'NUL' : '/dev/null'
-            old_git_redirect = ENV['GIT_REDIRECT_STDERR']
-            ENV['GIT_REDIRECT_STDERR'] = null_dev
-
-            g = Git.open(path)
-            info[:branch] = g.current_branch
-            log = g.log(1).to_a
-            info[:commit] = log.first.sha[0..7]
-            info[:last_update] = Time.at(log.first.date.to_i)
-
-            # Restore original GIT_REDIRECT_STDERR
-            if old_git_redirect
-              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
-            else
-              ENV.delete('GIT_REDIRECT_STDERR')
-            end
-          rescue Git::Error, IOError, Errno::ENOENT
-            # Git info not available, but register is valid
-            # Ensure GIT_REDIRECT_STDERR is restored
-            if old_git_redirect
-              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
-            else
-              ENV.delete('GIT_REDIRECT_STDERR')
-            end
-          end
-        end
-
-        # Count available tools
-        tools_dir = File.join(path, 'tools')
-        if Dir.exist?(tools_dir)
-          info[:tools_count] = Dir.glob(File.join(tools_dir, '*')).select do |d|
-            File.directory?(d)
-          end.count
-        end
-
-        info
       end
 
-      private
-
-      # Ensure the user's local clone exists
-      #
-      # @return [String, nil] the register path, or nil if unavailable
-      def ensure_user_clone
-        expanded_path = expand_path(DEFAULT_DIR)
-
-        warn "[UKIRYU DEBUG] ensure_user_clone: expanded_path=#{expanded_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-
-        # If already exists and valid, return it
-        if Dir.exist?(expanded_path)
-          if validate_register_integrity(expanded_path)
-            warn '[UKIRYU DEBUG] ensure_user_clone: existing clone is valid' if ENV['UKIRYU_DEBUG_EXECUTABLE']
-            return expanded_path
-          end
-
-          # Exists but invalid, re-clone
-          warn '[UKIRYU DEBUG] ensure_user_clone: existing clone is invalid, re-cloning' if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          force_reclone
-
-          return expanded_path
-        end
-
-        # Doesn't exist, clone it
-        warn '[UKIRYU DEBUG] ensure_user_clone: cloning register...' if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        clone_register(expanded_path)
-        expanded_path
-      rescue RegisterError
-        # Re-raise with context
-        raise
-      rescue StandardError => e
-        warn "[UKIRYU DEBUG] ensure_user_clone failed: #{e.class}: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        raise RegisterError, <<~ERROR
-          Failed to setup register at #{expanded_path}: #{e.message}
-
-          This usually means:
-            1. Git is not installed or not in PATH
-            2. Network connectivity issues
-            3. Permission issues with ~/.ukiryu directory
-
-          To fix this:
-            1. Install git from https://git-scm.com
-            2. Verify git is in PATH: git --version
-            3. Or manually clone: git clone #{REGISTER_URL} #{expanded_path}
-            4. Or set UKIRYU_REGISTER to use a local register path
-
-          Example:
-            export UKIRYU_REGISTER=/path/to/register
-        ERROR
-      end
-
-      # Clone the register repository
-      #
-      # @param target_path [String] where to clone
-      # @raise [RegisterError] if clone fails
-      def clone_register(target_path)
-        parent_dir = File.dirname(target_path)
-
-        # Debug logging
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG] clone_register: target_path=#{target_path}"
-          warn "[UKIRYU DEBUG] clone_register: parent_dir=#{parent_dir}"
-          warn "[UKIRYU DEBUG] clone_register: parent_dir exists?=#{Dir.exist?(parent_dir)}"
-        end
-
-        # Create parent directory if needed
-        FileUtils.mkdir_p(parent_dir) unless Dir.exist?(parent_dir)
-
-        # Check if git is available
-        unless git_available?
-          raise RegisterError, <<~ERROR
-            Git is required but not found in PATH.
-
-            To fix this:
-              1. Install git from https://git-scm.com
-              2. Or set UKIRYU_REGISTER to use a local register path
-
-            Example:
-              export UKIRYU_REGISTER=/path/to/register
-          ERROR
-        end
-
-        # Perform the clone using git gem
-        print "Cloning register from #{REGISTER_URL}..." if $stdout.tty?
-        warn '[UKIRYU DEBUG] Cloning register...' if ENV['UKIRYU_DEBUG_EXECUTABLE']
-
-        begin
-          Git.clone(REGISTER_URL, target_path, quiet: true)
-        rescue Git::Error => e
-          warn "[UKIRYU DEBUG] Git.clone failed: #{e.class}: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          raise
-        end
-
-        puts 'done' if $stdout.tty?
-
-        # Validate the clone
-        unless validate_register_integrity(target_path)
-          FileUtils.rm_rf(target_path)
-          raise RegisterError, 'Register clone validation failed. Please try again or set UKIRYU_REGISTER.'
-        end
-
-        warn '[UKIRYU DEBUG] Clone successful' if ENV['UKIRYU_DEBUG_EXECUTABLE']
-      rescue Git::Error => e
-        warn "[UKIRYU DEBUG] Git error: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-
-        # Provide more helpful error message for common Windows issues
-        error_msg = e.message.to_s
-        if error_msg.include?('cannot find') || error_msg.include?('not found') || error_msg.include?('path specified')
-          raise RegisterError, <<~ERROR
-            Failed to clone register: #{e.message}
-
-            This error usually means git is not in PATH or the target directory is not accessible.
-
-            To fix this:
-              1. Verify git is installed and in PATH: git --version
-              2. On Windows, ensure Git for Windows is installed from https://git-scm.com
-              3. Or set UKIRYU_REGISTER to use a local register path
-
-            Example (Windows):
-              set UKIRYU_REGISTER=C:\\path\\to\\register
-
-            Example (Unix):
-              export UKIRYU_REGISTER=/path/to/register
-          ERROR
-        end
-
-        raise RegisterError, <<~ERROR
-          Failed to clone register from #{REGISTER_URL}: #{e.message}
-
-          To fix this:
-            1. Check your internet connection
-            2. Verify git is installed: git --version
-            3. Manually clone: git clone #{REGISTER_URL} #{target_path}
-            4. Or set UKIRYU_REGISTER to use a local register path
-
-          Example:
-            export UKIRYU_REGISTER=/path/to/register
-        ERROR
-      end
-
-      # Update existing register clone
-      #
-      # @raise [RegisterError] if update fails
-      def update_existing_clone
-        path = expand_path(DEFAULT_DIR)
-
-        return clone_register(path) unless Dir.exist?(path)
-
-        begin
-          print 'Updating register...' if $stdout.tty?
-          # Suppress stderr from git commands using GIT_REDIRECT_STDERR
-          null_dev = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/ ? 'NUL' : '/dev/null'
-          old_git_redirect = ENV['GIT_REDIRECT_STDERR']
-          ENV['GIT_REDIRECT_STDERR'] = null_dev
-
-          g = Git.open(path)
-          g.pull
-          puts 'done' if $stdout.tty?
-
-          # Restore original GIT_REDIRECT_STDERR
-          if old_git_redirect
-            ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
-          else
-            ENV.delete('GIT_REDIRECT_STDERR')
-          end
-        rescue Git::Error => e
-          # Ensure GIT_REDIRECT_STDERR is restored
-          if defined?(old_git_redirect)
-            if old_git_redirect
-              ENV['GIT_REDIRECT_STDERR'] = old_git_redirect
-            else
-              ENV.delete('GIT_REDIRECT_STDERR')
-            end
-          end
-          raise RegisterError, "Failed to update register: #{e.message}"
-        end
-      end
-
-      # Force re-clone the register
-      #
-      # @raise [RegisterError] if re-clone fails
-      def force_reclone
-        path = expand_path(DEFAULT_DIR)
-        FileUtils.rm_rf(path) if Dir.exist?(path)
-        clone_register(path)
-      end
-
-      # Validate register integrity
-      #
-      # @param path [String] path to check
-      # @return [Boolean] true if valid
-      def validate_register_integrity(path)
-        return false unless path
-
-        # Check for tools/ directory
-        tools_dir = File.join(path, 'tools')
-        return false unless Dir.exist?(tools_dir)
-
-        # Check for at least one tool definition
-        # This confirms it's a valid register structure
-        Dir.glob(File.join(tools_dir, '*', '*.yaml')).any?
-      end
-
-      # Resolve the register path without auto-creating
-      #
-      # @return [String, nil] current register path or nil
+      # @deprecated Use Register.at(path) or check for register existence differently
+      # This method resolves path without triggering auto-clone
       def resolve_register_path
         # Check environment variable
         env_path = ENV['UKIRYU_REGISTER']
         return env_path if env_path && Dir.exist?(env_path)
 
-        # Check development register (../../../register relative to this file)
-        # Use Pathname for reliable path calculation
-        this_file = Pathname.new(__FILE__).realpath
-        dev_path = this_file.parent.parent.parent.parent.join('register')
-        return dev_path.to_s if dev_path.exist?
+        # Check development register
+        begin
+          dev_path = calculate_dev_path
+          return dev_path.to_s if dev_path&.exist?
+        rescue StandardError
+          nil
+        end
 
         # Check user clone
-        expanded = expand_path(DEFAULT_DIR)
-        Dir.exist?(expanded) ? expanded : nil
+        user_path = File.expand_path(DEFAULT_DIR)
+        Dir.exist?(user_path) ? user_path : nil
       end
 
-      # Detect the source of the register
-      #
-      # @param path [String] register path
-      # @return [Symbol] :env or :user
-      def detect_source(path)
-        env_path = ENV['UKIRYU_REGISTER']
-        return :env if env_path && path == File.expand_path(env_path)
+      private
 
-        :user
-      end
-
-      # Check if git is available
-      #
-      # @return [Boolean] true if git binary is available
-      def git_available?
-        # Use out: and err: options for cross-platform compatibility
-        # This avoids shell redirection which differs between Unix and Windows
-        system('git', '--version', out: File::NULL, err: File::NULL)
+      def calculate_dev_path
+        this_file = Pathname.new(__FILE__).realpath
+        this_file.parent.parent.parent.parent.join('register')
       rescue StandardError
-        false
-      end
-
-      # Expand a path with ~ support
-      #
-      # @param path [String] path to expand
-      # @return [String] expanded path
-      def expand_path(path)
-        File.expand_path(path)
+        nil
       end
     end
-
-    # Register-specific error
-    class RegisterError < StandardError; end
   end
 end

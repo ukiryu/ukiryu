@@ -40,11 +40,11 @@ RSpec.configure do |config|
     # Set up test register path if UKIRYU_REGISTER is not already set
     unless ENV['UKIRYU_REGISTER']
       test_register = File.expand_path('fixtures/register', __dir__)
-      if Dir.exist?(test_register)
-        ENV['UKIRYU_REGISTER'] = test_register
-        Ukiryu::Register.default_register_path = test_register
-      end
+      ENV['UKIRYU_REGISTER'] = test_register if Dir.exist?(test_register)
     end
+
+    # Reset the default register to pick up the test register
+    Ukiryu::Register.reset_default
 
     # Reset ToolIndex to pick up the new register path
     Ukiryu::ToolIndex.reset
@@ -59,7 +59,7 @@ RSpec.configure do |config|
   # Reset singleton state before each test to prevent pollution
   config.before(:each) do
     Ukiryu::Config.reset!
-    Ukiryu::Register.reset_version_cache
+    Ukiryu::Register.reset_default
     Ukiryu::ToolIndex.reset
     Ukiryu::Tool.clear_cache
     Ukiryu::Runtime.instance.reset!
