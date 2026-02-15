@@ -180,10 +180,8 @@ RSpec.describe 'Ghostscript Tool Profile' do
 
     before(:each) do
       skip_unless_tool_available(:ghostscript)
-      # Skip unless we can test with PowerShell
-      pwsh_available = system('which pwsh > /dev/null 2>&1')
-      ps_available = Ukiryu::Platform.windows? && ENV['PSModulePath']
-      skip 'PowerShell not available' unless pwsh_available || ps_available
+      # This test is specifically for Windows PowerShell handling
+      skip 'PowerShell test is for Windows only' unless Ukiryu::Platform.windows?
     end
 
     it 'preserves -sDEVICE=pdfwrite when forced to PowerShell shell' do
