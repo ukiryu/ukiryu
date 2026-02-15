@@ -115,10 +115,9 @@ module Ukiryu
 
       # Format a file path for PowerShell on Windows
       #
-      # For paths containing spaces, we convert to Windows short path (8.3) format
-      # to work around tools like Ghostscript that have issues with spaces in paths.
-      # For paths without spaces, we keep forward slashes since most cross-platform
-      # tools handle them correctly.
+      # For paths with spaces that exist on disk, we try to use Windows short path
+      # format (8.3) to work around tools like Ghostscript that can't handle spaces.
+      # For paths that don't exist or don't have spaces, we keep them as-is.
       #
       # @param path [String] the file path
       # @return [String] the formatted path
@@ -127,30 +126,50 @@ module Ukiryu
 
         path_str = path.to_s
 
-        # If path contains spaces, convert to short path (8.3) format
-        # This fixes issues with tools like Ghostscript that can't handle spaces
-        if path_str.include?(' ')
-          short_path = to_short_path(path_str)
+        # Only convert if path has spaces AND exists (so we can get its short path)
+        if path_str.include?(' ') && (File.exist?(path_str) || File.directory?(path_str))
+          short_path = get_short_path(path_str)
           return short_path if short_path
         end
 
-        # Keep forward slashes - most cross-platform tools handle them correctly
         path_str
       end
 
-      # Convert a Windows path to short path (8.3) format
-      # This eliminates spaces which cause issues with some tools like Ghostscript
+      # Get Windows short path (8.3 format) for an existing path
+      # This eliminates spaces which cause issues with tools like Ghostscript
       #
-      # @param path [String] the long path
+      # @param path [String] the long path (must exist)
       # @return [String, nil] the short path or nil if conversion failed
-      def to_short_path(path)
+      def get_short_path(path)
         return nil unless Platform.windows?
 
-        # Use PowerShell to get the short path
-        # (Get-Item "path").Target gives the full path
-        # We use cmd /c for %I in (path) do @echo %~sI for short path
-        result = `cmd /c for %I in ("#{path.gsub('"', '""')}") do @echo %~sI 2>nul`.strip
-        result.empty? ? nil : result
+        # Convert forward slashes to backslashes for Windows API
+        win_path = path.tr('/', '\\')
+
+        # Use PowerShell to call Windows API GetShortPathName
+        ps_script = <<~PS
+          $path = '#{win_path.gsub("'", "''")}'
+          try {
+            $short = (New-Object -ComObject Scripting.FileSystemObject).GetFile($path).ShortPath
+            if ($short) { $short } else { $path }
+          } catch {
+            try {
+              $short = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($path).ShortPath
+              if ($short) { $short } else { $path }
+            } catch {
+              $path
+            }
+          }
+        PS
+
+        stdout, _stderr, status = Open3.capture3(
+          powershell_command, '-NoLogo', '-NonInteractive', '-Command', ps_script
+        )
+
+        result = stdout.strip
+        return nil unless status.success? && !result.empty? && result != win_path
+
+        result
       rescue StandardError
         nil
       end

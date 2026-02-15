@@ -339,32 +339,21 @@ RSpec.describe Ukiryu::Shell::PowerShell do
         expect(shell.format_path('D:/temp/file.eps')).to eq('D:/temp/file.eps')
       end
 
-      it 'keeps Unix-style paths unchanged when no spaces' do
+      it 'keeps paths with spaces unchanged if file does not exist' do
+        # Non-existent files can't get short paths
+        expect(shell.format_path('D:/temp/sub dir/file.eps')).to eq('D:/temp/sub dir/file.eps')
+      end
+
+      it 'keeps Unix-style paths unchanged' do
         expect(shell.format_path('/usr/bin/file')).to eq('/usr/bin/file')
       end
 
-      it 'handles relative paths without spaces' do
+      it 'handles relative paths' do
         expect(shell.format_path('relative/path/to/file')).to eq('relative/path/to/file')
       end
 
-      it 'leaves backslash paths unchanged when no spaces' do
+      it 'leaves backslash paths unchanged' do
         expect(shell.format_path('C:\\Users\\file.txt')).to eq('C:\\Users\\file.txt')
-      end
-
-      context 'with paths containing spaces' do
-        before(:each) do
-          # Mock the to_short_path method to return a predictable short path
-          allow(shell).to receive(:to_short_path).and_call_original
-        end
-
-        it 'attempts to convert paths with spaces to short path format' do
-          path_with_space = 'D:/a/_temp/sub dir/space test.eps'
-          # On non-Windows CI, to_short_path will return nil, so path stays unchanged
-          # On Windows, it would return something like 'D:/a/_temp/SUBDIR~1/SPACET~1.eps'
-          result = shell.format_path(path_with_space)
-          # Either short path or original (if conversion fails)
-          expect(result).to be_a(String)
-        end
       end
     end
   end
