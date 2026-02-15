@@ -205,7 +205,15 @@ module Ukiryu
       elsif opt_def.type == :file
         # Apply platform-specific path formatting for file types
         shell_instance = Ukiryu::Shell::InstanceCache.instance_for(@shell)
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
+          warn "[UKIRYU DEBUG format_option] FILE type detected: opt_def.name=#{opt_def.name}, value=#{value.inspect}"
+          warn "[UKIRYU DEBUG format_option] @shell=#{@shell.inspect}, shell_instance=#{shell_instance.class}"
+          warn "[UKIRYU DEBUG format_option] Platform.windows?=#{Ukiryu::Platform.windows? if defined?(Ukiryu::Platform)}"
+        end
         value_str = shell_instance.format_path(value.to_s)
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
+          warn "[UKIRYU DEBUG format_option] format_path result: #{value_str.inspect}"
+        end
       else
         value_str = value.to_s
       end
