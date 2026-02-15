@@ -210,6 +210,13 @@ module Ukiryu
       def clone_register(target_path)
         parent_dir = File.dirname(target_path)
 
+        # Debug logging
+        if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          warn "[UKIRYU DEBUG] clone_register: target_path=#{target_path}"
+          warn "[UKIRYU DEBUG] clone_register: parent_dir=#{parent_dir}"
+          warn "[UKIRYU DEBUG] clone_register: parent_dir exists?=#{Dir.exist?(parent_dir)}"
+        end
+
         # Create parent directory if needed
         FileUtils.mkdir_p(parent_dir) unless Dir.exist?(parent_dir)
 
@@ -231,7 +238,12 @@ module Ukiryu
         print "Cloning register from #{REGISTER_URL}..." if $stdout.tty?
         warn '[UKIRYU DEBUG] Cloning register...' if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
-        Git.clone(REGISTER_URL, target_path, quiet: true)
+        begin
+          Git.clone(REGISTER_URL, target_path, quiet: true)
+        rescue Git::Error => e
+          warn "[UKIRYU DEBUG] Git.clone failed: #{e.class}: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+          raise
+        end
 
         puts 'done' if $stdout.tty?
 
@@ -244,6 +256,28 @@ module Ukiryu
         warn '[UKIRYU DEBUG] Clone successful' if ENV['UKIRYU_DEBUG_EXECUTABLE']
       rescue Git::Error => e
         warn "[UKIRYU DEBUG] Git error: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
+        # Provide more helpful error message for common Windows issues
+        error_msg = e.message.to_s
+        if error_msg.include?('cannot find') || error_msg.include?('not found') || error_msg.include?('path specified')
+          raise RegisterError, <<~ERROR
+            Failed to clone register: #{e.message}
+
+            This error usually means git is not in PATH or the target directory is not accessible.
+
+            To fix this:
+              1. Verify git is installed and in PATH: git --version
+              2. On Windows, ensure Git for Windows is installed from https://git-scm.com
+              3. Or set UKIRYU_REGISTER to use a local register path
+
+            Example (Windows):
+              set UKIRYU_REGISTER=C:\\path\\to\\register
+
+            Example (Unix):
+              export UKIRYU_REGISTER=/path/to/register
+          ERROR
+        end
+
         raise RegisterError, <<~ERROR
           Failed to clone register from #{REGISTER_URL}: #{e.message}
 
