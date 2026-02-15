@@ -361,11 +361,24 @@ module Ukiryu
           require_relative '../models/tool_definition'
           require_relative '../models/platform_profile'
 
+          detected_platform = options[:platform] || Platform.detect
+          detected_shell = options[:shell] || Shell.detect
+
+          if ENV['CI']
+            warn "[DEBUG convert] detected_platform: #{detected_platform.inspect}"
+            warn "[DEBUG convert] detected_shell: #{detected_shell.inspect}"
+            warn "[DEBUG convert] impl_version.profiles: #{impl_version.profiles.inspect}"
+          end
+
           # Select compatible execution profile
           profile = impl_version.compatible_profile(
-            platform: options[:platform] || Platform.detect,
-            shell: options[:shell] || Shell.detect
+            platform: detected_platform,
+            shell: detected_shell
           )
+
+          if ENV['CI']
+            warn "[DEBUG convert] compatible_profile result: #{profile.inspect}"
+          end
 
           return nil unless profile
 
