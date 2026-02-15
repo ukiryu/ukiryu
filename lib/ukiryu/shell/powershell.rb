@@ -226,14 +226,16 @@ module Ukiryu
         end
 
         # Build arguments array for Start-Process -ArgumentList
-        # ALL arguments must be quoted consistently for the PowerShell array literal
+        # Use SINGLE QUOTES for PowerShell array elements - single-quoted strings
+        # are completely literal in PowerShell (no escaping needed for $, `, spaces)
+        # This ensures paths with spaces are passed correctly to the executable.
         args_escaped = args.map do |a|
           # Debug logging
           warn "[UKIRYU DEBUG PowerShell#execute_command] escaping arg: #{a.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          # Escape special characters for double-quoted strings in PowerShell
-          # Backticks and dollar signs need escaping with backtick
-          escaped = a.to_s.gsub(/[`$]/) { "`#{::Regexp.last_match(0)}" }.gsub('"', '`"')
-          result = %("#{escaped}")
+          # Escape single quotes by doubling them (PowerShell convention for single-quoted strings)
+          # No other escaping needed - single quotes are literal
+          escaped = a.to_s.gsub("'", "''")
+          result = "'#{escaped}'"
           warn "[UKIRYU DEBUG PowerShell#execute_command] escaped to: #{result.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
           result
         end
@@ -243,17 +245,17 @@ module Ukiryu
         warn "[UKIRYU DEBUG PowerShell#execute_command] arg_list: #{arg_list.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
         # Build PowerShell command using Start-Process
-        # This avoids the call operator's parameter binding issues
-        exe_escaped = executable.to_s.gsub('"', '`"')
+        # Use single quotes for the executable path (literal, no escaping needed)
+        exe_escaped = executable.to_s.gsub("'", "''")
 
         ps_command = if args.empty?
                        <<~PS.strip
-                         $p = Start-Process -FilePath "#{exe_escaped}" -NoNewWindow -Wait -PassThru
+                         $p = Start-Process -FilePath '#{exe_escaped}' -NoNewWindow -Wait -PassThru
                          exit $p.ExitCode
                        PS
                      else
                        <<~PS.strip
-                         $p = Start-Process -FilePath "#{exe_escaped}" -ArgumentList @(#{arg_list}) -NoNewWindow -Wait -PassThru
+                         $p = Start-Process -FilePath '#{exe_escaped}' -ArgumentList @(#{arg_list}) -NoNewWindow -Wait -PassThru
                          exit $p.ExitCode
                        PS
                      end
@@ -299,14 +301,15 @@ module Ukiryu
       # @raise [Timeout::Error] if command times out
       def execute_command_with_stdin(executable, args, env, timeout, cwd, stdin_data)
         # Build arguments for Start-Process -ArgumentList
-        # ALL arguments must be quoted consistently
+        # Use SINGLE QUOTES for PowerShell array elements - single-quoted strings
+        # are completely literal in PowerShell (no escaping needed for $, `, spaces)
         args_escaped = args.map do |a|
-          escaped = a.to_s.gsub(/[`$]/) { "`#{::Regexp.last_match(0)}" }.gsub('"', '`"')
-          %("#{escaped}")
+          escaped = a.to_s.gsub("'", "''")
+          "'#{escaped}'"
         end
         arg_list = args_escaped.join(', ')
 
-        exe_escaped = executable.to_s.gsub('"', '`"')
+        exe_escaped = executable.to_s.gsub("'", "''")
 
         # Write stdin to temp file for redirection
         stdin_file = Tempfile.new('ukiryu_stdin')
@@ -318,16 +321,16 @@ module Ukiryu
           end
           stdin_file.close
 
-          stdin_path = stdin_file.path.gsub('\\', '\\\\').gsub('"', '`"')
+          stdin_path = stdin_file.path.gsub('\\', '\\\\').gsub("'", "''")
 
           ps_command = if args.empty?
                          <<~PS.strip
-                           $p = Start-Process -FilePath "#{exe_escaped}" -NoNewWindow -Wait -PassThru -RedirectStandardInput "#{stdin_path}"
+                           $p = Start-Process -FilePath '#{exe_escaped}' -NoNewWindow -Wait -PassThru -RedirectStandardInput '#{stdin_path}'
                            exit $p.ExitCode
                          PS
                        else
                          <<~PS.strip
-                           $p = Start-Process -FilePath "#{exe_escaped}" -ArgumentList @(#{arg_list}) -NoNewWindow -Wait -PassThru -RedirectStandardInput "#{stdin_path}"
+                           $p = Start-Process -FilePath '#{exe_escaped}' -ArgumentList @(#{arg_list}) -NoNewWindow -Wait -PassThru -RedirectStandardInput '#{stdin_path}'
                            exit $p.ExitCode
                          PS
                        end
