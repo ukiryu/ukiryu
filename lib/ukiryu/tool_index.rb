@@ -12,20 +12,29 @@ module Ukiryu
   # - Register change detection via mtime
   #
   # Built once and cached for the lifetime of the process.
+  # Thread-safe for concurrent access.
   #
   # @api private
   class ToolIndex
+    @mutex = Mutex.new
+
     class << self
-      # Get the singleton instance
+      # Get the singleton instance (thread-safe)
       #
       # @return [ToolIndex] the index instance
       def instance
-        @instance ||= new
+        return @instance if @instance
+
+        @mutex.synchronize do
+          @instance ||= new
+        end
       end
 
       # Reset the index (mainly for testing)
       def reset
-        @instance = nil
+        @mutex.synchronize do
+          @instance = nil
+        end
       end
 
       # Get all tools in the index (class method delegating to instance)
@@ -41,6 +50,7 @@ module Ukiryu
     # @param register_path [String, nil] the path to the tool register
     def initialize(register_path: nil)
       @register_path = register_path || Ukiryu::Register.default_register_path
+      @mutex = Mutex.new
 
       if ENV['UKIRYU_DEBUG_EXECUTABLE']
         warn '[UKIRYU DEBUG ToolIndex#initialize] called'
@@ -64,16 +74,18 @@ module Ukiryu
     def find_by_interface(interface_name)
       build_index_if_needed
 
-      tool_names = @interface_to_tools[interface_name]
-      return nil unless tool_names
+      @mutex.synchronize do
+        tool_names = @interface_to_tools[interface_name]
+        return nil unless tool_names
 
-      # Try each tool implementing this interface until we find one that loads
-      tool_names.each do |tool_name|
-        metadata = load_metadata_for_tool(tool_name)
-        return metadata if metadata
+        # Try each tool implementing this interface until we find one that loads
+        tool_names.each do |tool_name|
+          metadata = load_metadata_for_tool(tool_name)
+          return metadata if metadata
+        end
+
+        nil
       end
-
-      nil
     end
 
     # Find all tools that implement an interface
@@ -83,7 +95,9 @@ module Ukiryu
     def find_all_by_interface(interface_name)
       build_index_if_needed
 
-      @interface_to_tools[interface_name] || []
+      @mutex.synchronize do
+        @interface_to_tools[interface_name] || []
+      end
     end
 
     # Find tool by alias
@@ -96,20 +110,22 @@ module Ukiryu
     def find_by_alias(alias_name)
       build_index_if_needed
 
-      candidates = @alias_to_tool[alias_name.to_sym]
-      return nil unless candidates
+      @mutex.synchronize do
+        candidates = @alias_to_tool[alias_name.to_sym]
+        return nil unless candidates
 
-      # If only one tool has this alias, return it directly
-      return candidates.first if candidates.one?
+        # If only one tool has this alias, return it directly
+        return candidates.first if candidates.one?
 
-      # Multiple tools have this alias - select by platform compatibility
-      runtime = Ukiryu::Runtime.instance
-      platform = runtime.platform
-      shell = runtime.shell
+        # Multiple tools have this alias - select by platform compatibility
+        runtime = Ukiryu::Runtime.instance
+        platform = runtime.platform
+        shell = runtime.shell
 
-      candidates.find do |tool_name|
-        tool_compatible?(tool_name, platform: platform, shell: shell)
-      end || candidates.first
+        candidates.find do |tool_name|
+          tool_compatible?(tool_name, platform: platform, shell: shell)
+        end || candidates.first
+      end
     end
 
     # Check if a tool is compatible with the given platform and shell
@@ -165,31 +181,45 @@ module Ukiryu
     #
     # @return [Boolean] true if rebuild is needed
     def stale?
-      return true unless @built
+      @mutex.synchronize do
+        return true unless @built
 
-      current_cache_key = build_cache_key
-      @cache_key != current_cache_key
+        current_cache_key = build_cache_key
+        @cache_key != current_cache_key
+      end
     end
 
     # Update the register path
     #
     # @param new_path [String] the new register path
     def register_path=(new_path)
-      return if @register_path == new_path
+      @mutex.synchronize do
+        return if @register_path == new_path
 
-      @register_path = new_path
-      @built = false # Rebuild index with new path
-      @cache_key = nil
-      @interface_to_tools = {}
-      @alias_to_tool = {}
-      @compatibility_cache = {}
+        @register_path = new_path
+        @built = false # Rebuild index with new path
+        @cache_key = nil
+        @interface_to_tools = {}
+        @alias_to_tool = {}
+        @compatibility_cache = {}
+      end
     end
 
     private
 
-    # Build index only if needed (lazy loading)
+    # Build index only if needed (lazy loading) - thread-safe
     def build_index_if_needed
-      build_index if stale?
+      @mutex.synchronize do
+        build_index if stale_without_lock?
+      end
+    end
+
+    # Check if stale without acquiring lock (must be called within synchronized block)
+    def stale_without_lock?
+      return true unless @built
+
+      current_cache_key = build_cache_key
+      @cache_key != current_cache_key
     end
 
     # Build cache key for register change detection

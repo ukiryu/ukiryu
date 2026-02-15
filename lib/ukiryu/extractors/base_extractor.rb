@@ -59,7 +59,8 @@ module Ukiryu
         args = command[1..]
 
         # Execute through Executor (uses Environment system internally)
-        result = Ukiryu::Executor.execute(executable, args, env: environment, shell: shell_class, allow_failure: true, timeout: timeout)
+        result = Ukiryu::Executor.execute(executable, args, env: environment, shell: shell_class, allow_failure: true,
+                                                            timeout: timeout)
 
         {
           stdout: result.stdout,

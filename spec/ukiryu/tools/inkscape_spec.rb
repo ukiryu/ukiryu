@@ -14,7 +14,7 @@ RSpec.describe 'Inkscape Tool Profile' do
 
   describe 'tool availability' do
     it 'detects Inkscape on the system' do
-      skip_unless_tool_available(:inkscape)
+      raise 'Inkscape is not available on this system - tests must not skip, Inkscape must be installed' unless tool_available?(:inkscape)
 
       tool = get_tool(:inkscape)
       expect(tool.available?).to be true
@@ -24,7 +24,9 @@ RSpec.describe 'Inkscape Tool Profile' do
   end
 
   describe 'export command' do
-    before(:each) { skip_unless_tool_available(:inkscape) }
+    before(:each) do
+      raise 'Inkscape is not available on this system - tests must not skip, Inkscape must be installed' unless tool_available?(:inkscape)
+    end
 
     it 'exports SVG to PNG' do
       input = File.join(@temp_dir, 'input.svg')

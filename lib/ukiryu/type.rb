@@ -78,7 +78,10 @@ module Ukiryu
         raise Ukiryu::Errors::ValidationError, 'File path cannot be empty' if value.empty?
 
         # Check if file exists (only if require_existing is true)
-        raise Ukiryu::Errors::ValidationError, "File not found: #{value}" if options[:require_existing] && !File.exist?(value)
+        if options[:require_existing] && !File.exist?(value)
+          raise Ukiryu::Errors::ValidationError,
+                "File not found: #{value}"
+        end
 
         value
       end
@@ -108,7 +111,10 @@ module Ukiryu
 
         if options[:range]
           min, max = options[:range]
-          raise Ukiryu::Errors::ValidationError, "Integer #{integer} out of range [#{min}, #{max}]" if integer < min || integer > max
+          if integer < min || integer > max
+            raise Ukiryu::Errors::ValidationError,
+                  "Integer #{integer} out of range [#{min}, #{max}]"
+          end
         end
 
         if options[:min] && integer < options[:min]
@@ -136,7 +142,10 @@ module Ukiryu
 
         if options[:range]
           min, max = options[:range]
-          raise Ukiryu::Errors::ValidationError, "Float #{float} out of range [#{min}, #{max}]" if float < min || float > max
+          if float < min || float > max
+            raise Ukiryu::Errors::ValidationError,
+                  "Float #{float} out of range [#{min}, #{max}]"
+          end
         end
 
         float
@@ -203,7 +212,10 @@ module Ukiryu
 
       # Validate hash type
       def validate_hash(value, options)
-        raise Ukiryu::Errors::ValidationError, "Hash expected, got #{value.class}: #{value.inspect}" unless value.is_a?(Hash)
+        unless value.is_a?(Hash)
+          raise Ukiryu::Errors::ValidationError,
+                "Hash expected, got #{value.class}: #{value.inspect}"
+        end
 
         if options[:keys]
           unknown_keys = value.keys - options[:keys]

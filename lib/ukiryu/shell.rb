@@ -25,6 +25,7 @@ module Ukiryu
     autoload :Tcsh, 'ukiryu/shell/tcsh'
     autoload :PowerShell, 'ukiryu/shell/powershell'
     autoload :Cmd, 'ukiryu/shell/cmd'
+    autoload :InstanceCache, 'ukiryu/shell/instance_cache'
 
     # Platform-grouped shell types (new schema v1)
     PLATFORM_GROUPS = %i[unix windows powershell].freeze
@@ -94,7 +95,10 @@ module Ukiryu
       def platform_group_for(shell_sym)
         return shell_sym if PLATFORM_GROUPS.include?(shell_sym)
 
-        raise ArgumentError, "Unknown shell: #{shell_sym}. Valid shells: #{VALID_SHELLS.join(', ')}" unless SHELL_TO_PLATFORM.key?(shell_sym)
+        unless SHELL_TO_PLATFORM.key?(shell_sym)
+          raise ArgumentError,
+                "Unknown shell: #{shell_sym}. Valid shells: #{VALID_SHELLS.join(', ')}"
+        end
 
         SHELL_TO_PLATFORM[shell_sym]
       end

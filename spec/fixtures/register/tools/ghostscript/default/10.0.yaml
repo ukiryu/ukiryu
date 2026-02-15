@@ -6,10 +6,15 @@ homepage: https://www.ghostscript.com/
 version: '1.0'
 aliases:
 - gs
+- gswin64c
+- gswin32c
 version_detection:
   command: "--version"
   pattern: "(\\d+\\.\\d+)"
 search_paths:
+  windows:
+  - "C:/Program Files/gs/gs*/bin/gswin64c.exe"
+  - "C:/Program Files/gs/gs*/bin/gswin32c.exe"
 implements: ghostscript/1.0
 profiles:
 - name: unix

@@ -17,9 +17,9 @@ module Ukiryu
     class UnknownShellError < Error
       def suggestions
         [
-          "Supported shells: bash, zsh, fish, sh, dash, tcsh, powershell, cmd",
-          "Platform groups: :unix (all Unix shells), :windows, :powershell",
-          "Set explicitly: Ukiryu.configure { |c| c.default_shell = :bash }"
+          'Supported shells: bash, zsh, fish, sh, dash, tcsh, powershell, cmd',
+          'Platform groups: :unix (all Unix shells), :windows, :powershell',
+          'Set explicitly: Ukiryu.configure { |c| c.default_shell = :bash }'
         ]
       end
     end
@@ -28,9 +28,9 @@ module Ukiryu
     class UnsupportedPlatformError < Error
       def suggestions
         [
-          "Ukiryu supports: macOS, Linux, Windows",
+          'Ukiryu supports: macOS, Linux, Windows',
           "Current platform: #{RUBY_PLATFORM}",
-          "Check if running on a supported operating system"
+          'Check if running on a supported operating system'
         ]
       end
     end
@@ -39,9 +39,9 @@ module Ukiryu
     class ValidationError < Error
       def suggestions
         [
-          "Check the parameter type against the tool definition",
-          "Verify value is within allowed range",
-          "Ensure value is in the allowed values list"
+          'Check the parameter type against the tool definition',
+          'Verify value is within allowed range',
+          'Ensure value is in the allowed values list'
         ]
       end
     end
@@ -50,9 +50,9 @@ module Ukiryu
     class ProfileNotFoundError < Error
       def suggestions
         [
-          "Check tool definition has profile for your platform",
-          "Verify tool definition has profile for your shell",
-          "Try specifying platform/shell explicitly"
+          'Check tool definition has profile for your platform',
+          'Verify tool definition has profile for your shell',
+          'Try specifying platform/shell explicitly'
         ]
       end
     end
@@ -60,9 +60,9 @@ module Ukiryu
     class ProfileLoadError < Error
       def suggestions
         [
-          "Verify YAML syntax is correct",
-          "Check profile structure matches schema",
-          "Review error message for specific issue"
+          'Verify YAML syntax is correct',
+          'Check profile structure matches schema',
+          'Review error message for specific issue'
         ]
       end
     end
@@ -73,9 +73,9 @@ module Ukiryu
     class DefinitionNotFoundError < DefinitionError
       def suggestions
         [
-          "Verify file path is correct",
-          "Check file has .yaml extension",
-          "Use absolute path if relative path fails"
+          'Verify file path is correct',
+          'Check file has .yaml extension',
+          'Use absolute path if relative path fails'
         ]
       end
     end
@@ -83,9 +83,9 @@ module Ukiryu
     class DefinitionLoadError < DefinitionError
       def suggestions
         [
-          "Validate YAML syntax",
-          "Check file is readable",
-          "Verify file encoding is UTF-8"
+          'Validate YAML syntax',
+          'Check file is readable',
+          'Verify file encoding is UTF-8'
         ]
       end
     end
@@ -94,8 +94,8 @@ module Ukiryu
       def suggestions
         [
           "Run 'ukiryu validate' for detailed errors",
-          "Compare with schema definition",
-          "Check tool definition examples"
+          'Compare with schema definition',
+          'Check tool definition examples'
         ]
       end
     end
@@ -107,9 +107,9 @@ module Ukiryu
     class ToolNotFoundError < Error
       def suggestions
         [
-          "Check tool name spelling",
-          "Verify register path is correct",
-          "List available tools: Ukiryu::Register.tool_names"
+          'Check tool name spelling',
+          'Verify register path is correct',
+          'List available tools: Ukiryu::Register.tool_names'
         ]
       end
     end
@@ -117,9 +117,9 @@ module Ukiryu
     class ExecutableNotFoundError < Error
       def suggestions
         [
-          "Install the tool (e.g., brew install imagemagick)",
-          "Add executable to PATH",
-          "Configure search_paths in tool definition"
+          'Install the tool (e.g., brew install imagemagick)',
+          'Add executable to PATH',
+          'Configure search_paths in tool definition'
         ]
       end
     end
@@ -128,9 +128,9 @@ module Ukiryu
     class ExecutionError < Error
       def suggestions
         [
-          "Check e.result.exit_status for exit code",
-          "Check e.result.stderr for error message",
-          "Verify parameters are correct"
+          'Check e.result.exit_status for exit code',
+          'Check e.result.stderr for error message',
+          'Verify parameters are correct'
         ]
       end
     end
@@ -145,9 +145,9 @@ module Ukiryu
 
       def suggestions
         [
-          "Increase timeout parameter",
-          "Check UKIRYU_TIMEOUT environment variable",
-          "Verify tool is not hanging"
+          'Increase timeout parameter',
+          'Check UKIRYU_TIMEOUT environment variable',
+          'Verify tool is not hanging'
         ]
       end
     end
@@ -156,9 +156,9 @@ module Ukiryu
     class VersionDetectionError < Error
       def suggestions
         [
-          "Verify tool is installed correctly",
-          "Check version_detection command in tool definition",
-          "Test version command manually: tool --version"
+          'Verify tool is installed correctly',
+          'Check version_detection command in tool definition',
+          'Test version command manually: tool --version'
         ]
       end
     end

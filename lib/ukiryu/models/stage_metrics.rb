@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-
 module Ukiryu
   module Models
     # Metrics for a single stage of execution

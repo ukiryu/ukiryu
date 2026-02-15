@@ -17,8 +17,9 @@ module Ukiryu
     def build_args(command, params)
       args = []
 
-      # Debug logging for Ruby 4.0 CI - log all params
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+      # Debug logging for CI - log all params
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Platform) && Platform.windows? && ENV['CI'])
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] command: #{command.name}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] params: #{params.inspect}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] params.class: #{params.class}"
       end
@@ -45,6 +46,10 @@ module Ukiryu
         next if params[param_key].nil?
 
         formatted_opt = format_option(opt_def, params[param_key])
+
+        # Debug logging
+        warn "[UKIRYU DEBUG build_args] formatted_opt for #{param_key}: #{formatted_opt.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
         Array(formatted_opt).each { |opt| args << opt unless opt.nil? || opt.empty? }
       end
 
@@ -124,11 +129,14 @@ module Ukiryu
         end
       end
 
-      # Debug logging for Ruby 4.0 CI
-      if ENV['UKIRYU_DEBUG_EXECUTABLE']
-        warn "[UKIRYU DEBUG CommandBuilder#build_args] Built args: #{args.inspect}"
+      # Debug logging for CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Platform) && Platform.windows? && ENV['CI'])
+        warn "[UKIRYU DEBUG CommandBuilder#build_args] Final args: #{args.inspect}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] Args class: #{args.class}"
         warn "[UKIRYU DEBUG CommandBuilder#build_args] Args size: #{args.size}"
+        args.each_with_index do |arg, i|
+          warn "[UKIRYU DEBUG CommandBuilder#build_args] args[#{i}]: #{arg.inspect} (#{arg.class})"
+        end
       end
 
       args
@@ -144,7 +152,7 @@ module Ukiryu
       Ukiryu::Type.validate(value, arg_def.type || :string, arg_def)
 
       # Apply platform-specific path formatting
-      if arg_def.type == :file
+      if arg_def.type.to_s == 'file'
         shell = Ukiryu::Shell::InstanceCache.instance_for(@shell)
         shell.format_path(value.to_s)
       else
@@ -161,6 +169,14 @@ module Ukiryu
       # Validate type
       Ukiryu::Type.validate(value, opt_def.type || :string, opt_def)
 
+      # Debug logging - trace the full option formatting
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG format_option] opt_def.name: #{opt_def.name.inspect}"
+        warn "[UKIRYU DEBUG format_option] opt_def.cli: #{opt_def.cli.inspect}"
+        warn "[UKIRYU DEBUG format_option] opt_def.assignment_delimiter: #{opt_def.assignment_delimiter.inspect}"
+        warn "[UKIRYU DEBUG format_option] value: #{value.inspect} (#{value.class})"
+      end
+
       # Handle boolean types - just return the CLI flag (no value)
       type_val = opt_def.type
       if [:boolean, TrueClass, 'boolean'].include?(type_val)
@@ -173,27 +189,53 @@ module Ukiryu
       delimiter_sym = opt_def.assignment_delimiter_sym
       separator = opt_def.separator || '='
 
+      warn "[UKIRYU DEBUG format_option] cli variable: #{cli.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+      warn "[UKIRYU DEBUG format_option] delimiter_sym: #{delimiter_sym.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
       # Auto-detect delimiter based on CLI prefix
       delimiter_sym = detect_delimiter(cli) if delimiter_sym == :auto
 
-      # Convert value to string (handle symbols)
-      value_str = value.is_a?(Symbol) ? value.to_s : value.to_s
+      warn "[UKIRYU DEBUG format_option] delimiter_sym after detect: #{delimiter_sym.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
+      # Convert value to string (handle symbols and file paths)
+      if value.is_a?(Symbol)
+        value_str = value.to_s
+      elsif opt_def.type.to_s == 'file'
+        # Apply platform-specific path formatting for file types
+        shell_instance = Ukiryu::Shell::InstanceCache.instance_for(@shell)
+        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
+          warn "[UKIRYU DEBUG format_option] FILE type detected: opt_def.name=#{opt_def.name}, value=#{value.inspect}"
+          warn "[UKIRYU DEBUG format_option] @shell=#{@shell.inspect}, shell_instance=#{shell_instance.class}"
+          warn "[UKIRYU DEBUG format_option] Platform.windows?=#{Ukiryu::Platform.windows? if defined?(Ukiryu::Platform)}"
+        end
+        value_str = shell_instance.format_path(value.to_s)
+        warn "[UKIRYU DEBUG format_option] format_path result: #{value_str.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
+      else
+        value_str = value.to_s
+      end
 
       # Handle array values with separator
       if value.is_a?(Array) && separator
-        joined = value.join(separator)
-        case delimiter_sym
-        when :equals
-          "#{cli}=#{joined}"
-        when :space
-          [cli, joined] # Return array for space-separated
-        when :colon
-          "#{cli}:#{joined}"
-        when :none
-          cli
-        else
-          "#{cli}=#{joined}"
-        end
+        # Apply path formatting to each element if type is file
+        formatted_values = if opt_def.type.to_s == 'file'
+                             shell_instance ||= Ukiryu::Shell::InstanceCache.instance_for(@shell)
+                             value.map { |v| shell_instance.format_path(v.to_s) }
+                           else
+                             value.map(&:to_s)
+                           end
+        joined = formatted_values.join(separator)
+        result = case delimiter_sym
+                 when :equals
+                   "#{cli}=#{joined}"
+                 when :space
+                   [cli, joined] # Return array for space-separated
+                 when :colon
+                   "#{cli}:#{joined}"
+                 when :none
+                   cli
+                 else
+                   "#{cli}=#{joined}"
+                 end
       else
         result = case delimiter_sym
                  when :equals
@@ -207,15 +249,15 @@ module Ukiryu
                  else
                    "#{cli}=#{value_str}"
                  end
-
-        # Debug logging for Ruby 3.4+ CI
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG format_option] result: #{result.inspect}"
-          warn "[UKIRYU DEBUG format_option] result.class: #{result.class}"
-        end
-
-        result
       end
+
+      # Debug logging for Ruby 3.4+ CI
+      if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        warn "[UKIRYU DEBUG format_option] FINAL result: #{result.inspect}"
+        warn "[UKIRYU DEBUG format_option] result.class: #{result.class}"
+      end
+
+      result
     end
 
     # Detect assignment delimiter based on CLI prefix
