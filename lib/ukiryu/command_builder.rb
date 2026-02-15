@@ -48,9 +48,7 @@ module Ukiryu
         formatted_opt = format_option(opt_def, params[param_key])
 
         # Debug logging
-        if ENV['UKIRYU_DEBUG_EXECUTABLE']
-          warn "[UKIRYU DEBUG build_args] formatted_opt for #{param_key}: #{formatted_opt.inspect}"
-        end
+        warn "[UKIRYU DEBUG build_args] formatted_opt for #{param_key}: #{formatted_opt.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
 
         Array(formatted_opt).each { |opt| args << opt unless opt.nil? || opt.empty? }
       end
@@ -211,9 +209,7 @@ module Ukiryu
           warn "[UKIRYU DEBUG format_option] Platform.windows?=#{Ukiryu::Platform.windows? if defined?(Ukiryu::Platform)}"
         end
         value_str = shell_instance.format_path(value.to_s)
-        if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
-          warn "[UKIRYU DEBUG format_option] format_path result: #{value_str.inspect}"
-        end
+        warn "[UKIRYU DEBUG format_option] format_path result: #{value_str.inspect}" if ENV['UKIRYU_DEBUG_EXECUTABLE'] || (defined?(Ukiryu::Platform) && Ukiryu::Platform.windows? && ENV['CI'])
       else
         value_str = value.to_s
       end
@@ -228,18 +224,18 @@ module Ukiryu
                              value.map(&:to_s)
                            end
         joined = formatted_values.join(separator)
-        case delimiter_sym
-        when :equals
-          result = "#{cli}=#{joined}"
-        when :space
-          result = [cli, joined] # Return array for space-separated
-        when :colon
-          result = "#{cli}:#{joined}"
-        when :none
-          result = cli
-        else
-          result = "#{cli}=#{joined}"
-        end
+        result = case delimiter_sym
+                 when :equals
+                   "#{cli}=#{joined}"
+                 when :space
+                   [cli, joined] # Return array for space-separated
+                 when :colon
+                   "#{cli}:#{joined}"
+                 when :none
+                   cli
+                 else
+                   "#{cli}=#{joined}"
+                 end
       else
         result = case delimiter_sym
                  when :equals

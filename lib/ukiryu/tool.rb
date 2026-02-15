@@ -96,7 +96,9 @@ module Ukiryu
             impl_default = impl[:default] || impl['default']
             version_spec = if impl_default
                              # Find version spec matching the implementation default
-                             versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
+                             versions.find do |v|
+                               v[:file] == impl_default || v['file'] == impl_default
+                             end || versions.last
                            else
                              versions.find { |v| v[:default] || v['default'] } || versions.last
                            end

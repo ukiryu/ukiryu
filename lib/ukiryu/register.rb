@@ -22,9 +22,7 @@ if RbConfig::CONFIG['host_os'] =~ /mswin|mingw/
 
   git_bin = git_paths.find { |path| File.exist?(File.join(path, 'git.exe')) }
 
-  if git_bin && !ENV['GIT_PATH']
-    ENV['GIT_PATH'] = git_bin
-  end
+  ENV['GIT_PATH'] = git_bin if git_bin && !ENV['GIT_PATH']
 end
 
 module Ukiryu
@@ -162,7 +160,10 @@ module Ukiryu
         yaml_content = load_tool_yaml(name, options)
         if yaml_content
           hash = YAML.safe_load(yaml_content, permitted_classes: [Symbol], aliases: true)
-          return ToolMetadata.from_hash(hash, tool_name: name.to_s, register_path: options[:register_path] || default.path) if hash
+          if hash
+            return ToolMetadata.from_hash(hash, tool_name: name.to_s,
+                                                register_path: options[:register_path] || default.path)
+          end
         end
 
         # If not found, try interface-based discovery using ToolIndex
