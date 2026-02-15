@@ -191,9 +191,8 @@ RSpec.describe 'Ghostscript Tool Profile' do
       original_test_shell = ENV['UKIRYU_TEST_SHELL']
       ENV['UKIRYU_TEST_SHELL'] = 'powershell'
 
-      # Use the dev register which has PowerShell in the shells list
-      dev_register = File.expand_path('../../../../register', __dir__)
-      skip 'Dev register not found' unless Dir.exist?(dev_register)
+      # Use the fixture register which has PowerShell in the shells list
+      fixture_register = File.expand_path('../../fixtures/register', __dir__)
 
       begin
         # Clear shell and tool caches to force reload with PowerShell
@@ -201,7 +200,7 @@ RSpec.describe 'Ghostscript Tool Profile' do
         Ukiryu::Tool.clear_cache
 
         # Set register path programmatically
-        Ukiryu::Register.default_register_path = dev_register
+        Ukiryu::Register.default_register_path = fixture_register
 
         input = File.join(@temp_dir, 'ps_test.eps')
         output = File.join(@temp_dir, 'ps_test.pdf')
