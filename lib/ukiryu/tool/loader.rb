@@ -22,16 +22,31 @@ module Ukiryu
         def load_with_implementation_index(name, options = {})
           require_relative '../version_scheme_resolver'
 
+          if ENV['CI']
+            warn "[DEBUG Loader] Loading tool: #{name.inspect}"
+            warn "[DEBUG Loader] Options: #{options.inspect}"
+            warn "[DEBUG Loader] UKIRYU_REGISTER: #{ENV['UKIRYU_REGISTER'].inspect}"
+          end
+
           # Try to load ImplementationIndex
           index = Register.load_implementation_index(name, options)
+          if ENV['CI']
+            warn "[DEBUG Loader] index: #{index.inspect}"
+          end
           return nil unless index
 
           # Load Interface
           interface = Register.load_interface(index.interface, options)
+          if ENV['CI']
+            warn "[DEBUG Loader] interface: #{interface.inspect}"
+          end
           return nil unless interface
 
           # Detect implementation and version
           impl_spec = detect_implementation_and_version(index, name, options)
+          if ENV['CI']
+            warn "[DEBUG Loader] impl_spec: #{impl_spec.inspect}"
+          end
           return nil unless impl_spec
 
           # Load ImplementationVersion
@@ -41,6 +56,9 @@ module Ukiryu
             impl_spec[:file],
             options
           )
+          if ENV['CI']
+            warn "[DEBUG Loader] impl_version: #{impl_version.inspect}"
+          end
           return nil unless impl_version
 
           # Convert to old ToolDefinition format for compatibility
@@ -52,6 +70,9 @@ module Ukiryu
             impl_spec[:version], # Pass detected version
             options
           )
+          if ENV['CI']
+            warn "[DEBUG Loader] tool_definition: #{tool_definition.inspect}"
+          end
           return nil unless tool_definition
 
           # Create tool instance
