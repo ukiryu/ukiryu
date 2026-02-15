@@ -159,24 +159,48 @@ module Ukiryu
       def ensure_user_clone
         expanded_path = expand_path(DEFAULT_DIR)
 
+        warn "[UKIRYU DEBUG] ensure_user_clone: expanded_path=#{expanded_path}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
         # If already exists and valid, return it
         if Dir.exist?(expanded_path)
-          return expanded_path if validate_register_integrity(expanded_path)
+          if validate_register_integrity(expanded_path)
+            warn '[UKIRYU DEBUG] ensure_user_clone: existing clone is valid' if ENV['UKIRYU_DEBUG_EXECUTABLE']
+            return expanded_path
+          end
 
           # Exists but invalid, re-clone
+          warn '[UKIRYU DEBUG] ensure_user_clone: existing clone is invalid, re-cloning' if ENV['UKIRYU_DEBUG_EXECUTABLE']
           force_reclone
 
           return expanded_path
         end
 
         # Doesn't exist, clone it
+        warn '[UKIRYU DEBUG] ensure_user_clone: cloning register...' if ENV['UKIRYU_DEBUG_EXECUTABLE']
         clone_register(expanded_path)
         expanded_path
       rescue RegisterError
         # Re-raise with context
         raise
       rescue StandardError => e
-        raise RegisterError, "Failed to setup register at #{expanded_path}: #{e.message}"
+        warn "[UKIRYU DEBUG] ensure_user_clone failed: #{e.class}: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
+        raise RegisterError, <<~ERROR
+          Failed to setup register at #{expanded_path}: #{e.message}
+
+          This usually means:
+            1. Git is not installed or not in PATH
+            2. Network connectivity issues
+            3. Permission issues with ~/.ukiryu directory
+
+          To fix this:
+            1. Install git from https://git-scm.com
+            2. Verify git is in PATH: git --version
+            3. Or manually clone: git clone #{REGISTER_URL} #{expanded_path}
+            4. Or set UKIRYU_REGISTER to use a local register path
+
+          Example:
+            export UKIRYU_REGISTER=/path/to/register
+        ERROR
       end
 
       # Clone the register repository
@@ -203,9 +227,12 @@ module Ukiryu
           ERROR
         end
 
-        # Perform the clone
+        # Perform the clone using git gem
         print "Cloning register from #{REGISTER_URL}..." if $stdout.tty?
+        warn '[UKIRYU DEBUG] Cloning register...' if ENV['UKIRYU_DEBUG_EXECUTABLE']
+
         Git.clone(REGISTER_URL, target_path, quiet: true)
+
         puts 'done' if $stdout.tty?
 
         # Validate the clone
@@ -213,14 +240,18 @@ module Ukiryu
           FileUtils.rm_rf(target_path)
           raise RegisterError, 'Register clone validation failed. Please try again or set UKIRYU_REGISTER.'
         end
+
+        warn '[UKIRYU DEBUG] Clone successful' if ENV['UKIRYU_DEBUG_EXECUTABLE']
       rescue Git::GitExecuteError => e
+        warn "[UKIRYU DEBUG] Git error: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
         raise RegisterError, <<~ERROR
           Failed to clone register from #{REGISTER_URL}: #{e.message}
 
           To fix this:
             1. Check your internet connection
-            2. Manually clone: git clone #{REGISTER_URL} #{target_path}
-            3. Or set UKIRYU_REGISTER to use a local register path
+            2. Verify git is installed: git --version
+            3. Manually clone: git clone #{REGISTER_URL} #{target_path}
+            4. Or set UKIRYU_REGISTER to use a local register path
 
           Example:
             export UKIRYU_REGISTER=/path/to/register
