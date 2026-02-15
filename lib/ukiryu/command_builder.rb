@@ -204,7 +204,8 @@ module Ukiryu
         value_str = value.to_s
       elsif opt_def.type == :file
         # Apply platform-specific path formatting for file types
-        value_str = shell.format_path(value.to_s)
+        shell_instance = Ukiryu::Shell::InstanceCache.instance_for(@shell)
+        value_str = shell_instance.format_path(value.to_s)
       else
         value_str = value.to_s
       end
@@ -213,7 +214,8 @@ module Ukiryu
       if value.is_a?(Array) && separator
         # Apply path formatting to each element if type is file
         formatted_values = if opt_def.type == :file
-                             value.map { |v| shell.format_path(v.to_s) }
+                             shell_instance ||= Ukiryu::Shell::InstanceCache.instance_for(@shell)
+                             value.map { |v| shell_instance.format_path(v.to_s) }
                            else
                              value.map(&:to_s)
                            end
