@@ -83,7 +83,7 @@ module Ukiryu
           update_existing_clone
         end
         true
-      rescue Git::GitExecuteError => e
+      rescue Git::Error => e
         raise RegisterError, "Failed to update register: #{e.message}"
       rescue StandardError => e
         raise RegisterError, "Register update failed: #{e.message}"
@@ -129,7 +129,7 @@ module Ukiryu
             else
               ENV.delete('GIT_REDIRECT_STDERR')
             end
-          rescue Git::GitExecuteError, IOError, Errno::ENOENT
+          rescue Git::Error, IOError, Errno::ENOENT
             # Git info not available, but register is valid
             # Ensure GIT_REDIRECT_STDERR is restored
             if old_git_redirect
@@ -242,7 +242,7 @@ module Ukiryu
         end
 
         warn '[UKIRYU DEBUG] Clone successful' if ENV['UKIRYU_DEBUG_EXECUTABLE']
-      rescue Git::GitExecuteError => e
+      rescue Git::Error => e
         warn "[UKIRYU DEBUG] Git error: #{e.message}" if ENV['UKIRYU_DEBUG_EXECUTABLE']
         raise RegisterError, <<~ERROR
           Failed to clone register from #{REGISTER_URL}: #{e.message}
@@ -283,7 +283,7 @@ module Ukiryu
           else
             ENV.delete('GIT_REDIRECT_STDERR')
           end
-        rescue Git::GitExecuteError => e
+        rescue Git::Error => e
           # Ensure GIT_REDIRECT_STDERR is restored
           if defined?(old_git_redirect)
             if old_git_redirect
