@@ -22,31 +22,16 @@ module Ukiryu
         def load_with_implementation_index(name, options = {})
           require_relative '../version_scheme_resolver'
 
-          if ENV['CI']
-            warn "[DEBUG Loader] Loading tool: #{name.inspect}"
-            warn "[DEBUG Loader] Options: #{options.inspect}"
-            warn "[DEBUG Loader] UKIRYU_REGISTER: #{ENV['UKIRYU_REGISTER'].inspect}"
-          end
-
           # Try to load ImplementationIndex
           index = Register.load_implementation_index(name, options)
-          if ENV['CI']
-            warn "[DEBUG Loader] index: #{index.inspect}"
-          end
           return nil unless index
 
           # Load Interface
           interface = Register.load_interface(index.interface, options)
-          if ENV['CI']
-            warn "[DEBUG Loader] interface: #{interface.inspect}"
-          end
           return nil unless interface
 
           # Detect implementation and version
           impl_spec = detect_implementation_and_version(index, name, options)
-          if ENV['CI']
-            warn "[DEBUG Loader] impl_spec: #{impl_spec.inspect}"
-          end
           return nil unless impl_spec
 
           # Load ImplementationVersion
@@ -56,9 +41,6 @@ module Ukiryu
             impl_spec[:file],
             options
           )
-          if ENV['CI']
-            warn "[DEBUG Loader] impl_version: #{impl_version.inspect}"
-          end
           return nil unless impl_version
 
           # Convert to old ToolDefinition format for compatibility
@@ -70,9 +52,6 @@ module Ukiryu
             impl_spec[:version], # Pass detected version
             options
           )
-          if ENV['CI']
-            warn "[DEBUG Loader] tool_definition: #{tool_definition.inspect}"
-          end
           return nil unless tool_definition
 
           # Create tool instance
@@ -86,31 +65,14 @@ module Ukiryu
         # @param options [Hash] options including platform and shell
         # @return [Hash, nil] hash with :implementation_name, :version, :file or nil
         def detect_implementation_and_version(index, tool_name, options = {})
-          if ENV['CI']
-            warn "[DEBUG detect] index.implementations: #{index.implementations.inspect}"
-          end
-
           # Try each implementation in order
           index.implementations.each do |impl|
-            if ENV['CI']
-              warn "[DEBUG detect] trying impl: #{impl.inspect}"
-            end
             result = try_implementation(impl, tool_name, options)
-            if ENV['CI']
-              warn "[DEBUG detect] try_implementation result: #{result.inspect}"
-            end
             return result if result
           end
 
           # If no implementation matched, use the first one's default
-          if ENV['CI']
-            warn "[DEBUG detect] falling back to default"
-          end
-          result = fallback_to_default(index)
-          if ENV['CI']
-            warn "[DEBUG detect] fallback result: #{result.inspect}"
-          end
-          result
+          fallback_to_default(index)
         end
 
         private
@@ -173,37 +135,17 @@ module Ukiryu
         # @param versions [Array] version specs
         # @return [Hash] default implementation spec
         def build_default_spec(impl, versions)
-          if ENV['CI']
-            warn "[DEBUG build_default_spec] impl: #{impl.inspect}"
-            warn "[DEBUG build_default_spec] versions: #{versions.inspect}"
-          end
-
           impl_default = impl[:default] || impl['default']
-          if ENV['CI']
-            warn "[DEBUG build_default_spec] impl_default: #{impl_default.inspect}"
-          end
-
           version_spec = if impl_default
                            versions.find { |v| v[:file] == impl_default || v['file'] == impl_default } || versions.last
                          else
                            versions.find { |v| v[:default] || v['default'] } || versions.last
                          end
-
-          if ENV['CI']
-            warn "[DEBUG build_default_spec] version_spec: #{version_spec.inspect}"
-          end
-
-          result = {
+          {
             implementation_name: impl[:name] || impl['name'],
             version: nil,
             file: version_spec[:file] || version_spec['file'] || impl_default
           }
-
-          if ENV['CI']
-            warn "[DEBUG build_default_spec] result: #{result.inspect}"
-          end
-
-          result
         end
 
         # Fallback to first implementation's default
@@ -361,28 +303,11 @@ module Ukiryu
           require_relative '../models/tool_definition'
           require_relative '../models/platform_profile'
 
-          detected_platform = options[:platform] || Platform.detect
-          detected_shell = options[:shell] || Shell.detect
-
-          if ENV['CI']
-            warn "[DEBUG convert] detected_platform: #{detected_platform.inspect}"
-            warn "[DEBUG convert] detected_shell: #{detected_shell.inspect}"
-            warn "[DEBUG convert] impl_version.execution_profiles count: #{impl_version.execution_profiles&.count.inspect}"
-            impl_version.execution_profiles&.each_with_index do |p, i|
-              warn "[DEBUG convert] profile[#{i}] platforms: #{p[:platforms].inspect}"
-              warn "[DEBUG convert] profile[#{i}] shells: #{p[:shells].inspect}"
-            end
-          end
-
           # Select compatible execution profile
           profile = impl_version.compatible_profile(
-            platform: detected_platform,
-            shell: detected_shell
+            platform: options[:platform] || Platform.detect,
+            shell: options[:shell] || Shell.detect
           )
-
-          if ENV['CI']
-            warn "[DEBUG convert] compatible_profile result: #{profile.inspect}"
-          end
 
           return nil unless profile
 

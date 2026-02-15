@@ -14,21 +14,6 @@ RSpec.describe 'Inkscape Tool Profile' do
 
   describe 'tool availability' do
     it 'detects Inkscape on the system' do
-      # Debug: Check if inkscape is in PATH
-      inkscape_path = `which inkscape 2>/dev/null`.strip
-      puts "[DEBUG] which inkscape: #{inkscape_path.inspect}" if ENV['CI']
-
-      # Debug: Check if tool can be loaded
-      begin
-        tool = get_tool(:inkscape)
-        puts "[DEBUG] Tool loaded: #{tool.inspect}" if ENV['CI']
-        puts "[DEBUG] Tool available?: #{tool.available?}" if ENV['CI']
-        puts "[DEBUG] Tool executable: #{tool.executable.inspect}" if ENV['CI']
-      rescue => e
-        puts "[DEBUG] Error loading tool: #{e.class}: #{e.message}" if ENV['CI']
-        raise
-      end
-
       raise 'Inkscape is not available on this system - tests must not skip, Inkscape must be installed' unless tool_available?(:inkscape)
 
       tool = get_tool(:inkscape)
@@ -40,19 +25,6 @@ RSpec.describe 'Inkscape Tool Profile' do
 
   describe 'export command' do
     before(:each) do
-      # Debug: Check if tool is available before raising
-      if ENV['CI'] && !tool_available?(:inkscape)
-        inkscape_path = `which inkscape 2>/dev/null`.strip
-        puts "[DEBUG] export command - which inkscape: #{inkscape_path.inspect}"
-        begin
-          tool = get_tool(:inkscape)
-          puts "[DEBUG] export command - Tool loaded: #{tool.inspect}"
-          puts "[DEBUG] export command - Tool available?: #{tool.available?}"
-          puts "[DEBUG] export command - Tool executable: #{tool.executable.inspect}"
-        rescue => e
-          puts "[DEBUG] export command - Error loading tool: #{e.class}: #{e.message}"
-        end
-      end
       raise 'Inkscape is not available on this system - tests must not skip, Inkscape must be installed' unless tool_available?(:inkscape)
     end
 

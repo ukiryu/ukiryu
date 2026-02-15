@@ -64,6 +64,10 @@ RSpec.configure do |config|
     Ukiryu::Tool.clear_cache
     Ukiryu::Runtime.instance.reset!
     Ukiryu::Tools::Generator.clear_cache
+    Ukiryu::Shell.reset
+
+    # Clean up test shell environment variable that may be left by other tests
+    ENV.delete('UKIRYU_TEST_SHELL')
 
     # Remove generated tool classes from Tools namespace
     Ukiryu::Tools.constants.each do |const|
