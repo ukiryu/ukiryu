@@ -296,6 +296,8 @@ module Ukiryu
           search_paths.each do |dir|
             path_extensions.each do |ext|
               exe = File.join(dir, "#{command}#{ext}")
+              # Normalize path separators on Windows (File.join uses forward slashes)
+              exe = exe.gsub('/', '\\') if Platform.windows?
               return exe if executable?(exe)
             end
           end

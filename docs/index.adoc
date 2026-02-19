@@ -2,6 +2,7 @@
 layout: default
 title: "Ukiryu: Open Definitions For CLI Tools"
 nav_order: 1
+has_children: true
 ---
 
 == Ukiryu: Open Definitions For CLI Tools

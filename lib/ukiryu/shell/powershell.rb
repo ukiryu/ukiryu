@@ -233,7 +233,11 @@ module Ukiryu
           exe_escaped = exe_normalized.gsub("'", "''")
 
           args_escaped = args.map do |a|
-            arg_str = a.to_s.gsub('/', '\\')
+            # NOTE: Do NOT convert forward slashes to backslashes in arguments!
+            # Many tools (like Inkscape) on Windows expect forward slashes in paths
+            # because backslashes can be interpreted as escape characters.
+            # PowerShell single quotes handle paths correctly regardless of separator.
+            arg_str = a.to_s
             if arg_str.start_with?('-')
               # Arguments starting with - must be single-quoted to prevent PowerShell's
               # parameter binder from stripping the prefix (e.g., -sDEVICE=pdfwrite -> =pdfwrite)
