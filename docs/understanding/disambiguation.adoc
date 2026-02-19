@@ -1,6 +1,9 @@
-= Disambiguation
-:nav_order: 90
-:parent: Understanding
+---
+layout: default
+title: Disambiguation
+parent: Understanding
+nav_order: 4
+---
 
 == Overview
 

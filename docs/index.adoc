@@ -1,11 +1,11 @@
 ---
-layout: default
-title: "Ukiryu: Open Definitions For CLI Tools"
-nav_order: 1
-has_children: true
+title: Ukiryu
+nav_order: 0
 ---
 
-== Ukiryu: Open Definitions For CLI Tools
+== Ukiryu
+
+Open Definitions For CLI Tools.
 
 The "OpenAPI" for Command Line Interfaces.
 
