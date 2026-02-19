@@ -1,6 +1,9 @@
-= Environment Variables
-:nav_order: 30
-:parent: Interfaces
+---
+layout: default
+title: Environment Variables
+parent: Interfaces
+nav_order: 3
+---
 
 == Overview
 
