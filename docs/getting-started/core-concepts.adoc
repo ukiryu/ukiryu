@@ -171,7 +171,7 @@ An **Action** is a specific operation within a tool (formerly called "commands")
 |*Example* | `remote` → `git-remote` | `add` in `git remote add` |
 |*Hierarchy* | Top-level mapping | Can belong to parent commands |
 |*Syntax* | Defined in `routing:` table | Defined in `commands:` list |
-|===}
+|===
 
 === Action Types
 

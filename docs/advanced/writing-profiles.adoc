@@ -157,7 +157,6 @@ profiles:
     option_style: double_dash_space
     commands: []
 ----
-----
 
 === Step 3: Define Commands
 
@@ -312,7 +311,7 @@ version_detection:
   pattern: 'Tool version ([\d.]+)'
 ----
 
-### Pattern Matching Tips
+=== Pattern Matching Tips
 
 * Use capture groups `()` to extract the version
 * Escape special regex characters: `\.`, `\(`, `\)`
@@ -324,7 +323,7 @@ version_detection:
 tool --version | grep -oE '[0-9]+\.[0-9]+'
 ----
 
-### Multiple Detection Methods
+=== Multiple Detection Methods
 
 For robustness, provide multiple methods with fallback:
 
@@ -348,7 +347,7 @@ version_detection:
   modern_threshold: '1.0'
 ----
 
-### Generic Tools
+=== Generic Tools
 
 For tools with stable interfaces (like `cat`, `grep`, `ls`), use:
 
@@ -373,7 +372,7 @@ version_detection:
 
 Define where the executable might be found on each platform.
 
-### Standard Locations
+=== Standard Locations
 
 [source,yaml]
 ----
@@ -390,7 +389,7 @@ search_paths:
     - C:/Program Files (x86)/MyTool/bin/mytool.exe
 ----
 
-### Discovery Order
+=== Discovery Order
 
 Ukiryu searches in this order:
 
@@ -398,7 +397,7 @@ Ukiryu searches in this order:
 2. System `PATH` environment variable
 3. Current working directory
 
-### Common Installation Paths
+=== Common Installation Paths
 
 * **Homebrew (macOS)**: `/opt/homebrew/bin/`
 * **MacPorts (macOS)**: `/opt/local/bin/`
@@ -410,7 +409,7 @@ Ukiryu searches in this order:
 // Platform-Specific Handling
 == Platform-Specific Handling
 
-### Subcommands vs Standalone Executables
+=== Subcommands vs Standalone Executables
 
 Some tools use subcommands (e.g., `magick export`), others are standalone (`convert`):
 
@@ -429,7 +428,7 @@ commands:
     # Invocation: convert input.svg output.png
 ----
 
-### Windows Path Handling
+=== Windows Path Handling
 
 Windows paths use backslashes and may contain spaces:
 
@@ -444,7 +443,7 @@ search_paths:
 // Shell-Specific Behavior
 == Shell-Specific Behavior
 
-### Option Styles
+=== Option Styles
 
 Different tools use different option styles. Specify the default:
 
@@ -458,7 +457,7 @@ option_style: double_dash_space   # --output file.png
 # option_style: slash_space          # /format pdf
 ----
 
-### Shell Inheritance
+=== Shell Inheritance
 
 For multiple similar shells, use inheritance to avoid duplication. Ukiryu's shell implementations share common behavior through UnixBase.
 
@@ -541,7 +540,7 @@ Available shell identifiers:
 // Contributing to the Register
 == Contributing to the Register
 
-### Prerequisites
+=== Prerequisites
 
 Before contributing, ensure:
 
@@ -552,7 +551,7 @@ Before contributing, ensure:
 * [ ] Profile includes complete metadata
 * [ ] Profile covers all major commands
 
-### Submission Process
+=== Submission Process
 
 1. **Fork the register**: https://github.com/ukiryu/register
 
@@ -574,7 +573,7 @@ Before contributing, ensure:
 
 5. **Create pull request**: Submit to the `v1` branch
 
-### Directory Structure
+=== Directory Structure
 
 For tools with multiple versions:
 
@@ -603,7 +602,7 @@ tools/
     └── index.yaml
 ----
 
-### Version Routing (Optional)
+=== Version Routing (Optional)
 
 For versioned tools, use `index.yaml` for version routing:
 
@@ -629,7 +628,7 @@ implementations:
 // Common Patterns
 == Common Patterns
 
-### Multi-Command Tools
+=== Multi-Command Tools
 
 For tools with multiple commands, define each:
 
@@ -646,7 +645,7 @@ commands:
     description: Run tests
 ----
 
-### Command with Subcommands
+=== Command with Subcommands
 
 For hierarchical commands like `git remote add`:
 
@@ -668,7 +667,7 @@ commands:
         required: true
 ----
 
-### Commands with Positional and Optional Args
+=== Commands with Positional and Optional Args
 
 [source,yaml]
 ----
@@ -696,7 +695,7 @@ commands:
 // Testing Profiles
 == Testing Profiles
 
-### Unit Testing
+=== Unit Testing
 
 Test profile loading:
 
@@ -720,7 +719,7 @@ describe 'MyTool Profile' do
 end
 ----
 
-### Integration Testing
+=== Integration Testing
 
 Test actual command execution:
 
