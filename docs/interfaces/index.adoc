@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Interfaces
+parent: Ukiryu: Open Definitions For CLI Tools
 nav_order: 3
 has_children: true
 ---
