@@ -1,0 +1,268 @@
+= Register
+:nav_order: 30
+:parent: Understanding
+
+== Overview
+
+The **Register** is a collection of tool profiles stored as YAML files. It's
+the source of truth for tool definitions in Ukiryu.
+
+== Register Structure
+
+[directory]
+----
+register/
+├── tools/                          # Tool profiles directory
+│   ├── inkscape/
+│   │   ├── index.yaml              # Tool index (interface, versions)
+│   │   └── default/                # Implementation variant
+│   │       ├── 1.0.yaml           # Version 1.0 profile
+│   │       └── 1.1.yaml           # Version 1.1 profile
+│   ├── imagemagick/
+│   │   ├── index.yaml
+│   │   └── default/
+│   │       └── 7.0.yaml
+│   └── ghostscript/
+│       ├── index.yaml
+│       └── default/
+│           ├── 9.5.yaml
+│           └── 10.0.yaml
+└── interfaces/                     # Interface definitions
+    └── image-converter/
+        └── 1.0.yaml
+----
+
+== Register Discovery
+
+Ukiryu discovers the register using this priority:
+
+. **Environment variable** - `UKIRYU_REGISTER` path
+. **Programmatic setting** - `Ukiryu::Register.default_register_path=`
+. **Development path** - Sibling `../register/` directory
+. **User clone** - `~/.ukiryu/register` (auto-cloned if needed)
+
+=== Environment Variable
+
+[source,bash]
+----
+export UKIRYU_REGISTER=/path/to/custom/register
+----
+
+=== Programmatic Setting
+
+[source,ruby]
+----
+Ukiryu::Register.default_register_path = '/path/to/register'
+----
+
+=== Development Mode
+
+When developing Ukiryu, the register is expected at:
+
+[source]
+----
+ukiryu/              # Gem source
+register/            # Cloned as sibling (git submodule)
+----
+
+=== User Clone
+
+If no register is found, Ukiryu auto-clones from GitHub:
+
+[source]
+----
+~/.ukiryu/register/  # Cloned from github.com/ukiryu/register
+----
+
+== Tool Index
+
+Each tool has an `index.yaml` that defines its interface and available versions:
+
+[source,yaml]
+----
+# tools/inkscape/index.yaml
+implements: image-converter/1.0
+
+versions:
+  default:
+    detection:
+      command: --version
+      pattern: "Inkscape (\\d+\\.\\d+)"
+    files:
+      - 1.0.yaml
+      - 1.1.yaml
+----
+
+== Version Files
+
+Version files contain the complete profile for a specific tool version:
+
+[source,yaml]
+----
+# tools/inkscape/default/1.0.yaml
+name: inkscape
+version: "1.0"
+implements: image-converter/1.0
+
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish]
+    option_style: double_dash_equals
+
+  - name: windows
+    platforms: [windows]
+    shells: [powershell, cmd]
+    option_style: double_dash_equals
+
+commands:
+  - name: export
+    description: Export to different formats
+    arguments:
+      - name: inputs
+        type: file
+        variadic: true
+    options:
+      - name: format
+        cli: --export-type
+        type: string
+        values: [png, pdf, svg, eps]
+----
+
+== Version Selection
+
+When loading a tool, Ukiryu selects the appropriate version:
+
+. If user specifies version explicitly, use that
+. If tool has version detection, detect installed version
+. Otherwise, use the latest available version
+
+=== Version Comparison
+
+Versions are compared semantically (10.0 > 9.5), not alphabetically.
+
+The version is read from the YAML `version:` field, not the filename.
+
+== Register API
+
+=== Getting the Default Register
+
+[source,ruby]
+----
+register = Ukiryu::Register.default
+
+# Access properties
+register.path  # => "/path/to/register"
+register.source  # => :env, :dev, :user, or :manual
+----
+
+=== Listing Tools
+
+[source,ruby]
+----
+register = Ukiryu::Register.default
+tools = register.tool_names  # => ['inkscape', 'imagemagick', ...]
+----
+
+=== Loading a Tool Profile
+
+[source,ruby]
+----
+register = Ukiryu::Register.default
+yaml_content = register.load_tool_yaml('inkscape', version: '1.0')
+----
+
+=== Using a Custom Register
+
+[source,ruby]
+----
+register = Ukiryu::Register.at('/custom/path')
+tool_names = register.tool_names
+----
+
+== Multiple Registers
+
+You can work with multiple register locations:
+
+[source,ruby]
+----
+# Default register
+default = Ukiryu::Register.default
+
+# Custom register
+custom = Ukiryu::Register.at('/path/to/custom')
+
+# Use specific register
+yaml = custom.load_tool_yaml('my_tool')
+----
+
+== Register Validation
+
+Validate tool profiles in a register:
+
+[source,ruby]
+----
+register = Ukiryu::Register.default
+
+# Validate single tool
+result = register.validate('inkscape')
+if result.valid?
+  puts "Valid!"
+else
+  puts "Errors: #{result.errors.join(', ')}"
+end
+
+# Validate all tools
+results = register.validate_all
+results.each do |result|
+  puts "#{result.tool_name}: #{result.valid? ? 'OK' : result.errors}"
+end
+----
+
+== Auto-Cloning
+
+If the register doesn't exist, Ukiryu can auto-clone from GitHub:
+
+[source,ruby]
+----
+# Check if register exists
+Ukiryu::Register.exists?  # => true/false
+
+# Force clone (raises if fails)
+register = Ukiryu::Register.default  # Auto-clones if needed
+----
+
+The default clone URL is `https://github.com/ukiryu/register`.
+
+== Troubleshooting
+
+=== Register Not Found
+
+1. Check `UKIRYU_REGISTER` environment variable
+2. Verify the path exists
+3. Check directory structure is valid
+
+[source,bash]
+----
+# Debug register discovery
+export UKIRYU_DEBUG_EXECUTABLE=true
+ukiryu list
+----
+
+=== Wrong Register Used
+
+[source,bash]
+----
+# Explicitly set register
+export UKIRYU_REGISTER=/correct/path
+
+# Or reset and let it re-discover
+unset UKIRYU_REGISTER
+----
+
+=== Tool Not Found in Register
+
+1. Check tool exists in `register/tools/`
+2. Verify `index.yaml` is present
+3. Check version files exist
+4. Validate the YAML syntax

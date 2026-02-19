@@ -1,0 +1,314 @@
+= Shells
+:nav_order: 50
+:parent: Understanding
+
+== Overview
+
+Ukiryu adapts command execution to different shell environments. Each shell has
+its own quoting rules, path handling, and command formatting requirements.
+Ukiryu handles these differences automatically.
+
+== Supported Shells
+
+[cols="3,^2,^2,5"]
+|===
+| Shell | Platforms | Detection | Notes
+
+| `bash`
+| macOS, Linux, Windows
+| `$SHELL` env var
+| Most common Unix shell
+
+| `zsh`
+| macOS, Linux
+| `$SHELL` env var
+| Default on macOS
+
+| `fish`
+| macOS, Linux
+| `$SHELL` env var
+| Friendly Interactive Shell
+
+| `sh`
+| macOS, Linux
+| `$SHELL` env var
+| POSIX shell
+
+| `dash`
+| macOS, Linux
+| `$SHELL` env var
+| Debian Almquist Shell
+
+| `tcsh`
+| macOS, Linux
+| `$SHELL` env var
+| TENEX C Shell
+
+| `powershell`
+| All platforms
+| `$PSModulePath` env var
+| PowerShell Core (pwsh)
+
+| `cmd`
+| Windows
+| `COMSPEC` env var
+| Windows Command Prompt
+
+|===
+
+== Shell Detection
+
+Ukiryu automatically detects the current shell at runtime:
+
+=== Detection Priority
+
+. **Environment override**: `UKIRYU_SHELL` environment variable
+. **ExecutionContext**: Programmatically set shell
+. **Parent process**: Detect from process hierarchy
+. **Environment variables**: Shell-specific env vars (`$SHELL`, `$PSModulePath`)
+
+=== Example Detection Flow
+
+[source]
+----
+1. Check UKIRYU_SHELL env var
+   └─ Not set → continue
+
+2. Check ExecutionContext
+   └─ Not set → continue
+
+3. Check parent process (macOS/Linux)
+   ├─ Parent is zsh → return :zsh
+   ├─ Parent is bash → return :bash
+   └─ etc.
+
+4. Check environment variables
+   ├─ $PSModulePath exists → return :powershell
+   ├─ $SHELL contains "fish" → return :fish
+   └─ etc.
+----
+
+== Shell-Specific Handling
+
+=== Quoting Rules
+
+Each shell has different quoting rules for special characters:
+
+[cols="1,3,3"]
+|===
+| Shell | Single Quotes | Double Quotes
+
+| bash/zsh
+| Literal (no expansion)
+| Variable expansion
+
+| fish
+| Literal (no expansion)
+| Variable expansion
+
+| powershell
+| Literal (no parameter binding)
+| Variable expansion
+
+| cmd
+| Not supported
+| Literal
+|===
+
+=== Path Formatting
+
+[source,ruby]
+----
+# Unix shells
+format_path("/path/to/file")  # => "/path/to/file"
+
+# PowerShell on Windows
+format_path("C:\\Program Files\\tool.exe")  # => "C:\Program Files\tool.exe"
+
+# cmd on Windows
+format_path("C:\\Program Files\\tool.exe")  # => "C:\Program Files\tool.exe"
+----
+
+=== Command Formatting
+
+Ukiryu handles shell-specific command formatting:
+
+[source,ruby]
+----
+# Bash
+executable: /usr/local/bin/tool
+args: ["--option", "value with spaces"]
+# Result: /usr/local/bin/tool --option 'value with spaces'
+
+# PowerShell
+executable: C:\Program Files\tool.exe
+args: ["--option", "value with spaces"]
+# Result: & 'C:\Program Files\tool.exe' --option 'value with spaces'
+
+# cmd
+executable: C:\Program Files\tool.exe
+args: ["--option", "value with spaces"]
+# Result: "C:\Program Files\tool.exe" --option "value with spaces"
+----
+
+== Shell Override
+
+=== Via Environment Variable
+
+[source,bash]
+----
+export UKIRYU_SHELL=bash
+ukiryu exec inkscape export inputs=test.svg output=test.png
+----
+
+=== Via CLI Option
+
+[source,bash]
+----
+ukiryu --shell zsh exec inkscape export inputs=test.svg
+----
+
+=== Via Ruby API
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape, shell: :bash)
+tool.execute(:export, params)
+----
+
+== Platform Groups
+
+Ukiryu groups shells by platform:
+
+=== Unix Group
+
+The `:unix` group represents all Unix-like shells. When specified, any of
+bash, zsh, fish, sh, dash, or tcsh can be used.
+
+[source,yaml]
+----
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [unix]  # Any Unix shell
+----
+
+=== PowerShell Group
+
+The `:powershell` group represents PowerShell on any platform.
+
+[source,yaml]
+----
+profiles:
+  - name: powershell
+    platforms: [macos, linux, windows]
+    shells: [powershell]
+----
+
+=== Windows Group
+
+The `:windows` group represents Windows-specific shells.
+
+[source,yaml]
+----
+profiles:
+  - name: windows
+    platforms: [windows]
+    shells: [cmd]
+----
+
+== Custom Shells
+
+You can register custom shell implementations:
+
+=== Creating a Custom Shell
+
+[source,ruby]
+----
+require 'ukiryu/shell/base'
+
+class MyShell < Ukiryu::Shell::Base
+  # Define shell name
+  SHELL_TYPE = :my_shell
+
+  # Implement required methods
+  def format_path(path)
+    # Custom path formatting
+    path
+  end
+
+  def escape_arg(arg)
+    # Custom argument escaping
+    "'#{arg.gsub("'", "\\'")}'"
+  end
+
+  def format_command(executable, args)
+    # Custom command formatting
+    escaped_exe = escape_arg(executable.to_s)
+    escaped_args = args.map { |a| escape_arg(a.to_s) }
+    [escaped_exe, *escaped_args].join(' ')
+  end
+end
+----
+
+=== Registering a Custom Shell
+
+[source,ruby]
+----
+Ukiryu::Shell.register(:my_shell, MyShell)
+----
+
+=== Using a Custom Shell
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape, shell: :my_shell)
+tool.execute(:export, params)
+----
+
+== Shell Instance Caching
+
+Shell instances are cached for performance:
+
+[source,ruby]
+----
+# These return the same cached instance
+shell1 = Ukiryu::Shell::InstanceCache.instance_for(:bash)
+shell2 = Ukiryu::Shell::InstanceCache.instance_for(:bash)
+
+# Reset cache (mainly for testing)
+Ukiryu::Shell.reset
+----
+
+== Troubleshooting
+
+=== Shell Not Detected
+
+If shell detection fails:
+
+[source,bash]
+----
+# Set explicitly
+export UKIRYU_SHELL=bash
+----
+
+=== Wrong Shell Detected
+
+Check your environment:
+
+[source,bash]
+----
+echo $SHELL           # Unix shells
+echo $PSModulePath    # PowerShell
+echo %COMSPEC%        # cmd
+----
+
+=== Quoting Issues
+
+Enable debug mode to see how arguments are formatted:
+
+[source,bash]
+----
+export UKIRYU_LOG_LEVEL=debug
+ukiryu exec tool command args...
+----

@@ -1,0 +1,281 @@
+= Platforms
+:nav_order: 40
+:parent: Understanding
+
+== Overview
+
+Ukiryu supports cross-platform command execution. It handles platform-specific
+differences in paths, executables, and tool locations.
+
+== Supported Platforms
+
+[cols="2,^2,5"]
+|===
+| Platform | Detection | Notes
+
+| `macos`
+| `RbConfig::CONFIG['host_os']`
+| macOS (Darwin)
+
+| `linux`
+| `RbConfig::CONFIG['host_os']`
+| All Linux distributions
+
+| `windows`
+| `RbConfig::CONFIG['host_os']`
+| Windows 10/11, Windows Server
+
+|===
+
+== Platform Detection
+
+Ukiryu automatically detects the current platform at runtime:
+
+=== Detection Logic
+
+[source,ruby]
+----
+def detect
+  host_os = RbConfig::CONFIG['host_os']
+
+  case host_os
+  when /darwin/
+    :macos
+  when /linux/
+    :linux
+  when /mswin|mingw|cygwin/
+    :windows
+  else
+    raise UnsupportedPlatformError, "Unknown platform: #{host_os}"
+  end
+end
+----
+
+=== Platform Override
+
+Override via environment variable:
+
+[source,bash]
+----
+export UKIRYU_PLATFORM=linux
+----
+
+Override via Ruby API:
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape, platform: :macos)
+----
+
+== Executable Search Paths
+
+Each platform has different default locations for executables:
+
+=== macOS
+
+[source]
+----
+/opt/homebrew/bin/         # Homebrew Apple Silicon
+/usr/local/bin/            # Homebrew Intel
+/usr/local/opt/            # Homebrew optional
+/opt/local/bin/            # MacPorts
+~/Applications/            # User applications
+/Applications/             # System applications
+----
+
+=== Linux
+
+[source]
+----
+/usr/bin/                  # System binaries
+/usr/local/bin/            # Local binaries
+/snap/bin/                 # Snap packages
+~/.local/bin/              # User local binaries
+----
+
+=== Windows
+
+[source]
+----
+C:\Program Files\          # Program Files
+C:\Program Files (x86)\    # 32-bit programs
+C:\Windows\System32\       # System binaries
+C:\Windows\                # Windows directory
+C:\msys64\                 # MSYS2
+C:\tools\                  # Chocolatey tools
+----
+
+== Platform-Specific Profiles
+
+Tool profiles can define platform-specific behavior:
+
+[source,yaml]
+----
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish]
+    executable_name: inkscape
+
+  - name: windows
+    platforms: [windows]
+    shells: [powershell, cmd]
+    executable_name: inkscape.exe
+    search_paths:
+      - "C:/Program Files/Inkscape/bin"
+----
+
+== Path Handling
+
+=== Path Separators
+
+[source,ruby]
+----
+# macOS/Linux
+format_path("path/to/file")  # => "path/to/file"
+
+# Windows
+format_path("path\\to\\file")  # => "path\to\file"
+----
+
+=== Cross-Platform Paths
+
+Ukiryu normalizes paths automatically:
+
+[source,ruby]
+----
+# Works on all platforms
+shell.format_path("/path/to/file")
+shell.format_path("C:\\Path\\To\\File")
+----
+
+== Platform Matrix
+
+[cols="^1,^2,^2,^2,^2,^2"]
+|===
+| Feature | macOS | Linux | Windows
+
+| Bash
+| ✓
+| ✓
+| ✓ (Git Bash, MSYS2)
+
+| Zsh
+| ✓
+| ✓
+| ✓ (MSYS2)
+
+| Fish
+| ✓
+| ✓
+| Limited
+
+| PowerShell
+| ✓
+| ✓
+| ✓
+
+| cmd
+| ✗
+| ✗
+| ✓
+
+| Path format
+| `/`
+| `/`
+| `\`
+
+| Case sensitivity
+| No
+| Yes
+| No
+
+| Executable suffix
+| None
+| None
+| `.exe`, `.com`, `.bat`
+
+|===
+
+== Executable Discovery
+
+=== Discovery Priority
+
+. **Profile search paths** - Paths defined in tool profile
+. **PATH environment** - System PATH directories
+. **Shell aliases** - Shell built-in aliases (bash, zsh)
+
+=== Example
+
+[source,yaml]
+----
+# In tool profile
+search_paths:
+  macos:
+    - /opt/homebrew/bin
+    - /usr/local/bin
+  windows:
+    - "C:/Program Files/Inkscape/bin"
+    - "C:/msys64/usr/bin"
+----
+
+== Platform-Specific Tools
+
+Some tools have different names on different platforms:
+
+=== Ghostscript
+
+[source]
+----
+macOS/Linux: gs
+Windows: gswin64c.exe
+----
+
+In profile:
+
+[source,yaml]
+----
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    executable_name: gs
+
+  - name: windows
+    platforms: [windows]
+    executable_name: gswin64c
+----
+
+== Troubleshooting
+
+=== Executable Not Found
+
+1. Check if tool is installed
+2. Verify PATH includes tool location
+3. Check platform-specific profile settings
+4. Enable debug mode:
+
+[source,bash]
+----
+export UKIRYU_DEBUG_EXECUTABLE=true
+ukiryu exec tool command args...
+----
+
+=== Wrong Platform Detected
+
+[source,bash]
+----
+# Force platform
+export UKIRYU_PLATFORM=macos
+----
+
+=== Cross-Platform Path Issues
+
+Use forward slashes in profiles - Ukiryu converts them:
+
+[source,yaml]
+----
+# This works on all platforms
+search_paths:
+  windows:
+    - "C:/Program Files/Tool"  # Forward slashes OK
+----

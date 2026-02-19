@@ -16,7 +16,7 @@ Ukiryu supports three primary interfaces:
 
 * link:/interfaces/ruby-api[Ruby API] - Programmatic interface for Ruby applications
 * link:/interfaces/cli[Command Line Interface] - Interactive shell usage
-* link:/interfaces/configuration[Configuration] - Environment variables and settings
+* link:/interfaces/environment-variables[Environment Variables] - Global configuration via ENV
 
 Each interface supports the same core functionality with appropriate trade-offs:
 
@@ -28,7 +28,7 @@ Each interface supports the same core functionality with appropriate trade-offs:
 
 |CLI |Scripts, automation |Simple syntax, shell integration, human-readable output
 
-|ENV Variables |CI/CD, deployment |Global configuration, override settings
+|Environment Variables |CI/CD, deployment |Global configuration, override settings
 |===
 
 // Configuration Across Interfaces
@@ -138,7 +138,7 @@ ukiryu describe inkscape  # Command documentation
 * Quick one-off commands
 * Integrating with Unix pipelines
 
-=== Use ENV Variables When
+=== Use Environment Variables When
 
 * Configuring CI/CD pipelines
 * Setting global defaults
@@ -148,6 +148,7 @@ ukiryu describe inkscape  # Command documentation
 // See Also
 == See Also
 
+* link:/interfaces/environment-variables[Environment Variables] - All ENV configuration options
 * link:/features/configuration[Configuration Options] - All configuration methods
 * link:/reference/configuration-options[Configuration Reference] - Complete option list
 * link:/guides/[Guides] - Task-specific tutorials
