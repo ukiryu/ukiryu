@@ -1,6 +1,9 @@
-= Platforms
-:nav_order: 40
-:parent: Understanding
+---
+layout: default
+title: Platforms
+parent: Understanding
+nav_order: 2
+---
 
 == Overview
 

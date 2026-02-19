@@ -1,6 +1,9 @@
-= Register
-:nav_order: 30
-:parent: Understanding
+---
+layout: default
+title: Register
+parent: Understanding
+nav_order: 1
+---
 
 == Overview
 

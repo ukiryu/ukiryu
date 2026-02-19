@@ -1,6 +1,9 @@
-= Shells
-:nav_order: 50
-:parent: Understanding
+---
+layout: default
+title: Shells
+parent: Understanding
+nav_order: 3
+---
 
 == Overview
 
