@@ -1,0 +1,174 @@
+= Environment Variables
+:nav_order: 30
+:parent: Interfaces
+
+== Overview
+
+Ukiryu can be configured through environment variables. These provide a way to
+set global configuration without modifying code or command-line calls.
+
+== Configuration Priority
+
+Configuration values are resolved in this order (highest priority first):
+
+. **Environment variables** - `UKIRYU_*`
+. **Command-line options** - `--register`, `--shell`, etc.
+. **Ruby API parameters** - Options passed to methods
+. **Profile defaults** - Values defined in YAML profiles
+
+== Available Variables
+
+=== Register Location
+
+`UKIRYU_REGISTER`::
+Path to the tool register directory.
++
+[source,bash]
+----
+export UKIRYU_REGISTER=/path/to/register
+----
++
+If not set, Ukiryu auto-discovers the register using this priority:
+. Development register (sibling to gem source)
+. User clone at `~/.ukiryu/register` (auto-cloned if needed)
+
+=== Logging
+
+`UKIRYU_LOG_LEVEL`::
+Set the logging level. Available values: `debug`, `info`, `warn`, `error`.
++
+[source,bash]
+----
+export UKIRYU_LOG_LEVEL=debug  # Enable debug logging
+export UKIRYU_LOG_LEVEL=warn   # Default level
+----
+
+`UKIRYU_DEBUG`::
+Legacy debug flag. Equivalent to `UKIRYU_LOG_LEVEL=debug`.
++
+[source,bash]
+----
+export UKIRYU_DEBUG=true
+----
+
+`UKIRYU_DEBUG_EXECUTABLE`::
+Enable detailed debug output for executable discovery. Useful for
+troubleshooting tool detection issues.
++
+[source,bash]
+----
+export UKIRYU_DEBUG_EXECUTABLE=true
+----
+
+=== Shell Selection
+
+`UKIRYU_SHELL`::
+Override the detected shell. Useful for testing or when detection fails.
++
+[source,bash]
+----
+export UKIRYU_SHELL=bash
+export UKIRYU_SHELL=powershell
+export UKIRYU_SHELL=zsh
+----
++
+Supported values: `bash`, `zsh`, `fish`, `sh`, `dash`, `tcsh`, `powershell`, `cmd`
+
+=== Platform Override
+
+`UKIRYU_PLATFORM`::
+Override the detected platform. Useful for testing cross-platform behavior.
++
+[source,bash]
+----
+export UKIRYU_PLATFORM=macos
+export UKIRYU_PLATFORM=linux
+export UKIRYU_PLATFORM=windows
+----
+
+=== Execution
+
+`UKIRYU_TIMEOUT`::
+Default timeout for command execution in seconds.
++
+[source,bash]
+----
+export UKIRYU_TIMEOUT=120  # 2 minutes
+----
+
+== Usage Examples
+
+=== Debug Mode
+
+Enable full debug logging:
+
+[source,bash]
+----
+export UKIRYU_LOG_LEVEL=debug
+ukiryu exec inkscape export inputs=test.svg output=test.png format=png
+----
+
+=== Custom Register
+
+Use a custom register location:
+
+[source,bash]
+----
+export UKIRYU_REGISTER=/home/user/my-tools
+ukiryu list
+----
+
+=== Force Shell
+
+Force PowerShell on macOS/Linux for testing:
+
+[source,bash]
+----
+export UKIRYU_SHELL=powershell
+ukiryu exec ghostscript convert inputs=test.eps output=test.pdf
+----
+
+=== Combined Configuration
+
+Combine multiple environment variables:
+
+[source,bash]
+----
+export UKIRYU_REGISTER=/custom/register
+export UKIRYU_LOG_LEVEL=debug
+export UKIRYU_TIMEOUT=300
+ukiryu exec imagemagick convert inputs=large.tiff output=small.jpg resize=50%
+----
+
+== In Ruby Code
+
+Environment variables are read at runtime, so you can set them before
+requiring Ukiryu:
+
+[source,ruby]
+----
+# Set before requiring
+ENV['UKIRYU_LOG_LEVEL'] = 'debug'
+ENV['UKIRYU_TIMEOUT'] = '60'
+
+require 'ukiryu'
+
+tool = Ukiryu::Tool.get(:inkscape)
+# Will use the configured settings
+----
+
+Or set programmatically:
+
+[source,ruby]
+----
+require 'ukiryu'
+
+# Set log level programmatically
+Ukiryu.log_level = :debug
+
+# Set configuration
+Ukiryu::Config.configure do |config|
+  config.timeout = 120
+  config.shell = :bash
+end
+----

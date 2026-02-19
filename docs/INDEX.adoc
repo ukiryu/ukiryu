@@ -213,13 +213,16 @@ Ukiryu uses a three-layer architecture:
 
 1. link:/interfaces/ruby-api[Ruby API]
 2. link:/interfaces/cli[Command Line Interface]
-3. link:/features/configuration[Configuration Layers]
+3. link:/interfaces/environment-variables[Environment Variables]
+4. link:/understanding/register[The Register]
+5. link:/understanding/platforms[Platform Support]
+6. link:/understanding/shells[Shell Handling]
 
 === Advanced
 
-1. link:/understanding/architecture[Architecture & Internals]
+1. link:/understanding/disambiguation[Disambiguation Guide]
 2. link:/advanced/writing-profiles[Writing Tool Profiles]
-3. link:/advanced/platform-handling[Platform-Specific Handling]
+3. link:/advanced/custom-tool-classes[Custom Tool Classes]
 
 === Reference
 

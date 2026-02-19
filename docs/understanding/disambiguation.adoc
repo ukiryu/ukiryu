@@ -1,0 +1,333 @@
+= Disambiguation
+:nav_order: 90
+:parent: Understanding
+
+== Overview
+
+This page clarifies common points of confusion when working with Ukiryu.
+Understanding these distinctions will help you use the framework effectively.
+
+== Tool vs Interface vs Implementation
+
+These terms are related but distinct:
+
+=== Tool
+
+A **Tool** is a specific command-line application, such as `inkscape`,
+`imagemagick`, or `ghostscript`. Tools are defined by YAML profiles in the
+register.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.get(:inkscape)  # Gets the Inkscape tool
+----
+
+=== Interface
+
+An **Interface** is a capability contract that defines what operations are
+available. Multiple tools can implement the same interface.
+
+For example, both `inkscape` and `imagemagick` can implement the
+`image-converter/1.0` interface.
+
+[source,ruby]
+----
+# Find any tool that implements an interface
+tool = Ukiryu::Tool.find_by(:image_converter)
+----
+
+=== Implementation
+
+An **Implementation** is a specific tool's realization of an interface. A tool
+may have multiple implementations for different versions or variants.
+
+[source]
+----
+Tool: inkscape
+  Interface: image-converter/1.0
+    Implementation: default (inkscape command-line)
+    Implementation: python (Inkscape Python extension)
+----
+
+== Profile vs Platform Profile
+
+=== Profile
+
+A **Profile** (or Tool Profile) is the complete YAML definition of a tool,
+including all versions, commands, options, and platform-specific settings.
+
+[source,yaml]
+----
+# Profile (complete tool definition)
+name: inkscape
+version: "1.0"
+implements: image-converter/1.0
+
+profiles:
+  - name: unix
+    platforms: [macos, linux]
+    shells: [bash, zsh, fish]
+----
+
+=== Platform Profile
+
+A **Platform Profile** is a specific configuration within a tool profile that
+applies to a particular platform/shell combination.
+
+[source,yaml]
+----
+profiles:
+  - name: unix              # This is a Platform Profile
+    platforms: [macos, linux]
+    shells: [bash, zsh]
+    option_style: double_dash_equals
+----
+
+== Shell Detection vs Shell Selection
+
+=== Shell Detection
+
+**Shell Detection** is the runtime process of determining which shell is
+currently active. Ukiryu automatically detects the shell from environment
+variables and parent process information.
+
+[NOTE]
+Detection happens once at startup and is cached for the process lifetime.
+
+=== Shell Selection
+
+**Shell Selection** is choosing which shell to use for command execution.
+You can override the detected shell:
+
+[source,ruby]
+----
+# Override shell selection
+tool = Ukiryu::Tool.get(:inkscape, shell: :bash)
+tool = Ukiryu::Tool.get(:inkscape, shell: :powershell)
+----
+
+[source,bash]
+----
+# Via CLI
+ukiryu --shell zsh exec inkscape export inputs=test.svg
+----
+
+== Version Detection vs Version Selection
+
+=== Version Detection
+
+**Version Detection** discovers which version of a tool is installed on the
+system. This is defined in the profile's `version_detection` section.
+
+[source,yaml]
+----
+version_detection:
+  command: --version
+  pattern: "Inkscape (\\d+\\.\\d+)"
+----
+
+=== Version Selection
+
+**Version Selection** chooses which profile version to use for execution.
+Ukiryu selects the profile version that matches the detected installed version,
+or falls back to the latest available version.
+
+[source,ruby]
+----
+# Explicitly select a version
+tool = Ukiryu::Tool.get(:inkscape, version: '1.2')
+----
+
+== get() vs find() vs find_by()
+
+These methods have different behaviors for handling missing tools:
+
+=== Tool.get(name)
+
+Raises `ToolNotFoundError` if the tool is not found. Use when the tool is
+required for your application to work.
+
+[source,ruby]
+----
+begin
+  tool = Ukiryu::Tool.get(:inkscape)
+rescue Ukiryu::Errors::ToolNotFoundError => e
+  puts "Inkscape is required: #{e.message}"
+end
+----
+
+=== Tool.find(name)
+
+Returns `nil` if the tool is not found. Use when the tool is optional.
+
+[source,ruby]
+----
+tool = Ukiryu::Tool.find(:inkscape)
+if tool
+  tool.execute(:export, params)
+else
+  puts "Inkscape not available, skipping"
+end
+----
+
+=== Tool.find_by(identifier)
+
+Searches by interface or alias, returns `nil` if not found.
+
+[source,ruby]
+----
+# Find any tool that can convert images
+tool = Ukiryu::Tool.find_by(:image_converter)
+----
+
+== Register vs Schema
+
+=== Register
+
+The **Register** is a collection of tool profiles stored as YAML files. It's
+the data source for tool definitions.
+
+[directory]
+----
+register/
+├── tools/
+│   ├── inkscape/
+│   │   ├── index.yaml
+│   │   └── default/
+│   │       └── 1.0.yaml
+│   └── imagemagick/
+│       └── ...
+----
+
+=== Schema
+
+The **Schema** is the formal JSON Schema definition that validates the
+structure of tool profiles. It defines what fields are allowed and their types.
+
+[source]
+----
+schema/
+├── tool-profile.schema.json  # Defines profile structure
+└── ...
+----
+
+== Environment vs ExecutionContext
+
+=== Environment
+
+**Environment** represents process environment variables. It's an immutable
+value object for managing the environment passed to executed commands.
+
+[source,ruby]
+----
+# Create environment with custom PATH
+env = Ukiryu::Environment.from_env
+        .prepend_path('/custom/bin')
+        .set('MY_VAR', 'value')
+
+tool.execute(:convert, params, env: env)
+----
+
+=== ExecutionContext
+
+**ExecutionContext** is a thread-local container for execution settings. It's
+used internally for dependency injection and configuration.
+
+[source,ruby]
+----
+# Set context for current thread
+Ukiryu::ExecutionContext.current do |ctx|
+  ctx.shell = :bash
+  ctx.platform = :linux
+end
+----
+
+== Option vs Flag vs Argument
+
+These are the three types of command-line parameters:
+
+=== Option
+
+An **Option** is a key-value pair with a CLI prefix.
+
+[source]
+----
+--resize=50%
+-quality 85
+----
+
+[source,yaml]
+----
+options:
+  - name: resize
+    cli: --resize
+    type: string
+----
+
+=== Flag
+
+A **Flag** is a boolean switch (present or not present).
+
+[source]
+----
+--verbose
+-strip
+----
+
+[source,yaml]
+----
+flags:
+  - name: verbose
+    cli: --verbose
+----
+
+=== Argument
+
+An **Argument** is a positional parameter without a CLI prefix.
+
+[source]
+----
+input.svg
+output.png
+----
+
+[source,yaml]
+----
+arguments:
+  - name: inputs
+    type: file
+    variadic: true
+    position: last
+----
+
+== Caching
+
+Ukiryu caches tool instances for performance. Understanding the cache helps
+with debugging:
+
+=== Instance Cache
+
+Tool instances are cached by `{name}-{platform}-{shell}-{version}` key.
+
+[source,ruby]
+----
+# These return the same cached instance
+tool1 = Ukiryu::Tool.get(:inkscape)
+tool2 = Ukiryu::Tool.get(:inkscape)
+
+# Clear the cache
+Ukiryu::Tool.clear_cache
+----
+
+=== Profile Cache
+
+Parsed YAML profiles are cached with TTL (1 hour by default).
+
+[source,ruby]
+----
+# Clear profile cache
+Ukiryu::Tool.clear_definition_cache
+
+# Clear all caches
+Ukiryu::CacheRegistry.clear_all
+----

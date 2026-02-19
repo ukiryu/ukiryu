@@ -12,9 +12,84 @@ Deep dive into Ukiryu's architecture, design decisions, and internal mechanisms.
 // Overview
 == Overview
 
-This section covers the technical internals of Ukiryu:
+Understanding Ukiryu requires knowing these core concepts:
 
-* link:/understanding/architecture[Architecture] - System design and components
-* link:/understanding/register[Register] - Profile loading and caching
-* link:/understanding/shell-layer[Shell Layer] - Platform and shell adaptation
-* link:/understanding/command-builder[Command Builder] - Argument construction
+* link:/understanding/register[Register] - YAML-based tool definition storage
+* link:/understanding/platforms[Platforms] - Cross-platform support and detection
+* link:/understanding/shells[Shells] - Shell-specific command formatting
+
+// Core Components
+== Core Components
+
+=== Register
+
+The Register is the source of truth for tool definitions. It stores YAML profiles
+that describe tools, their commands, options, and platform-specific behavior.
+
+[cols="1,3"]
+|===
+| Topic | Description
+
+| link:/understanding/register[Register Overview]
+| Structure, discovery, and API usage
+
+| Register Discovery
+| How Ukiryu finds the register (env, dev, user clone)
+
+| Tool Index
+| Version selection and profile loading
+
+| Version Selection
+| Semantic versioning and detection
+
+|===
+
+=== Platforms
+
+Ukiryu supports macOS, Linux, and Windows with automatic platform detection.
+
+[cols="1,3"]
+|===
+| Topic | Description
+
+| link:/understanding/platforms[Platforms Overview]
+| Supported platforms and detection
+
+| Platform Detection
+| Automatic detection via RbConfig
+
+| Platform Override
+| Forcing a specific platform via ENV
+
+| Executable Search
+| Platform-specific search paths
+
+|===
+
+=== Shells
+
+Each shell has different quoting rules, path handling, and command formatting.
+Ukiryu handles these differences automatically.
+
+[cols="1,3"]
+|===
+| Topic | Description
+
+| link:/understanding/shells[Shells Overview]
+| Supported shells and detection
+
+| Shell Detection
+| Automatic detection from environment
+
+| Shell Override
+| Forcing a specific shell via ENV or API
+
+| Custom Shells
+| Registering custom shell implementations
+
+|===
+
+// Reference
+== Reference
+
+* link:/understanding/disambiguation[Disambiguation] - Clarifying common confusion points
