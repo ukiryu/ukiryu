@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Reference
-parent: Ukiryu: Open Definitions For CLI Tools
+parent: Ukiryu
 nav_order: 8
 has_children: true
 ---
