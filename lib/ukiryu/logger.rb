@@ -55,7 +55,7 @@ module Ukiryu
       def debug_enabled?(category = nil)
         case category
         when :executable
-          ENV[DEBUG_EXECUTABLE_ENV_VAR] || (Platform.windows? && ENV['CI'])
+          ENV[DEBUG_EXECUTABLE_ENV_VAR]
         else
           ENV[DEBUG_ENV_VAR]
         end
