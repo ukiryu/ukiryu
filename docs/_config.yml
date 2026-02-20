@@ -96,68 +96,13 @@ kramdown:
   hard_wrap: false
   syntax_highlighter: rouge
 
-# Collections for organizing content
-collections:
-  pages:
-    permalink: "/:path/"
-    output: true
-  getting-started:
-    permalink: "/:collection/:path/"
-    output: true
-  interfaces:
-    permalink: "/:collection/:path/"
-    output: true
-  understanding:
-    permalink: "/:collection/:path/"
-    output: true
-  features:
-    permalink: "/:collection/:path/"
-    output: true
-  guides:
-    permalink: "/:collection/:path/"
-    output: true
-  advanced:
-    permalink: "/:collection/:path/"
-    output: true
-  reference:
-    permalink: "/:collection/:path/"
-    output: true
-
-# Just the Docs collection configuration
-just_the_docs:
-  collections:
-    pages:
-      name: Pages
-      nav_fold: false
-    getting-started:
-      name: Getting Started
-      nav_fold: false
-    interfaces:
-      name: Interfaces
-      nav_fold: false
-    understanding:
-      name: Understanding
-      nav_fold: true
-    features:
-      name: Features
-      nav_fold: true
-    guides:
-      name: Guides
-      nav_fold: true
-    advanced:
-      name: Advanced
-      nav_fold: true
-    reference:
-      name: Reference
-      nav_fold: true
-
 # Defaults
 defaults:
   - scope:
       path: ""
-      type: pages
+      type: "pages"
     values:
-      layout: default
+      layout: "default"
 
 # Include additional files
 include:
