@@ -118,7 +118,7 @@ module Ukiryu
                               VersionDetection.from_hash(vd_data)
                             end
 
-        # Support both profiles (legacy) and execution_profiles (new)
+        # Extract execution_profiles (also accept 'profiles' for backward compatibility)
         profiles_data = data[:execution_profiles] || data['execution_profiles'] ||
                         data[:profiles] || data['profiles'] || []
 

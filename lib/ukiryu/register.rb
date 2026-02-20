@@ -417,7 +417,7 @@ module Ukiryu
 
       # Get versions from index
       versions = list_versions(name_str)
-      return load_legacy_tool_yaml(name_str) if versions.empty?
+      return nil if versions.empty?
 
       # Return specific version or latest
       if version
@@ -485,15 +485,6 @@ module Ukiryu
     end
 
     private
-
-    # Load legacy single-file tool YAML
-    #
-    # @param name [String] the tool name
-    # @return [String, nil] the YAML content or nil
-    def load_legacy_tool_yaml(name)
-      file = File.join(path, 'tools', "#{name}.yaml")
-      File.read(file) if File.exist?(file)
-    end
 
     # Get git information for this register
     #
