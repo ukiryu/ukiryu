@@ -18,6 +18,6 @@ gem 'paint'
 
 # For optional YAML schema validation in register
 gem 'bigdecimal'
-gem 'json-schema', '~> 4.0'
+gem 'json-schema', '>= 4.0'
 gem 'nokogiri'
 gem 'oga'
