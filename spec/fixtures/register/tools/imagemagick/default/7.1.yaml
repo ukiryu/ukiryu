@@ -34,7 +34,7 @@ search_paths:
   - "%LOCALAPPDATA%/Programs/ImageMagick-*/magick.exe"
   - "~/AppData/Local/Programs/ImageMagick-*/magick.exe"
 implements: imagemagick/1.0
-profiles:
+execution_profiles:
 - name: modern_unix
   platforms:
   - macos

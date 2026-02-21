@@ -14,7 +14,7 @@ search_paths:
   linux:
   - "/usr/bin/bzip2"
 implements: bzip2_gnu/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

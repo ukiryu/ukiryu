@@ -11,7 +11,7 @@ search_paths:
   - "/bin/gzip"
   - "/usr/bin/gzip"
 implements: gzip_busybox/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - linux

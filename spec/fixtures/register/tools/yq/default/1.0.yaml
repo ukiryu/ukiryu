@@ -14,7 +14,7 @@ search_paths:
   linux:
   - "/usr/bin/yq"
 implements: yq/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

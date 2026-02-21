@@ -35,7 +35,7 @@ search_paths:
   - "%LOCALAPPDATA%/Inkscape/bin/inkscape.exe"
   - "~/AppData/Local/Inkscape/bin/inkscape.exe"
 implements: inkscape/1.0
-profiles:
+execution_profiles:
 - name: legacy_unix
   platforms:
   - macos

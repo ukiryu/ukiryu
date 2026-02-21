@@ -33,7 +33,7 @@ search_paths:
   - C:/Program Files/ImageMagick-*/identify.exe
   - C:/Program Files/ImageMagick-*/mogrify.exe
 implements: imagemagick/1.0
-profiles:
+execution_profiles:
 - name: unix
   platforms:
   - macos

@@ -31,7 +31,7 @@ search_paths:
   - "/sbin/ping"
   - "/usr/sbin/ping"
 implements: ping
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

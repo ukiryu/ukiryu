@@ -19,7 +19,7 @@ search_paths:
   linux:
   - "/usr/bin/ffmpeg"
 implements: ffmpeg/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

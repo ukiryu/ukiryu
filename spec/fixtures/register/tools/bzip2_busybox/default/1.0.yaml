@@ -11,7 +11,7 @@ search_paths:
   - "/bin/bzip2"
   - "/usr/bin/bzip2"
 implements: bzip2_busybox/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - linux

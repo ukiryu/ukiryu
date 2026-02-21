@@ -18,7 +18,7 @@ search_paths:
   windows:
   - C:/Program Files/ImageMagick*/convert.exe
 implements: imagemagick/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

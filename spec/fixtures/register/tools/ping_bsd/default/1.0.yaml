@@ -9,7 +9,7 @@ aliases:
 version_detection:
 search_paths:
 implements: ping_bsd/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

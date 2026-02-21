@@ -22,7 +22,7 @@ search_paths:
   - C:/Program Files/Git/usr/bin/unzip.exe
   - C:/msys64/usr/bin/unzip.exe
 implements: unzip/1.0
-profiles:
+execution_profiles:
 - name: unix
   platforms:
   - macos

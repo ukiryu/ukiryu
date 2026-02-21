@@ -14,7 +14,7 @@ search_paths:
   linux:
   - "/usr/bin/unzip"
 implements: unzip/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

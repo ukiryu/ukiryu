@@ -18,7 +18,7 @@ search_paths:
   - "C:/Windows/System32/ping.exe"
   - "C:/Windows/SysWOW64/ping.exe"
 implements: ping
-profiles:
+execution_profiles:
 - name: windows
   platforms:
   - windows

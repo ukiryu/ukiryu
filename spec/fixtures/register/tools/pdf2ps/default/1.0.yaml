@@ -19,7 +19,7 @@ search_paths:
   - C:/Program Files (x86)/gs/gs*/bin/pdf2ps.bat
   - C:/Program Files (x86)/gs/gs*/bin/pdf2ps.cmd
 implements: pdf2ps/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

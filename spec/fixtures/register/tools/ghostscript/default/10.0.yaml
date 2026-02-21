@@ -16,7 +16,7 @@ search_paths:
   - "C:/Program Files/gs/gs*/bin/gswin64c.exe"
   - "C:/Program Files/gs/gs*/bin/gswin32c.exe"
 implements: ghostscript/1.0
-profiles:
+execution_profiles:
 - name: unix
   platforms:
   - macos

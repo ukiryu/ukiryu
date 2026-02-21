@@ -15,7 +15,7 @@ version_detection:
   modern_threshold: '1.0'
 search_paths:
 implements: ping_windows/1.0
-profiles:
+execution_profiles:
 - name: windows
   platforms:
   - windows

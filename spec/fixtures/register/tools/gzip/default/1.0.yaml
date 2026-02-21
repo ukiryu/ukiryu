@@ -15,7 +15,7 @@ search_paths:
   - "/usr/bin/gzip"
   - "/bin/gzip"
 implements: gzip/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos

@@ -14,7 +14,7 @@ search_paths:
   linux:
   - "/usr/bin/exiftool"
 implements: exiftool/1.0
-profiles:
+execution_profiles:
 - name: default
   platforms:
   - macos
