@@ -10,11 +10,16 @@ $schema: http://json-schema.org/draft-07/schema#
 title: Ukiryu Tool Definition v1.0
 description: Schema for tool definitions that describe CLI commands
 type: object
+# Accept either 'profiles' (legacy) or 'execution_profiles' (v1)
+anyOf:
+  - required:
+      - profiles
+  - required:
+      - execution_profiles
 required:
   - ukiryu_schema
   - name
   - version
-  - profiles
 additionalProperties: false
 
 properties:
