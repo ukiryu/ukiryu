@@ -188,7 +188,8 @@ Ukiryu uses a three-layer architecture:
                   │
 ┌─────────────────▼───────────────────────────┐
 │         Register & Profiles                 │
-│  tools/inkscape/1.0.yaml (declarative)     │
+│  tools/imagemagick/default/7.1.yaml        │
+│  (execution_profiles for platform/shell)   │
 └─────────────────┬───────────────────────────┐
                   │
 ┌─────────────────▼───────────────────────────┐
@@ -197,8 +198,8 @@ Ukiryu uses a three-layer architecture:
 └─────────────────────────────────────────────┘
 ----
 
-* **Register**: Loads tool profiles from YAML files
-* **Profiles**: Define tool behavior, versions, and platform support
+* **Register**: Loads tool profiles from YAML files in hierarchical structure
+* **Execution Profiles**: Define tool behavior per platform/shell combination
 * **Shell Layer**: Handles quoting, escaping, and command formatting
 
 // Learning Paths

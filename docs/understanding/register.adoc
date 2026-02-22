@@ -12,19 +12,21 @@ the source of truth for tool definitions in Ukiryu.
 
 == Register Structure
 
+The register uses a hierarchical structure that separates tool metadata from version-specific profiles:
+
 [directory]
 ----
 register/
 ├── tools/                          # Tool profiles directory
-│   ├── inkscape/
-│   │   ├── index.yaml              # Tool index (interface, versions)
-│   │   └── default/                # Implementation variant
-│   │       ├── 1.0.yaml           # Version 1.0 profile
-│   │       └── 1.1.yaml           # Version 1.1 profile
 │   ├── imagemagick/
+│   │   ├── index.yaml              # Tool index (interface, implementations, versions)
+│   │   └── default/                # Implementation variant
+│   │       ├── 6.9.yaml           # Version 6.9 profile
+│   │       └── 7.1.yaml           # Version 7.1 profile
+│   ├── inkscape/
 │   │   ├── index.yaml
 │   │   └── default/
-│   │       └── 7.0.yaml
+│   │       └── 1.0.yaml
 │   └── ghostscript/
 │       ├── index.yaml
 │       └── default/
@@ -34,6 +36,18 @@ register/
     └── image-converter/
         └── 1.0.yaml
 ----
+
+=== Key Components
+
+Tool Index (`index.yaml`)::
+Metadata about the tool, its interface, and available implementations with version mappings.
+
+Implementation Directory (`default/`)::
+Contains version-specific profiles. The `default` implementation is the standard CLI tool.
+Multiple implementations (e.g., `python`, `api`) can coexist for the same tool.
+
+Version File (`7.1.yaml`)::
+Complete profile for a specific tool version, including `execution_profiles` for platform/shell combinations.
 
 == Register Discovery
 
@@ -79,22 +93,49 @@ If no register is found, Ukiryu auto-clones from GitHub:
 
 == Tool Index
 
-Each tool has an `index.yaml` that defines its interface and available versions:
+Each tool has an `index.yaml` that defines its interface, implementations, and available versions:
 
 [source,yaml]
 ----
-# tools/inkscape/index.yaml
-implements: image-converter/1.0
+# tools/imagemagick/index.yaml
+ukiryu_schema: '1.0'
+name: imagemagick
+interface: imagemagick            # Interface this tool implements
 
-versions:
-  default:
-    detection:
-      command: --version
-      pattern: "Inkscape (\\d+\\.\\d+)"
-    files:
-      - 1.0.yaml
-      - 1.1.yaml
+implementations:
+- name: default                    # Implementation identifier
+  display_name: ImageMagick
+  detection:
+    executables: ["convert", "magick"]
+    command: ["-version"]
+    pattern: 'Version: ImageMagick ([\d.]+)'
+  version_scheme: semantic
+  versions:
+  - equals: '6.9'
+    file: 6.9.yaml
+  - equals: '7.1'
+    file: 7.1.yaml
+  default: 7.1.yaml               # Fallback version
 ----
+
+=== Index Fields
+
+`ukiryu_schema`::
+Schema version for validation. Always `'1.0'`.
+
+`name`::
+Unique identifier for the tool.
+
+`interface`::
+Interface this tool implements (e.g., `imagemagick`, `image-converter`).
+
+`implementations`::
+List of available implementations. Each implementation has:
+* `name` - Implementation identifier (e.g., `default`, `python`)
+* `display_name` - Human-readable name
+* `detection` - How to detect the tool and its version
+* `versions` - Mapping of version numbers to profile files
+* `default` - Default version file to use
 
 == Version Files
 
@@ -102,35 +143,64 @@ Version files contain the complete profile for a specific tool version:
 
 [source,yaml]
 ----
-# tools/inkscape/default/1.0.yaml
-name: inkscape
-version: "1.0"
-implements: image-converter/1.0
+# tools/imagemagick/default/7.1.yaml
+ukiryu_schema: '1.0'
+name: imagemagick
+display_name: ImageMagick
+homepage: https://imagemagick.org
+version: '7.1'
+implements: imagemagick/1.0
 
-profiles:
+execution_profiles:              # Platform/shell combinations
   - name: unix
     platforms: [macos, linux]
-    shells: [bash, zsh, fish]
-    option_style: double_dash_equals
+    shells: [bash, zsh, fish, sh]
+    option_style: single_dash_space
+    executable_name: magick
 
   - name: windows
     platforms: [windows]
     shells: [powershell, cmd]
-    option_style: double_dash_equals
+    option_style: single_dash_space
+    executable_name: magick.exe
 
 commands:
-  - name: export
-    description: Export to different formats
+  - name: convert
+    description: Convert between image formats
     arguments:
       - name: inputs
         type: file
         variadic: true
     options:
       - name: format
-        cli: --export-type
+        cli: -format
         type: string
-        values: [png, pdf, svg, eps]
+        values: [png, jpg, pdf, svg]
 ----
+
+=== Version File Fields
+
+`ukiryu_schema`::
+Schema version. Always `'1.0'`.
+
+`name`::
+Tool identifier matching the index.
+
+`version`::
+Version string for this profile.
+
+`implements`::
+Interface identifier with version (e.g., `imagemagick/1.0`).
+
+`execution_profiles`::
+List of platform/shell-specific configurations. Each profile specifies:
+* `platforms` - Supported operating systems
+* `shells` - Supported shell environments
+* `option_style` - How options are formatted
+* `executable_name` - Platform-specific executable name
+
+`commands`::
+Available commands with arguments, options, and flags.
 
 == Version Selection
 

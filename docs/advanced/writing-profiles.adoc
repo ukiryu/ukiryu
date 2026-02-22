@@ -33,7 +33,7 @@ The simplest profile must include these required fields:
 ukiryu_schema: '1.0'
 name: mytool
 version: '1.0'
-profiles:
+execution_profiles:
   - name: default
     platforms: [macos, linux, windows]
     shells: [bash, zsh, fish, sh, powershell, cmd]
@@ -90,7 +90,7 @@ search_paths:
     - C:/Program Files/ImageMagick/convert.exe
 
 # Platform/shell configurations
-profiles:
+execution_profiles:
   - name: unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish, sh]
@@ -150,7 +150,7 @@ search_paths:
     - /usr/bin/mytool
   windows:
     - C:/Program Files/MyTool/bin/mytool.exe
-profiles:
+execution_profiles:
   - name: default
     platforms: [macos, linux, windows]
     shells: [bash, zsh, fish, sh, powershell, cmd]
@@ -228,11 +228,11 @@ arguments:
 
 === Step 5: Handle Multiple Platforms
 
-If the tool behaves differently on different platforms, create separate profiles:
+If the tool behaves differently on different platforms, create separate execution profiles:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish, sh]
@@ -254,7 +254,7 @@ Use profile inheritance to avoid duplication:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: unix_base
     platforms: [macos, linux]
     shells: [bash, zsh, fish, sh]
@@ -463,7 +463,7 @@ For multiple similar shells, use inheritance to avoid duplication. Ukiryu's shel
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: unix_base
     platforms: [macos, linux]
     shells: [bash, zsh, fish, sh, dash, tcsh]
@@ -490,7 +490,7 @@ Use platform groups to target all Unix shells:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: unix_all
     platforms: [macos, linux]
     shells: [unix]  # Platform group for all Unix shells

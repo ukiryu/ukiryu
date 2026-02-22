@@ -110,11 +110,11 @@ C:\tools\                  # Chocolatey tools
 
 == Platform-Specific Profiles
 
-Tool profiles can define platform-specific behavior:
+Tool profiles can define platform-specific behavior using `execution_profiles`:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish]
@@ -238,7 +238,7 @@ In profile:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: unix
     platforms: [macos, linux]
     executable_name: gs

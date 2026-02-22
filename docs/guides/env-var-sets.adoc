@@ -25,7 +25,7 @@ Env var sets are defined at the profile level using the `env_var_sets` field:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: modern_unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish]
@@ -146,8 +146,8 @@ Headless mode allows GUI applications to run without displaying windows. This is
 
 [source,yaml]
 ----
-# register/tools/inkscape/1.0.yaml
-profiles:
+# register/tools/inkscape/default/1.0.yaml
+execution_profiles:
   - name: modern_unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish]

@@ -427,7 +427,7 @@ Tools select compatible profiles based on platform:
 
 [source,yaml]
 ----
-profiles:
+execution_profiles:
   - name: modern_unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish, sh]
