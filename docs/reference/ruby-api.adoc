@@ -179,9 +179,10 @@ Load a tool definition from a YAML string.
 ----
 # Load from string
 yaml = <<-YAML
+ukiryu_schema: '1.0'
 name: mytool
 version: "1.0"
-profiles:
+execution_profiles:
   - name: default
     platforms: [linux, macos, windows]
     shells: [bash, zsh, powershell, cmd]

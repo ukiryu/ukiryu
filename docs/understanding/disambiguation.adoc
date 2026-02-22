@@ -54,7 +54,7 @@ Tool: inkscape
 
 == Profile vs Platform Profile
 
-=== Profile
+=== Profile (Tool Profile)
 
 A **Profile** (or Tool Profile) is the complete YAML definition of a tool,
 including all versions, commands, options, and platform-specific settings.
@@ -62,25 +62,26 @@ including all versions, commands, options, and platform-specific settings.
 [source,yaml]
 ----
 # Profile (complete tool definition)
+ukiryu_schema: '1.0'
 name: inkscape
 version: "1.0"
 implements: image-converter/1.0
 
-profiles:
+execution_profiles:
   - name: unix
     platforms: [macos, linux]
     shells: [bash, zsh, fish]
 ----
 
-=== Platform Profile
+=== Execution Profile
 
-A **Platform Profile** is a specific configuration within a tool profile that
+An **Execution Profile** is a specific configuration within a tool profile that
 applies to a particular platform/shell combination.
 
 [source,yaml]
 ----
-profiles:
-  - name: unix              # This is a Platform Profile
+execution_profiles:
+  - name: unix              # This is an Execution Profile
     platforms: [macos, linux]
     shells: [bash, zsh]
     option_style: double_dash_equals
