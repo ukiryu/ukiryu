@@ -65,7 +65,16 @@ module Ukiryu
         # @param options [Hash] options including platform and shell
         # @return [Hash, nil] hash with :implementation_name, :version, :file or nil
         def detect_implementation_and_version(index, tool_name, options = {})
-          # Try each implementation in order
+          target_platform = options[:platform]
+          current_platform = Platform.detect
+
+          # If platform is overridden to a different platform, skip detection
+          # and find an implementation that supports the target platform
+          if target_platform && target_platform.to_sym != current_platform
+            return find_implementation_for_platform(index, tool_name, target_platform, options)
+          end
+
+          # Normal detection: try each implementation in order
           index.implementations.each do |impl|
             result = try_implementation(impl, tool_name, options)
             return result if result
@@ -73,6 +82,53 @@ module Ukiryu
 
           # If no implementation matched, use the first one's default
           fallback_to_default(index)
+        end
+
+        # Find an implementation that supports the target platform
+        #
+        # @param index [Models::ImplementationIndex] the implementation index
+        # @param tool_name [String] the tool name
+        # @param target_platform [Symbol] the target platform
+        # @param options [Hash] options including shell
+        # @return [Hash, nil] implementation spec or nil
+        def find_implementation_for_platform(index, tool_name, target_platform, options = {})
+          target_platform = target_platform.to_sym if target_platform.is_a?(String)
+          target_shell = (options[:shell] || Shell.detect).to_sym
+
+          # Try each implementation and check if it has a profile for the target platform
+          index.implementations.each do |impl|
+            impl_name = impl[:name] || impl['name']
+            versions = impl[:versions] || impl['versions']
+
+            # Check each version file for platform compatibility
+            versions.each do |version_spec|
+              file = version_spec[:file] || version_spec['file']
+              next unless file
+
+              # Load the implementation version to check profiles
+              impl_version = Register.load_implementation_version(
+                tool_name,
+                impl_name,
+                file,
+                options
+              )
+              next unless impl_version
+
+              # Check if any execution profile supports the target platform/shell
+              profile = impl_version.compatible_profile(platform: target_platform, shell: target_shell)
+              if profile
+                # Found a compatible implementation
+                return {
+                  implementation_name: impl_name,
+                  version: impl_version.version,
+                  file: file
+                }
+              end
+            end
+          end
+
+          # No implementation supports the target platform
+          nil
         end
 
         private
