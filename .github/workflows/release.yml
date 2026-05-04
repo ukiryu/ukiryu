@@ -46,6 +46,7 @@ jobs:
         with:
           ruby-version: '3.4'
           bundler-cache: true
+          rubygems: latest
 
       - name: Configure Git
         run: |
