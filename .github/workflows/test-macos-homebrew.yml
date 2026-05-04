@@ -48,6 +48,7 @@ jobs:
           brew install imagemagick ghostscript ffmpeg pandoc jq yq exiftool inkscape
 
           echo "Installing shells via Homebrew..."
+          rm -f /usr/local/bin/dotnet /usr/local/bin/pwsh 2>/dev/null || true
           brew install powershell zsh tcsh dash-shell
 
       - name: Refresh PATH
