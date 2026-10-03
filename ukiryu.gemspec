@@ -52,7 +52,7 @@ Gem::Specification.new do |spec|
 
   # Core dependencies
   spec.add_dependency 'git', '~> 3.0'
-  spec.add_dependency 'json-schema'
+  spec.add_dependency 'json-schema', '>= 6.2.1'
   spec.add_dependency 'lutaml-model', '~> 0.8.0'
   spec.add_dependency 'lutaml-xsd', '~> 1.1.0'
   spec.add_dependency 'thor'
