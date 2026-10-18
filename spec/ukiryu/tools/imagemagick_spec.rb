@@ -177,6 +177,7 @@ RSpec.describe 'ImageMagick Tool Profile' do
     before(:each) do
       skip_unless_tool_available(:imagemagick)
       skip 'ImageMagick lacks a PNG encode delegate on this runner' unless png_encode_available?
+      skip 'ImageMagick regressed in-place mogrify on this runner' unless mogrify_in_place_available?
     end
 
     it 'modifies images in place' do

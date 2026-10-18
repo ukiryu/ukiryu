@@ -50,6 +50,31 @@ module ToolHelper
     end
   end
 
+  # True when mogrify can rewrite an image IN PLACE. ImageMagick
+  # 7.1.2-33 on macOS 26 regressed here: the same build encodes PNG
+  # (the probe above passes) yet in-place mogrify dies with
+  # "no encode delegate for this image format `'". Version-dependent,
+  # so the probe — not a version list — is the gate.
+  def mogrify_in_place_available?
+    magick = %w[magick convert].find do |m|
+      system(m, "-version", out: File::NULL, err: File::NULL)
+    end
+    return false unless magick
+
+    require "tmpdir"
+    require "fileutils"
+    dir = Dir.mktmpdir("ukiryu_mogrify_probe")
+    src = File.join(dir, "src.png")
+    ok = system(magick, "-size", "4x4", "xc:white", "png:#{src}",
+                out: File::NULL, err: File::NULL)
+    return false unless ok && File.exist?(src) && !File.zero?(src)
+
+    system(magick, "mogrify", "-resize", "2x2!", src,
+           out: File::NULL, err: File::NULL)
+  ensure
+    FileUtils.rm_rf(dir) if dir
+  end
+
   # Create a temporary test image by copying a fixture image
 
   # This avoids using ImageMagick's built-in formats which aren't available on all builds
