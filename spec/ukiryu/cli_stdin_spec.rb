@@ -39,20 +39,23 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
                                  Open3.capture3(env, 'bash', '-c', command)
                                end
     end
-    [stdout + stderr, status]
+    # Streams stay separate: engine-detection warnings legitimately land
+    # on stderr (e.g. leptris's "native acceleration unavailable" at
+    # require), and JSON assertions must parse the stream they mean.
+    [stdout, stderr, status]
   end
 
   def run_ukiryu_exec(args, stdin_data = nil)
     cmd = "bundle exec ukiryu #{args}"
-    output, status = run_cli_command(cmd, stdin_data)
-    [output, status]
+    stdout, stderr, status = run_cli_command(cmd, stdin_data)
+    [stdout, stderr, status]
   end
 
   describe '--stdin flag' do
     it 'reads from stdin pipe' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
-      output, status = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=json', '{"test": "value"}')
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=json', '{"test": "value"}')
 
       # Parse JSON and extract stdout
       parsed = JSON.parse(output)
@@ -64,7 +67,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
       json_data = '{"lines": ["line1", "line2", "line3"]}'
-      output, status = run_ukiryu_exec('exec jq process --stdin filter=".lines" --format=json', json_data)
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin filter=".lines" --format=json', json_data)
 
       parsed = JSON.parse(output)
       stdout = parsed['output']['stdout']
@@ -80,7 +83,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     it 'reads from stdin pipe when stdin=- is specified' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
-      output, status = run_ukiryu_exec('exec jq process stdin=- filter=".foo" --format=json', '{"foo": "bar"}')
+      output, stderr, status = run_ukiryu_exec('exec jq process stdin=- filter=".foo" --format=json', '{"foo": "bar"}')
 
       parsed = JSON.parse(output)
       expect(parsed['output']['stdout'].strip).to eq('"bar"')
@@ -92,8 +95,8 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
       stdin_data = '{"test": "data"}'
 
-      output1, status1 = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=json', stdin_data)
-      output2, status2 = run_ukiryu_exec('exec jq process stdin=- filter=".test" --format=json', stdin_data)
+      output1, stderr1, status1 = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=json', stdin_data)
+      output2, stderr2, status2 = run_ukiryu_exec('exec jq process stdin=- filter=".test" --format=json', stdin_data)
 
       parsed1 = JSON.parse(output1)
       parsed2 = JSON.parse(output2)
@@ -111,11 +114,11 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
         file.close
 
         # On Windows, we need to redirect stderr separately to avoid mixing with JSON output
-        output, status = if platform == :windows
-                           run_cli_command("bundle exec ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json 2>$null")
-                         else
-                           run_cli_command("bundle exec ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json")
-                         end
+        output, stderr, status = if platform == :windows
+                                   run_cli_command("bundle exec ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json 2>$null")
+                                 else
+                                   run_cli_command("bundle exec ukiryu exec jq process stdin=@#{file.path} filter=\".file\" --format=json")
+                                 end
 
         parsed = JSON.parse(output)
         expect(parsed['output']['stdout'].strip).to eq('"content"')
@@ -124,9 +127,9 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     end
 
     it 'shows error when file does not exist' do
-      output, status = run_cli_command('bundle exec ukiryu exec jq process stdin=@/nonexistent/file.json filter="." 2>&1')
+      output, stderr, status = run_cli_command('bundle exec ukiryu exec jq process stdin=@/nonexistent/file.json filter="." 2>&1')
 
-      expect(output).to include('File not found')
+      expect(output + stderr).to include('File not found')
       expect(status.success?).to be false
     end
   end
@@ -140,7 +143,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
         file.write('{"test": "value"}')
         file.flush # Ensure data is written to disk
 
-        output, status = run_ukiryu_exec("exec jq process stdin=@#{file.path} filter=.test --format=json")
+        output, stderr, status = run_ukiryu_exec("exec jq process stdin=@#{file.path} filter=.test --format=json")
 
         parsed = JSON.parse(output)
         expect(parsed).not_to be_nil
@@ -156,10 +159,10 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
       # Use NO_COLOR to avoid ANSI escape codes in output
       # Use -D for dry-run (uppercase D, not lowercase d which is now --definition)
-      output, status = run_ukiryu_exec('exec jq process --stdin -D filter="."', '{"test": "value"}')
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin -D filter="."', '{"test": "value"}')
 
-      expect(output).to include('DRY RUN')
-      expect(output).to include('stdin:')
+      expect(output + stderr).to include('DRY RUN')
+      expect(output + stderr).to include('stdin:')
       # Output has escaped backslashes in the inspection format
       expect(output).to include('test')
       expect(output).to include('value')
@@ -171,7 +174,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
       long_data = 'x' * 200
       # Use -D for dry-run (uppercase D, not lowercase d which is now --definition)
-      output, status = run_ukiryu_exec('exec jq process --stdin -D filter="."', long_data)
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin -D filter="."', long_data)
 
       expect(output).to include('...')
       # Preview should be truncated (check in the output, not just the matched string)
@@ -185,7 +188,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     it 'outputs JSON format with stdin' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
-      output, status = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=json', '{"test": "value"}')
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=json', '{"test": "value"}')
 
       parsed = JSON.parse(output)
       expect(parsed['output']['stdout']).to include('"value"')
@@ -195,7 +198,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     it 'outputs YAML format with stdin' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
-      output, status = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=yaml', '{"test": "value"}')
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin filter=".test" --format=yaml', '{"test": "value"}')
 
       expect(output).to include('stdout:')
       expect(output).to include('value')
@@ -213,7 +216,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
         file.close
 
         # Use cat instead of echo to avoid escaping issues
-        result, status = run_cli_command("cat #{file.path} | bundle exec ukiryu exec jq process --stdin filter='.items' --format=json | head -10")
+        result, stderr, status = run_cli_command("cat #{file.path} | bundle exec ukiryu exec jq process --stdin filter='.items' --format=json | head -10")
 
         # The output should be valid JSON, and head should truncate it
         expect(result).not_to be_empty
@@ -227,7 +230,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
 
       # Simulate curl output using echo instead of actual network call
       json_data = '{"slideshow": {"title": "Test Presentation"}}'
-      result, status = run_cli_command("echo '#{json_data}' | bundle exec ukiryu exec jq process --stdin filter='.slideshow.title' --format=json")
+      result, stderr, status = run_cli_command("echo '#{json_data}' | bundle exec ukiryu exec jq process --stdin filter='.slideshow.title' --format=json")
 
       expect(result).not_to be_empty
       expect(result).to include('Test Presentation')
@@ -239,7 +242,7 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
     it 'outputs only the command stdout without wrapping' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
-      output, status = run_ukiryu_exec('exec jq process --stdin --raw filter=".test"', '{"test": "value"}')
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin --raw filter=".test"', '{"test": "value"}')
 
       # Should output just "value" without YAML/JSON wrapping
       expect(output.strip).to eq('"value"')
@@ -252,12 +255,12 @@ RSpec.describe 'Ukiryu::CliCommands::RunCommand stdin handling' do
       skip 'Unix pipe tests require Unix shell' if platform == :windows
 
       # Test with a command that produces stderr - use syntax error in jq
-      output, = run_ukiryu_exec('exec jq process --stdin --raw filter=".foo[bar"', '{}')
+      output, stderr, status = run_ukiryu_exec('exec jq process --stdin --raw filter=".foo[bar"', '{}')
 
-      # jq should produce an error in the output
-      expect(output).not_to be_empty
-      expect(output).to include('error')
-      expect(output).to include('syntax error')
+      # jq's error passes through to the CLI's stderr
+      expect(stderr).not_to be_empty
+      expect(output + stderr).to include('error')
+      expect(output + stderr).to include('syntax error')
     end
   end
 end
