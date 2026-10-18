@@ -27,7 +27,31 @@ module ToolHelper
     tool.version if tool.available?
   end
 
+  # True when the local ImageMagick can ENCODE PNG. Some runner builds
+  # (tool-setup/static installs) ship decode-only delegate sets: identify
+  # works but every PNG write fails with "no encode delegate for this
+  # image format `''". The fixture-copy specs decode fine; the
+  # resize/mogrify specs need the encoder.
+  def png_encode_available?
+    magick = %w[magick convert].find do |m|
+      system(m, "-version", out: File::NULL, err: File::NULL)
+    end
+    return false unless magick
+
+    require "tmpdir"
+    probe = File.join(Dir.tmpdir, "ukiryu_png_probe_#{Process.pid}.png")
+    File.delete(probe) if File.exist?(probe)
+    begin
+      ok = system(magick, "-size", "4x4", "xc:white", "png:#{probe}",
+                  out: File::NULL, err: File::NULL)
+      ok && File.exist?(probe) && !File.zero?(probe)
+    ensure
+      File.delete(probe) if File.exist?(probe)
+    end
+  end
+
   # Create a temporary test image by copying a fixture image
+
   # This avoids using ImageMagick's built-in formats which aren't available on all builds
   # @param path [String] the path to create the image at
   # @param size [String] the image size (e.g., "100x100", "200x150")

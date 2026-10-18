@@ -43,7 +43,10 @@ RSpec.describe 'ImageMagick Tool Profile' do
   end
 
   describe 'convert command' do
-    before(:each) { skip_unless_tool_available(:imagemagick) }
+    before(:each) do
+      skip_unless_tool_available(:imagemagick)
+      skip 'ImageMagick lacks a PNG encode delegate on this runner' unless png_encode_available?
+    end
 
     it 'converts between formats' do
       input = File.join(@temp_dir, 'input.png')
@@ -140,7 +143,10 @@ RSpec.describe 'ImageMagick Tool Profile' do
   end
 
   describe 'identify command' do
-    before(:each) { skip_unless_tool_available(:imagemagick) }
+    before(:each) do
+      skip_unless_tool_available(:imagemagick)
+      skip 'ImageMagick lacks a PNG encode delegate on this runner' unless png_encode_available?
+    end
 
     it 'identifies image format and characteristics' do
       input = File.join(@temp_dir, 'test.png')
@@ -168,7 +174,10 @@ RSpec.describe 'ImageMagick Tool Profile' do
   end
 
   describe 'mogrify command' do
-    before(:each) { skip_unless_tool_available(:imagemagick) }
+    before(:each) do
+      skip_unless_tool_available(:imagemagick)
+      skip 'ImageMagick lacks a PNG encode delegate on this runner' unless png_encode_available?
+    end
 
     it 'modifies images in place' do
       input = File.join(@temp_dir, 'test.png')
