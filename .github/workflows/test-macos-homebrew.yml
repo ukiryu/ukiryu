@@ -45,6 +45,18 @@ jobs:
           rm -f /usr/local/bin/dotnet /usr/local/bin/pwsh 2>/dev/null || true
           brew install powershell zsh tcsh dash-shell
 
+      - name: Ensure ImageMagick PNG encode delegate
+        run: |
+          eval "$(brew shellenv)"
+          brew install libpng
+          probe="$(mktemp -d)/probe.png"
+          if ! magick -size 4x4 xc:white "png:${probe}" 2>/dev/null || [ ! -s "${probe}" ]; then
+            echo "PNG encode delegate missing — reinstalling ImageMagick against libpng"
+            brew reinstall imagemagick
+          fi
+          magick -size 4x4 xc:white "png:${probe}"
+          test -s "${probe}" && echo "PNG encode delegate verified"
+
       - name: Refresh PATH
         run: |
           # Works on both Intel (/usr/local) and Apple Silicon (/opt/homebrew)
