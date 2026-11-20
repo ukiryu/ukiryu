@@ -10,6 +10,7 @@ RSpec.describe 'Inkscape Tool Profile' do
   before(:each) do
     unless @inkscape_export_available
       reason = 'Inkscape is unavailable or cannot export SVG to PNG on this system'
+      reason = "#{reason}: #{@inkscape_export_failure}"
       raise "#{reason} - tests must not skip when UKIRYU_STRICT_TOOLS=1" if ENV['UKIRYU_STRICT_TOOLS'] == '1'
 
       skip reason

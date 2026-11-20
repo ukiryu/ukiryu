@@ -77,7 +77,10 @@ module ToolHelper
 
   # Probe the installed Inkscape with a real export, like the PNG/mogrify probes.
   # The Inkscape examples cache this result in before(:context) for the run.
+  attr_reader :inkscape_export_failure
+
   def inkscape_export_available?
+    @inkscape_export_failure = 'Inkscape executable was not found'
     tool = get_tool(:inkscape)
     return false unless tool.available?
 
@@ -87,10 +90,21 @@ module ToolHelper
     src = File.join(dir, 'input.svg')
     output = File.join(dir, 'output.png')
     File.write(src, '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>')
-    ok = system(tool.executable, '--export-type=png', "--export-filename=#{output}", src,
-                out: File::NULL, err: File::NULL)
-    ok && File.exist?(output) && !File.zero?(output)
-  rescue Ukiryu::Errors::ToolNotFoundError
+    # File.write closes the SVG before execution, including on Windows.
+    # Use the same shell, environment and argument handling as the examples.
+    result = tool.execute(:export, execution_timeout: 30, inputs: [src], output: output, format: :png)
+    exported = File.exist?(output) && !File.zero?(output)
+    @inkscape_export_failure = if result.success? && exported
+                                 nil
+                               else
+                                 "Command: #{result.command}; Exit status: #{result.exit_code}; " \
+                                   "STDERR: #{result.stderr.to_s[0, 500].inspect}; nonempty PNG: #{exported}"
+                               end
+    @inkscape_export_failure.nil?
+  rescue Ukiryu::Errors::ToolNotFoundError, Ukiryu::Errors::ExecutionError,
+         Ukiryu::Errors::TimeoutError, SystemCallError => e
+    # Executor errors include command, status and stderr; omit potentially large stdout.
+    @inkscape_export_failure = "#{e.class}: #{e.message.sub(/STDOUT:.*?STDERR:/m, 'STDERR:')[0, 1200]}"
     false
   ensure
     FileUtils.rm_rf(dir) if dir
