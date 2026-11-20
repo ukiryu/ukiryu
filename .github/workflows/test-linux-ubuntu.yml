@@ -117,5 +117,6 @@ jobs:
       - name: Run tests
         timeout-minutes: 30
         env:
+          UKIRYU_STRICT_TOOLS: '1'
           GIT_REDIRECT_STDERR: /dev/null
         run: bundle exec rake spec

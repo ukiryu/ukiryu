@@ -34,15 +34,15 @@ module ToolHelper
   # resize/mogrify specs need the encoder.
   def png_encode_available?
     magick = %w[magick convert].find do |m|
-      system(m, "-version", out: File::NULL, err: File::NULL)
+      system(m, '-version', out: File::NULL, err: File::NULL)
     end
     return false unless magick
 
-    require "tmpdir"
+    require 'tmpdir'
     probe = File.join(Dir.tmpdir, "ukiryu_png_probe_#{Process.pid}.png")
     File.delete(probe) if File.exist?(probe)
     begin
-      ok = system(magick, "-size", "4x4", "xc:white", "png:#{probe}",
+      ok = system(magick, '-size', '4x4', 'xc:white', "png:#{probe}",
                   out: File::NULL, err: File::NULL)
       ok && File.exist?(probe) && !File.zero?(probe)
     ensure
@@ -57,20 +57,41 @@ module ToolHelper
   # so the probe — not a version list — is the gate.
   def mogrify_in_place_available?
     magick = %w[magick convert].find do |m|
-      system(m, "-version", out: File::NULL, err: File::NULL)
+      system(m, '-version', out: File::NULL, err: File::NULL)
     end
     return false unless magick
 
-    require "tmpdir"
-    require "fileutils"
-    dir = Dir.mktmpdir("ukiryu_mogrify_probe")
-    src = File.join(dir, "src.png")
-    ok = system(magick, "-size", "4x4", "xc:white", "png:#{src}",
+    require 'tmpdir'
+    require 'fileutils'
+    dir = Dir.mktmpdir('ukiryu_mogrify_probe')
+    src = File.join(dir, 'src.png')
+    ok = system(magick, '-size', '4x4', 'xc:white', "png:#{src}",
                 out: File::NULL, err: File::NULL)
     return false unless ok && File.exist?(src) && !File.zero?(src)
 
-    system(magick, "mogrify", "-resize", "2x2!", src,
+    system(magick, 'mogrify', '-resize', '2x2!', src,
            out: File::NULL, err: File::NULL)
+  ensure
+    FileUtils.rm_rf(dir) if dir
+  end
+
+  # Probe the installed Inkscape with a real export, like the PNG/mogrify probes.
+  # The Inkscape examples cache this result in before(:context) for the run.
+  def inkscape_export_available?
+    tool = get_tool(:inkscape)
+    return false unless tool.available?
+
+    require 'tmpdir'
+    require 'fileutils'
+    dir = Dir.mktmpdir('ukiryu_inkscape_probe')
+    src = File.join(dir, 'input.svg')
+    output = File.join(dir, 'output.png')
+    File.write(src, '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>')
+    ok = system(tool.executable, '--export-type=png', "--export-filename=#{output}", src,
+                out: File::NULL, err: File::NULL)
+    ok && File.exist?(output) && !File.zero?(output)
+  rescue Ukiryu::Errors::ToolNotFoundError
+    false
   ensure
     FileUtils.rm_rf(dir) if dir
   end

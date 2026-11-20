@@ -216,5 +216,6 @@ jobs:
       - name: Run tests
         run: bundle exec rake spec
         env:
+          UKIRYU_STRICT_TOOLS: '1'
           UKIRYU_DEBUG_HELP_PARSER: 1
           UKIRYU_DEBUG_EXECUTABLE: 1
