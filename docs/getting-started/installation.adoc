@@ -9,6 +9,10 @@ nav_order: 1
 
 Install Ukiryu using your preferred method.
 
+The RubyGem commands on this page install the classic Ruby implementation.
+For the Rust CLI and the new Ruby, Python and TypeScript/WASM development
+artifacts, see link:../../understanding/rust-runtime-architecture/[Rust core and runtimes].
+
 // Purpose
 == Purpose
 
