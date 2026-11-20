@@ -28,7 +28,7 @@ max_concurrency = 10
 timeout = 20
 
 # Retry failed requests
-retry = 3
+max_retries = 3
 
 # Accept 200 and 404 status codes
 accept = [200, 404]
@@ -36,6 +36,6 @@ accept = [200, 404]
 # Exclude private/internal domains
 # exclude_private = true
 
-# Enforce HTTPS (will downgrade http to https if supported)
+# Require HTTPS for links
 # Note: Disabled to allow checking http links during development
-enforce_https = false
+require_https = false
