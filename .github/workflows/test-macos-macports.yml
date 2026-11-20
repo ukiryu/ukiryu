@@ -117,6 +117,8 @@ jobs:
           /opt/local/bin/inkscape --version
 
       - name: Run tests
+        env:
+          UKIRYU_STRICT_TOOLS: '1'
         shell: bash
         run: |
           # Add ImageMagick7 bin directory to PATH for tests

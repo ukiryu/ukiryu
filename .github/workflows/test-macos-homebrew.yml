@@ -100,4 +100,6 @@ jobs:
           bundler-cache: true
 
       - name: Run tests
+        env:
+          UKIRYU_STRICT_TOOLS: '1'
         run: bundle exec rake spec

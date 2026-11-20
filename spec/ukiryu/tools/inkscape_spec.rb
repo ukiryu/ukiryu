@@ -5,7 +5,18 @@ require 'spec_helper'
 RSpec.describe 'Inkscape Tool Profile' do
   include ToolHelper
 
-  before(:each) { @temp_dir = create_temp_dir }
+  before(:context) { @inkscape_export_available = inkscape_export_available? }
+
+  before(:each) do
+    unless @inkscape_export_available
+      reason = 'Inkscape is unavailable or cannot export SVG to PNG on this system'
+      reason = "#{reason}: #{@inkscape_export_failure}"
+      raise "#{reason} - tests must not skip when UKIRYU_STRICT_TOOLS=1" if ENV['UKIRYU_STRICT_TOOLS'] == '1'
+
+      skip reason
+    end
+    @temp_dir = create_temp_dir
+  end
 
   after(:each) do
     # Clean up temp directory
@@ -14,8 +25,6 @@ RSpec.describe 'Inkscape Tool Profile' do
 
   describe 'tool availability' do
     it 'detects Inkscape on the system' do
-      raise 'Inkscape is not available on this system - tests must not skip, Inkscape must be installed' unless tool_available?(:inkscape)
-
       tool = get_tool(:inkscape)
       expect(tool.available?).to be true
       expect(tool.executable).to match(/inkscape|Inkscape/)
@@ -24,10 +33,6 @@ RSpec.describe 'Inkscape Tool Profile' do
   end
 
   describe 'export command' do
-    before(:each) do
-      raise 'Inkscape is not available on this system - tests must not skip, Inkscape must be installed' unless tool_available?(:inkscape)
-    end
-
     it 'exports SVG to PNG' do
       input = File.join(@temp_dir, 'input.svg')
       output = File.join(@temp_dir, 'output.png')
