@@ -41,15 +41,17 @@ jobs:
           echo "Installing tools via Homebrew..."
           brew install imagemagick ghostscript ffmpeg pandoc jq yq exiftool
 
-          # The Inkscape download can fail with a transient HTTP/2 error.
-          for attempt in 1 2 3; do
+          # Retry transient Inkscape HTTP 503/HTTP/2 errors with exponential backoff.
+          delay=30
+          for attempt in 1 2 3 4 5; do
             if brew install --cask inkscape; then
               break
             fi
-            if [ "$attempt" -eq 3 ]; then
+            if [ "$attempt" -eq 5 ]; then
               exit 1
             fi
-            sleep 10
+            sleep "$delay"
+            delay=$((delay * 2))
           done
 
           echo "Installing shells via Homebrew..."
