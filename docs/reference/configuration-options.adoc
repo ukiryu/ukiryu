@@ -179,7 +179,7 @@ export UKIRYU_USE_COLOR=0
 ukiryu list
 ----
 
-*Note*: Setting `NO_COLOR=1` (any value) will also disable colors per the https://no-color.io/[NO_COLOR] standard.
+*Note*: Setting `NO_COLOR=1` (any value) will also disable colors per the https://no-color.org/[NO_COLOR] standard.
 
 === Register Options
 
