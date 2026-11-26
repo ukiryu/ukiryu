@@ -39,7 +39,20 @@ jobs:
       - name: Install tools via Homebrew
         run: |
           echo "Installing tools via Homebrew..."
-          brew install imagemagick ghostscript ffmpeg pandoc jq yq exiftool inkscape
+          brew install imagemagick ghostscript ffmpeg pandoc jq yq exiftool
+
+          # Retry transient Inkscape HTTP 503/HTTP/2 errors with exponential backoff.
+          delay=30
+          for attempt in 1 2 3 4 5; do
+            if brew install --cask inkscape; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              exit 1
+            fi
+            sleep "$delay"
+            delay=$((delay * 2))
+          done
 
           echo "Installing shells via Homebrew..."
           rm -f /usr/local/bin/dotnet /usr/local/bin/pwsh 2>/dev/null || true
@@ -61,9 +74,9 @@ jobs:
         run: |
           # Works on both Intel (/usr/local) and Apple Silicon (/opt/homebrew)
           eval "$(brew shellenv)"
-          echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX" >> $GITHUB_ENV
-          echo "$HOMEBREW_PREFIX/bin" >> $GITHUB_PATH
-          echo "$HOMEBREW_PREFIX/sbin" >> $GITHUB_PATH
+          echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX" >> "$GITHUB_ENV"
+          echo "$HOMEBREW_PREFIX/bin" >> "$GITHUB_PATH"
+          echo "$HOMEBREW_PREFIX/sbin" >> "$GITHUB_PATH"
 
       - name: Verify installations
         run: |

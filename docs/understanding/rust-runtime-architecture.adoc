@@ -1,0 +1,58 @@
+---
+layout: default
+title: Rust core and runtimes
+parent: Understanding
+nav_order: 10
+---
+
+== Rust core and runtimes
+
+Ukiryu is migrating to one Rust core shared by the Rust CLI, Ruby, Python
+and TypeScript/WASM runtimes. The existing RubyGem remains the classic
+implementation until the release owner approves cutover. A source CI pass
+does not mean that the new packages have been published.
+
+The core owns YAML parsing through Yeptris, profile loading, validation,
+version matching, shell escaping, command building and native execution.
+Ruby uses a native extension or the C ABI; Python uses ctypes over the C ABI;
+TypeScript uses the Node and browser WebAssembly builds. The bindings carry
+values to the core. Register and schema YAML remain the cross-runtime contract.
+
+Browsers supply definitions and schemas as text and cannot start processes
+or read the host filesystem. Node has a host subprocess adapter; its API
+documents the boundary between command planning and host execution.
+
+=== Try the development artifacts
+
+Select artifacts from the exact reviewed source commit and match the host
+OS and architecture. These commands install local CI artifacts, not a
+claimed registry release.
+
+[cols="1,2,3",options="header"]
+|===
+|Runtime |Repository |Installation
+|Rust CLI
+|https://github.com/ukiryu/ukiryu-rs[ukiryu-rs]
+|Download a `CLI binary candidates` archive, verify its `BUILT_FROM` record
+and file digests, extract `ukiryu` and place it on `PATH`.
+|Ruby
+|https://github.com/ukiryu/ukiryu-ruby[ukiryu-ruby]
+|Download a matching `native-gems` artifact and run `gem install --local PATH.gem`.
+|Python
+|https://github.com/ukiryu/ukiryu-python[ukiryu-python]
+|Download a matching `Wheels` artifact and run `python -m pip install PATH.whl`.
+|TypeScript / Node / browser
+|https://github.com/ukiryu/ukiryu-ts[ukiryu-ts]
+|Download the `npm pack` tarball and run `npm install PATH.tgz`.
+|===
+
+=== Release trains
+
+A migration release ships the crate, native gem, wheels, npm package,
+both WebAssembly builds and CLI binaries together. Version numbers, runtime
+floors, package names and first publication belong to the release owner.
+After upload, the published-artifact audit must replay the frozen corpus
+through the registry packages and release binaries. A partial train or a red
+audit remains incomplete. See
+https://github.com/ukiryu/ukiryu/issues/28[release orchestration] and
+https://github.com/ukiryu/ukiryu/issues/29[the migration decision record].
